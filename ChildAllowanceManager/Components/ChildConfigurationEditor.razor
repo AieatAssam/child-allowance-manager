@@ -1,0 +1,27 @@
+<EditForm Model="@Child">
+    <MudForm FieldChanged="args => OnChildChanged()" ReadOnly="@ReadOnly">
+        <MudTextField Label="First Name" @bind-Value="Child.FirstName" T="string"></MudTextField>
+        <MudTextField Label="Last Name" @bind-Value="Child.LastName" T="string"></MudTextField>
+        <MudDatePicker Label="Date of Birth"
+                       HelperText="Optional. Used for birthday allowance and special styling"
+                       @bind-Date="Child.BirthDate"></MudDatePicker>
+        @if (Child.BirthDate.HasValue)
+        {
+        <MudNumericField Label="Birthday Allowance"
+                         Format="C2"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Cake"
+                         HideSpinButtons="true"
+                         @bind-Value="Child.BirthdayAllowance"
+                         HelperText="Optional alternative allowance on birthday"></MudNumericField>
+        }
+        <MudNumericField Label="Daily Allowance"
+                         Format="C2"
+                         HideSpinButtons="true"
+                         @bind-Value="Child.DailyAllowance"></MudNumericField>
+    </MudForm>
+</EditForm>
+
+@code {
+    
+}

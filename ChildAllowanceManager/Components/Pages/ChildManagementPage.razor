@@ -1,0 +1,96 @@
+@page "/admin/{tenantId:guid}"
+@page "/admin"
+@using ChildAllowanceManager.Common.Models
+<PageTitle>Parent Configuration</PageTitle>
+
+<MudText Typo="Typo.h2">Configuration</MudText>
+
+<MudTabs>
+    <MudTabPanel Icon="@Icons.Material.Filled.ChildCare" Text="Children" BadgeData="Children?.Count()">
+        <MudPaper Class="ma-4 pa-3" Elevation="10">
+            <MudToolBar>
+                <MudText Typo="Typo.subtitle1">Child Management</MudText>
+                <MudSpacer/>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" OnClick="() => AddingChild = true"/>
+            </MudToolBar>
+
+            @if (Children == null)
+            {
+                <MudProgressCircular Color="Color.Default" Indeterminate="true"/>
+            }
+            else if (Children.Any() || AddingChild)
+            {
+                @if (AddingChild)
+                {
+                    <MudCard>
+                        <MudCardHeader>
+                            <MudCardTitle>Adding New Child</MudCardTitle>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <ChildConfigurationEditor @bind-Child="NewChild"></ChildConfigurationEditor>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Color="Color.Primary" OnClick="async () => await AddChild()">Save</MudButton>
+                            <MudButton Color="Color.Secondary" OnClick="() => NewChild = new ChildConfiguration()">Clear</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                }
+                
+                <MudExpansionPanels MultiExpansion="true">
+                    @for (int idx = 0; idx < Children.Length; idx++)
+                    {
+                        var idxLocal = idx;
+                        <MudExpansionPanel Class="ma-5"
+                                           IsInitiallyExpanded="false">
+                            <TitleContent>
+                                <div class="d-flex">
+                                    <MudIcon Icon="@(ChildBeingEditedId == Children[idxLocal].Id ? Icons.Material.Filled.Edit : Icons.Material.Filled.Person)"
+                                             Class="mr-3"></MudIcon>
+                                    <MudText Typo="Typo.h6">@($"{Children[idxLocal].FirstName} {Children[idxLocal].LastName}")</MudText>
+                                </div>
+                            </TitleContent>
+                            <ChildContent>
+                                <ChildConfigurationEditor @bind-Child="Children[idxLocal]" ReadOnly="@(ChildBeingEditedId != Children[idxLocal].Id)"></ChildConfigurationEditor>
+
+                                @if (ChildBeingEditedId != Children[idxLocal].Id)
+                                {
+                                    <MudButton Color="Color.Primary"
+                                               OnClick="() => ChildBeingEditedId = Children[idxLocal].Id">Edit</MudButton>
+                                    <MudButton Color="Color.Secondary" OnClick="async () => await DeleteChild(Children[idxLocal])">Delete</MudButton>
+                                }
+                                else
+                                {
+                                    // already being edited
+                                    <MudButton Color="Color.Primary"
+                                               OnClick="async () => await UpdateChild(Children[idxLocal])">Save</MudButton>
+                                    <MudButton Color="Color.Secondary" 
+                                               OnClick="async () => await ReloadChildren()">Cancel</MudButton>
+                                }
+                            </ChildContent>
+
+                        </MudExpansionPanel>
+                    }
+                </MudExpansionPanels>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="pa-6">No children configured. Please add a new child.</MudAlert>
+            }
+        </MudPaper>
+    </MudTabPanel>
+</MudTabs>
+
+<MudMessageBox @ref="DeleteChildMessageBox" 
+               Class="pa-6 ma-3"
+               Title="Warning" CancelText="Cancel">
+    <MessageContent>
+        Deleting can <b><i>not</i></b> be undone!
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+@code {
+    
+}
