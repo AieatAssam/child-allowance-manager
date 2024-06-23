@@ -14,7 +14,7 @@ public class ChildConfiguration : Item
     public DateTime? BirthDate { get; set; }
     
     [DataType(DataType.Currency)]
-    public decimal DailyAllowance { get; set; } = 1.0m;
+    public decimal RegularAllowance { get; set; } = 1.0m;
     
     [DataType(DataType.Currency)]
     public decimal BirthdayAllowance { get; set; } = 10.0m;

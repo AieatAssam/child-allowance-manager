@@ -1,26 +1,36 @@
-<EditForm Model="@Child">
-    <MudForm FieldChanged="args => OnChildChanged()" ReadOnly="@ReadOnly">
-        <MudTextField Label="First Name" @bind-Value="Child.FirstName" T="string"></MudTextField>
-        <MudTextField Label="Last Name" @bind-Value="Child.LastName" T="string"></MudTextField>
-        <MudDatePicker Label="Date of Birth"
-                       HelperText="Optional. Used for birthday allowance and special styling"
-                       @bind-Date="Child.BirthDate"></MudDatePicker>
-        @if (Child.BirthDate.HasValue)
-        {
+<MudForm FieldChanged="args => OnChildChanged()" 
+         ReadOnly="@ReadOnly" 
+         Validation="@(Validator.ValidateValue)"
+         Model="@Child"
+         ValidationDelay="0"
+         @ref="@Form">
+    <MudTextField Label="First Name" 
+                  @bind-Value="Child.FirstName" 
+                  For="() => Child.FirstName"></MudTextField>
+    <MudTextField Label="Last Name" 
+                  @bind-Value="Child.LastName" 
+                  For="() => Child.LastName"></MudTextField>
+    <MudDatePicker Label="Date of Birth"
+                   HelperText="Optional. Used for birthday allowance and special styling"
+                   @bind-Date="Child.BirthDate"
+                   For="() => Child.BirthDate"></MudDatePicker>
+    @if (Child.BirthDate.HasValue)
+    {
         <MudNumericField Label="Birthday Allowance"
                          Format="C2"
                          Adornment="Adornment.Start"
                          AdornmentIcon="@Icons.Material.Filled.Cake"
                          HideSpinButtons="true"
                          @bind-Value="Child.BirthdayAllowance"
+                         For="() => Child.BirthdayAllowance"
                          HelperText="Optional alternative allowance on birthday"></MudNumericField>
-        }
-        <MudNumericField Label="Daily Allowance"
-                         Format="C2"
-                         HideSpinButtons="true"
-                         @bind-Value="Child.DailyAllowance"></MudNumericField>
-    </MudForm>
-</EditForm>
+    }
+    <MudNumericField Label="Regular Allowance"
+                     Format="C2"
+                     HideSpinButtons="true"
+                     @bind-Value="Child.RegularAllowance"
+                     For="() => Child.RegularAllowance"></MudNumericField>
+</MudForm>
 
 @code {
     

@@ -1157,3 +1157,4 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 appsettings.Development.json
+.DS_Store

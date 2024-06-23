@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using ChildAllowanceManager.Common.Models;
+using ChildAllowanceManager.Common.Validators;
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
 
 namespace ChildAllowanceManager.Components;
 
@@ -14,10 +16,17 @@ public partial class ChildConfigurationEditor : ComponentBase
 
     [Parameter] 
     public bool ReadOnly { get; set; } = false;
+
+    private MudForm Form;
+    private ChildConfigurationValidator Validator = new();
     
     private async Task OnChildChanged()
     {
-        await ChildChanged.InvokeAsync(Child);
+        await Form.Validate();
+        if (Form.IsValid)
+        {
+            await ChildChanged.InvokeAsync(Child);
+        }
     }
 
 }
