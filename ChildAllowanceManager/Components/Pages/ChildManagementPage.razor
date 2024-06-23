@@ -1,5 +1,4 @@
-@page "/admin/{tenantId:guid}"
-@page "/admin"
+@page "/{tenantSuffix}/configuration"
 @using ChildAllowanceManager.Common.Models
 <PageTitle>Parent Configuration</PageTitle>
 
@@ -24,7 +23,7 @@
                 {
                     <MudCard>
                         <MudCardHeader>
-                            <MudCardTitle>Adding New Child</MudCardTitle>
+                            <MudText Typo="Typo.h4">Adding New Child</MudText>
                         </MudCardHeader>
                         <MudCardContent>
                             <ChildConfigurationEditor @bind-Child="NewChild"></ChildConfigurationEditor>

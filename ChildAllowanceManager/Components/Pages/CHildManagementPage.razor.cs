@@ -17,8 +17,10 @@ public partial class ChildManagementPage : ComponentBase
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
 
-    [Parameter] public Guid TenantId { get; set; } = Guid.Empty;
-    
+    private string? _tenantId { get; set; }
+
+    [Parameter]
+    public string? TenantSuffix { get; set; }
     
     private ChildConfiguration[]? Children { get; set; } = null;
 
@@ -32,27 +34,56 @@ public partial class ChildManagementPage : ComponentBase
         await ReloadChildren();
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TenantSuffix))
+        {
+            var tenant = await DataService.GetTenantBySuffix(TenantSuffix);
+            if (tenant is null)
+            {
+                Navigation.NavigateTo("/error/404");
+                return;
+            }
+
+            _tenantId = tenant.Id;
+            await ReloadChildren();
+        }
+        await base.OnParametersSetAsync();
+    }
+
     private async Task AddChild()
     {
-        NewChild.TenantId = TenantId;
+        if (_tenantId is null)
+        {
+            return;
+        }
+        NewChild.TenantId = _tenantId;
         await DataService.AddChild(NewChild, CancellationToken.None);
         await ReloadChildren();
     }
 
     private async Task DeleteChild(ChildConfiguration child)
     {
+        if (_tenantId is null)
+        {
+            return;
+        }
         // Confirmation dialog
         if (true != await DeleteChildMessageBox.Show())
         {
             return;
         }
-        await DataService.DeleteChild(child.Id, TenantId, CancellationToken.None);
+        await DataService.DeleteChild(child.Id, _tenantId, CancellationToken.None);
         await ReloadChildren();
     }
 
     private async Task ReloadChildren()
     {
-        Children = (await DataService.GetChildren(TenantId, CancellationToken.None)).ToArray();
+        if (_tenantId is null)
+        {
+            return;
+        }
+        Children = (await DataService.GetChildren(_tenantId, CancellationToken.None)).ToArray();
         ChildBeingEditedId = null;
         AddingChild = false;
         NewChild = new ChildConfiguration();

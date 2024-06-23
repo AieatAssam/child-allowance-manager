@@ -18,11 +18,16 @@ builder.Services.AddCosmosRepository(options =>
     // serverless throughput will ensure that shared database throughput is used
     options.ContainerBuilder.Configure<ChildConfiguration>(config =>
         config.WithServerlessThroughput());
+    options.ContainerBuilder.Configure<TenantConfiguration>(config =>
+        config.WithServerlessThroughput());
+    options.ContainerBuilder.Configure<AllowanceTransaction>(config =>
+        config.WithServerlessThroughput());
 });
 
 
 
 builder.Services.AddScoped<IDataService, DataService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 var app = builder.Build();
 

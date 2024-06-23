@@ -15,17 +15,17 @@ public class ChildConfiguration : Item
     
     [DataType(DataType.Currency)]
     public decimal RegularAllowance { get; set; } = 1.0m;
+
+    [DataType(DataType.Currency)] public decimal? BirthdayAllowance { get; set; } = null;
     
-    [DataType(DataType.Currency)]
-    public decimal BirthdayAllowance { get; set; } = 10.0m;
-    
-    public DateTimeOffset CreatedDate { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreatedTimestamp { get; set; } = DateTimeOffset.UtcNow;
     public bool Deleted { get; set; } = false;
-    
-    public Guid TenantId { get; set; }
+
+    public string TenantId { get; set; } = Guid.NewGuid().ToString();
+    public DateTimeOffset UpdatedTimestamp { get; set; } = DateTimeOffset.UtcNow;
 
     protected override string GetPartitionKeyValue()
     {
-        return TenantId.ToString();
+        return TenantId;
     }
 }

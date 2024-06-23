@@ -1,0 +1,18 @@
+<MudForm FieldChanged="args => OnTenantChanged()"
+         ReadOnly="@ReadOnly"
+         Validation="@(Validator.ValidateValue)"
+         Model="@Tenant"
+         ValidationDelay="0"
+         @ref="@Form">
+    <MudTextField @bind-Value="Tenant.TenantName"
+                  For="() => Tenant.TenantName"
+                  Label="Name"></MudTextField>
+    <MudTextField @bind-Value="Tenant.UrlSuffix"
+                  For="() => Tenant.UrlSuffix"
+                  Label="URL Suffix"
+                  ></MudTextField>
+</MudForm>
+
+@code {
+    
+}

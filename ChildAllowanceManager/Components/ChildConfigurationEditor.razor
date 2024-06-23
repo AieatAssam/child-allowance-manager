@@ -12,6 +12,8 @@
                   For="() => Child.LastName"></MudTextField>
     <MudDatePicker Label="Date of Birth"
                    HelperText="Optional. Used for birthday allowance and special styling"
+                   Editable="true"
+                   
                    @bind-Date="Child.BirthDate"
                    For="() => Child.BirthDate"></MudDatePicker>
     @if (Child.BirthDate.HasValue)
