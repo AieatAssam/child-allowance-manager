@@ -1,3 +1,4 @@
+using System.Globalization;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
@@ -6,6 +7,9 @@ using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
 using MudBlazor.Services;
 using Quartz;
+
+// Edit culture to match the desired one
+CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenTelemetry().UseAzureMonitor();
