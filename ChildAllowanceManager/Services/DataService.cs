@@ -32,6 +32,8 @@ public class DataService(HttpClient httpClient,
                                    (nextRegularChangeDate - child.BirthDate.Value.Date).Days == 0;
             childrenWithBalance.Add(new ChildWithBalance
             {
+                Id = child.Id,
+                TenantId = child.TenantId,
                 Balance = balance,
                 Name = $"{child.FirstName} {child.LastName}",
                 IsBirthday = child.BirthDate is not null &&

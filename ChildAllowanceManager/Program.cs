@@ -2,7 +2,9 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Services;
+using ChildAllowanceManager.Workers;
 using MudBlazor.Services;
+using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,25 @@ builder.Services.AddCosmosRepository(options =>
         config.WithServerlessThroughput());
 });
 
+// scheduling support
+builder.Services.AddTransient<DailyAllowanceJob>();
+builder.Services.AddQuartz(q =>
+{
+    var jobKey = new JobKey(nameof(DailyAllowanceJob));
+    q.AddJob<DailyAllowanceJob>(opts => opts.WithIdentity(jobKey));
+
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey)
+        .WithIdentity($"{nameof(DailyAllowanceJob)}-trigger")
+        //This Cron interval can be described as "run every minute" (when second is zero)
+        .WithCronSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 0).InTimeZone(TimeZoneInfo.Utc)
+            .WithMisfireHandlingInstructionFireAndProceed()));
+});
+builder.Services.AddQuartzHostedService(config =>
+{
+    config.AwaitApplicationStarted = true;
+    config.WaitForJobsToComplete = true;
+});
 
 
 builder.Services.AddScoped<IDataService, DataService>();
