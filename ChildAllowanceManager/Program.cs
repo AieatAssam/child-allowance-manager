@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
@@ -7,6 +8,7 @@ using MudBlazor.Services;
 using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddOpenTelemetry().UseAzureMonitor();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
