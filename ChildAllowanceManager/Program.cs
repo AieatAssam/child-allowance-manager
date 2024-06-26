@@ -56,6 +56,7 @@ builder.Services.AddQuartzHostedService(config =>
     config.WaitForJobsToComplete = true;
 });
 
+builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped<IDataService, DataService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();

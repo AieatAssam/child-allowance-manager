@@ -1,7 +1,6 @@
 ﻿@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
-@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <MudThemingProvider/>
 <MudPopoverProvider/>
@@ -35,6 +34,10 @@
 @code {
     private bool _drawerOpen = true;
     private ClaimsPrincipal? _user;
+    
+    [CascadingParameter]
+    private Task<AuthenticationState>? _authenticationState { get; set; }
+
 
     private void DrawerToggle()
     {
@@ -44,8 +47,11 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        _user = authState.User;
+        if (_authenticationState != null)
+        {
+            var authState = await _authenticationState;
+            _user = authState.User;
+        }
     }
 
 }
