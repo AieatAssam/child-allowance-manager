@@ -27,7 +27,8 @@ public class DailyAllowanceJob(ITransactionService transactionService, IDataServ
                     ChildId = child.Id,
                     TenantId = child.TenantId,
                     TransactionAmount = child.NextRegularChange,
-                    TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance
+                    TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
+                    Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance"
                 };
                 await transactionService.AddTransaction(transaction, context.CancellationToken);
             }
