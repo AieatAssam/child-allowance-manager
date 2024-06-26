@@ -1,4 +1,4 @@
-@page "/{tenantSuffix}"
+@page "/{tenantSuffix:regex(^(?!signin-microsoft/|login/|logout/).*$)}"
 @using ChildAllowanceManager.Common.Models
 @using Humanizer
 

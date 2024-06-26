@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class Home : ComponentBase
+public partial class ChildrenListPage : ComponentBase
 {
     [Inject]
     public IDataService DataService { get; set; } = default!;

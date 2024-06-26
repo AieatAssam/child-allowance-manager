@@ -8,6 +8,9 @@ using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
 using MudBlazor.Services;
 using Newtonsoft.Json.Linq;
 using Quartz;
@@ -31,6 +34,19 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
+
+var configuration = builder.Configuration;
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddMicrosoftAccount("Microsoft", "Microsoft", options =>
+    {
+        options.ClientId = configuration["Authentication:Microsoft:ClientId"];
+        options.ClientSecret = configuration["Authentication:Microsoft:ClientSecret"];
+        //options.CallbackPath = "/signin-microsoft";
+        options.SaveTokens = true;
+        //options.Scope.Add("offline_access");
+    });
 
 builder.Services.AddHttpClient();
 builder.Services.AddCosmosRepository(options =>
@@ -86,7 +102,30 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Choose an authentication type
+app.Map("/login", signinApp =>
+{
+    signinApp.Run(async context =>
+    {
+        await context.ChallengeAsync(MicrosoftAccountDefaults.AuthenticationScheme
+            , new AuthenticationProperties() { RedirectUri = "/" });
+    });
+});
+
+app.Map("/logout", signoutApp =>
+{
+    signoutApp.Run(async context =>
+    {
+        var response = context.Response;
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        response.Redirect("/");
+    });
+});
 
 app.Run();

@@ -12,15 +12,16 @@
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())"/>
         <MudText Typo="Typo.h5" Class="ml-3">Allowance Manager</MudText>
         <MudSpacer/>
-        @if (_user != null && (_user!.Identity?.IsAuthenticated ?? false))
-        {
-            <MudText Color="Color.Inherit" Typo="Typo.h6" Class="mr-2">@_user.!Identity.Name</MudText>
-            <MudLink Color="Color.Inherit" Href="/.auth/login/aad>?post_login_redirect_uri=/">Log Out</MudLink>
-        }
-        else
-        {
-            <MudLink Color="Color.Inherit" Typo="Typo.h6" Class="mr-2" Href="/.auth/login/aad">Log In</MudLink>
-        }
+        <AuthorizeView>
+            <Authorized>
+                <MudText Color="Color.Inherit" Typo="Typo.h6" Class="mr-2">@(_user?.Identity?.Name)</MudText>
+                <MudLink Color="Color.Inherit" Href="/logout">Log Out</MudLink>
+            </Authorized>
+            <NotAuthorized>
+                <MudLink Color="Color.Inherit" Typo="Typo.h6" Class="mr-2" Href="/login">Log In</MudLink>
+            </NotAuthorized>
+        </AuthorizeView>
+        
         <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End"/>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
