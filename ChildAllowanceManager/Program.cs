@@ -13,7 +13,15 @@ using Newtonsoft.Json.Linq;
 using Quartz;
 
 // Edit culture to match the desired one
-CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-GB");
+var cultureInfo = new CultureInfo("en-GB")
+{
+    NumberFormat =
+    {
+        CurrencySymbol = "£"
+    }
+};
+CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenTelemetry().UseAzureMonitor();
@@ -62,6 +70,8 @@ builder.Services.AddScoped<IDataService, DataService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 var app = builder.Build();
+
+app.UseRequestLocalization();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
