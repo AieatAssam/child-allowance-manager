@@ -4,7 +4,10 @@ using Quartz;
 
 namespace ChildAllowanceManager.Workers;
 
-public class DailyAllowanceJob(ITransactionService transactionService, IDataService dataService) : IJob
+public class DailyAllowanceJob(
+    ITransactionService transactionService, 
+    IDataService dataService,
+    ILogger<DailyAllowanceJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
@@ -19,6 +22,7 @@ public class DailyAllowanceJob(ITransactionService transactionService, IDataServ
                         .TotalHours) > 1)
                 {
                     // more than an hour off, not time for this child yet
+                    logger.LogWarning($"Skipping daily allowance for {child.Name} as the next due date is {child.NextRegularChangeDate} and the current time is {context.ScheduledFireTimeUtc}");
                     continue;
                 }
 
@@ -30,6 +34,7 @@ public class DailyAllowanceJob(ITransactionService transactionService, IDataServ
                     TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
                     Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance"
                 };
+                logger.LogInformation($"Adding allowance transaction for {child.Name} with type {transaction.TransactionType}");
                 await transactionService.AddTransaction(transaction, context.CancellationToken);
             }
         }
