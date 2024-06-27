@@ -1,6 +1,11 @@
-@page "/{tenantSuffix:regex(^(?!signin-microsoft/|login/|logout/).*$)}"
+@page "/{tenantSuffix}/children"
 @using ChildAllowanceManager.Common.Models
+@using ChildAllowanceManager.Workers
 @using Humanizer
+@using Microsoft.Extensions.Logging.Abstractions
+@using Quartz
+@using Quartz.Impl
+@using Quartz.Spi
 
 <PageTitle>Child Allowance Manager</PageTitle>
 
@@ -20,6 +25,7 @@
             <MudCardContent>
                 <MudText Typo="Typo.h6" Color="@(child.Balance > 0 ? Color.Success : Color.Error)">@child.Balance.ToString("C2")</MudText>
                 <MudText Typo="Typo.subtitle1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+                <MudButton OnClick="Callback">Topup</MudButton>
             </MudCardContent>
         </MudCard>
     }
@@ -27,4 +33,17 @@
 
 @code {
     
+    private async Task Callback()
+    {
+        var transaction = new AllowanceTransaction
+        {
+            ChildId = Children[0].Id,
+            TenantId = this._tenantId,
+            TransactionAmount = Children[0].NextRegularChange,
+            TransactionType = Children[0].IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
+            Description = Children[0].IsBirthday ? "Birthday allowance" : "Daily allowance"
+        };
+        await TransactionService.AddTransaction(transaction, CancellationToken.None);
+    }
+
 }
