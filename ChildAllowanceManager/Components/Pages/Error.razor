@@ -1,9 +1,18 @@
 ﻿@page "/Error"
+@page "/Error/{statusCode}"
 @using System.Diagnostics
 
 <PageTitle>Error</PageTitle>
 
-<h1 class="text-danger">Error.</h1>
+@if (!string.IsNullOrEmpty(StatusCode))
+{
+    <h1 class="text-danger">Error @StatusCode.</h1>
+}
+else
+{
+    <h1 class="text-danger">Error.</h1>
+}
+
 <h2 class="text-danger">An error occurred while processing your request.</h2>
 
 @if (ShowRequestId)
@@ -26,6 +35,7 @@
 
 @code{
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    [Parameter] public string? StatusCode { get; set; }
 
     private string? RequestId { get; set; }
     private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
