@@ -4,7 +4,7 @@ using Microsoft.Azure.CosmosRepository.Attributes;
 namespace ChildAllowanceManager.Common.Models;
 
 [PartitionKeyPath("/tenantId")]
-public class AllowanceTransaction: Item
+public class AllowanceTransaction: BaseItem
 {
     public decimal Balance { get; set; }
     public decimal TransactionAmount { get; set; }
@@ -12,7 +12,6 @@ public class AllowanceTransaction: Item
     public string ChildId { get; set; }
     public string TenantId { get; set; }
     public DateTimeOffset TransactionTimestamp { get; set; }
-    public DateTimeOffset CreatedTimestamp { get; set; }
     public TransactionType TransactionType { get; set; }
 
     protected override string GetPartitionKeyValue()

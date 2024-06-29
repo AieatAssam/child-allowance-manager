@@ -1,5 +1,7 @@
 ﻿@using System.Security.Claims
+@using ChildAllowanceManager.Common.Interfaces
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inherits LayoutComponentBase
 
 <MudThemingProvider/>
@@ -39,6 +41,9 @@
     [CascadingParameter]
     private Task<AuthenticationState>? _authenticationState { get; set; }
 
+    [Inject] ICurrentContextService CurrentContextService { get; set; } = default!;
+    [Inject] ProtectedLocalStorage LocalStorage { get; set; } = default!;
+    [Inject] IJSRuntime JSRuntime { get; set; } = default!; 
 
     private void DrawerToggle()
     {
@@ -52,6 +57,20 @@
         {
             var authState = await _authenticationState;
             _user = authState.User;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && await LocalStorage.GetAsync<string>("current_tenant") is var currentTenant && currentTenant.Success)
+        {
+            CurrentContextService.SetCurrentTenant(currentTenant.Value!);
+            
+            // set long lived cookie
+            var module = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                "import", "./Components/Layout/MainLayout.razor.js");
+
+            await JSRuntime.InvokeVoidAsync("MainLayout.createCookie", "current_tenant", currentTenant.Value!, 365);
         }
     }
 

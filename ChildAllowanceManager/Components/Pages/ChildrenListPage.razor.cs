@@ -1,6 +1,7 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 namespace ChildAllowanceManager.Components.Pages;
 
@@ -14,6 +15,18 @@ public partial class ChildrenListPage : ComponentBase
     
     [Inject]
     public NavigationManager Navigation { get; set; } = default!;
+    
+    [Inject]
+    public ProtectedLocalStorage LocalStorage { get; set; } = default!;
+    
+    [Inject]
+    public IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+    
+    [Inject]
+    public ICurrentContextService CurrentContextService { get; set; } = default!;
+    
+    [Inject]
+    public ILogger<ChildrenListPage> Logger { get; set; } = default!;
 
     [Parameter]
     public string? TenantSuffix { get; set; }
@@ -42,6 +55,17 @@ public partial class ChildrenListPage : ComponentBase
         }
 
         await base.OnParametersSetAsync();
+    }
+
+    private bool _contextUpdated = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_tenantId is not null && !_contextUpdated)
+        {
+            await LocalStorage.SetAsync("current_tenant", _tenantId);
+            CurrentContextService.SetCurrentTenant(_tenantId);
+            Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
+        }
     }
 
     private async Task ReloadChildren()

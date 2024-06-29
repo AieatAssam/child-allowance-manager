@@ -5,7 +5,7 @@ using Microsoft.Azure.CosmosRepository.Attributes;
 namespace ChildAllowanceManager.Common.Models;
 
 [PartitionKeyPath("/tenantId")]
-public class ChildConfiguration : Item
+public class ChildConfiguration : BaseItem
 {
     public string FirstName { get; set; }
     public string LastName { get; set; }
@@ -18,12 +18,8 @@ public class ChildConfiguration : Item
 
     [DataType(DataType.Currency)] public decimal? BirthdayAllowance { get; set; } = null;
     
-    public DateTimeOffset CreatedTimestamp { get; set; } = DateTimeOffset.UtcNow;
-    public bool Deleted { get; set; } = false;
-
     public string TenantId { get; set; } = Guid.NewGuid().ToString();
-    public DateTimeOffset UpdatedTimestamp { get; set; } = DateTimeOffset.UtcNow;
-
+    
     protected override string GetPartitionKeyValue()
     {
         return TenantId;
