@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Security.Claims;
 using Microsoft.Azure.CosmosRepository;
 using Microsoft.Azure.CosmosRepository.Attributes;
 
@@ -17,11 +18,13 @@ public class User : BaseItem
 
     public string Name { get; set; }
 
-    [Description("Additional claims for this user")]
-    public string[] ExtraClaims { get; set; } = Array.Empty<string>();
+    [Description("Roles for this user")]
+    public string[] Roles { get; set; } = [];
     
     [Description("The tenants that the user can access")]
     public string[] Tenants { get; set; } = Array.Empty<string>();
+
+    public DateTimeOffset? LastLoggedIn { get; set; } = default!;
 
     protected override string GetPartitionKeyValue()
     {

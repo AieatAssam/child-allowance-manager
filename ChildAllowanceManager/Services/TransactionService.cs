@@ -13,14 +13,25 @@ public class TransactionService(
         bool ignoreDailyAllowance = false,
         CancellationToken cancellationToken = default)
     {
-        var transactionResult = await transactionRepository.QueryAsync(new ChildTransactionOrderedByDateDescending(childId, tenantId, ignoreDailyAllowance),
+        var transactionResult = await transactionRepository.QueryAsync(
+            new ChildTransactionOrderedByDateDescending(childId, tenantId, ignoreDailyAllowance),
             cancellationToken);
         return transactionResult.Items;
+    }
+    
+    public async Task<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
+    {
+        var transactionResult = await transactionRepository.QueryAsync(
+            new ChildTransactionOrderedByDateDescending(childId, tenantId, false).WithPageSize(1),
+            cancellationToken);
+        return transactionResult.Items.FirstOrDefault();
     }
 
     public async Task<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
     {
-        var transaction = await transactionRepository.QueryAsync(new ChildTransactionOrderedByDateDescending(childId, tenantId, false), cancellationToken);
+        var transaction =
+            await transactionRepository.QueryAsync(
+                new ChildTransactionOrderedByDateDescending(childId, tenantId, false), cancellationToken);
         if (transaction.Items.Any())
         {
             return transaction.Items.First().Balance;
@@ -50,6 +61,12 @@ public class TransactionService(
             {
                 Query.Where(x => x.TransactionType != TransactionType.DailyAllowance);
             }
+        }
+        
+        public ChildTransactionOrderedByDateDescending WithPageSize(int pageSize)
+        {
+            Query.PageSize(pageSize);
+            return this;
         }
     }
 }

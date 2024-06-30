@@ -67,9 +67,10 @@
             CurrentContextService.SetCurrentTenant(currentTenant.Value!);
             
             // set long lived cookie
+            // load JS module
             var module = await JSRuntime.InvokeAsync<IJSObjectReference>(
                 "import", "./Components/Layout/MainLayout.razor.js");
-
+            // set cookie
             await JSRuntime.InvokeVoidAsync("MainLayout.createCookie", "current_tenant", currentTenant.Value!, 365);
         }
     }

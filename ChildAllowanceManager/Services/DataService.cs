@@ -22,14 +22,13 @@ public class DataService(HttpClient httpClient,
         var childrenWithBalance = new List<ChildWithBalance>();
         foreach (var child in children)
         {
-            var balance = await transactionService.GetBalanceForChild(child.Id, tenantId, cancellationToken);
-
-            logger.LogInformation(DateTimeOffset.UtcNow.ToString());
+            var lastTransaction = await transactionService.GetLatestTransactionForChild(child.Id, tenantId, cancellationToken);
+            var balance = lastTransaction?.Balance ?? 0m;
+            // one minute past midnight
             DateTimeOffset nextRegularChangeDate =
-                new DateTimeOffset(DateTimeOffset.UtcNow.AddDays(1).Date, TimeSpan.Zero);
-            logger.LogInformation(nextRegularChangeDate.ToString());
+                new DateTimeOffset((lastTransaction?.TransactionTimestamp ?? DateTimeOffset.UtcNow).AddDays(1).Date, TimeSpan.Zero).AddMinutes(1);
             var birthdayNext = child.BirthDate is not null &&
-                                   (nextRegularChangeDate - child.BirthDate.Value.Date).Days == 0;
+                               nextRegularChangeDate.Date == child.BirthDate.Value.Date;
             childrenWithBalance.Add(new ChildWithBalance
             {
                 Id = child.Id,
@@ -37,9 +36,10 @@ public class DataService(HttpClient httpClient,
                 Balance = balance,
                 Name = $"{child.FirstName} {child.LastName}",
                 IsBirthday = child.BirthDate is not null &&
-                             (DateTimeOffset.UtcNow.Date - child.BirthDate.Value.Date).Days == 0,
-                NextRegularChange = birthdayNext && child.BirthdayAllowance is not null ?
-                    child.BirthdayAllowance.Value : child.RegularAllowance,
+                             DateTimeOffset.UtcNow.Date == child.BirthDate.Value.Date,
+                NextRegularChange = birthdayNext && child.BirthdayAllowance is not null
+                    ? child.BirthdayAllowance.Value
+                    : child.RegularAllowance,
                 NextRegularChangeDate = nextRegularChangeDate,
             });
         }

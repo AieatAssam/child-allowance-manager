@@ -38,7 +38,7 @@
         var transaction = new AllowanceTransaction
         {
             ChildId = Children[0].Id,
-            TenantId = this._tenantId,
+            TenantId = _tenantId,
             TransactionAmount = Children[0].NextRegularChange,
             TransactionType = Children[0].IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
             Description = Children[0].IsBirthday ? "Birthday allowance" : "Daily allowance"

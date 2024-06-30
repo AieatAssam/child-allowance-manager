@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
@@ -56,8 +59,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         //options.CallbackPath = "/signin-microsoft";
         options.SaveTokens = true;
         options.Scope.Add("User.Read");
-        options.Events.OnTicketReceived += async context =>
+        options.Events.OnCreatingTicket += async context =>
         {
+            
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", context.AccessToken);
+            var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted);
+            response.EnsureSuccessStatusCode();
+            var json = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
+            context.RunClaimActions(json);
+            
             if (context.Principal?.Identity is ClaimsIdentity identity)
             {
                 var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
@@ -80,30 +91,29 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                     else
                     {
                         identity.AddClaim(new Claim("current_tenant", user.Tenants[0]));
-                        if (user.ExtraClaims.Contains(ValidClaims.Admin))
-                        {
-                            if (identity.HasClaim(x => x.Type == identity.RoleClaimType))
-                            {
-                                identity.AddClaim(new Claim(identity.RoleClaimType, ValidClaims.Admin));
-                            }
-                        }
-                        if (user.ExtraClaims.Contains(ValidClaims.Parent))
-                        {
-                            if (identity.HasClaim(x => x.Type == identity.RoleClaimType))
-                            {
-                                identity.AddClaim(new Claim(identity.RoleClaimType, ValidClaims.Parent));
-                            }
-                        }
+                        
+                        user.LastLoggedIn = DateTimeOffset.UtcNow;
+                        
+                        // ensure tenant user logged into is listed as their accessible one
+                        if (!string.IsNullOrEmpty(tenant))
+                            user.Tenants = user.Tenants.Append(tenant).Distinct().ToArray();
+                        await userService.UpsertUser(user, CancellationToken.None);
                     }
                 }
-                if (!string.IsNullOrEmpty(tenant))
+            }
+            context.RunClaimActions();
+        };
+        options.Events.OnTicketReceived += async context =>
+        {
+            var tenant = context.Request.Cookies.TryGetValue("current_tenant", out var currentTenant) ? currentTenant : null;
+
+            if (!string.IsNullOrEmpty(tenant))
+            {
+                var dataService = context.HttpContext.RequestServices.GetRequiredService<IDataService>();
+                var redirectTenant = await dataService.GetTenant(tenant);
+                if (redirectTenant is not null)
                 {
-                    var dataService = context.HttpContext.RequestServices.GetRequiredService<IDataService>();
-                    var redirectTenant = await dataService.GetTenant(tenant);
-                    if (redirectTenant is not null)
-                    {
-                        context.ReturnUri = $"/{redirectTenant.UrlSuffix}/children";
-                    }
+                    context.ReturnUri = $"/{redirectTenant.UrlSuffix}/children";
                 }
             }
         };
@@ -134,8 +144,8 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity($"{nameof(DailyAllowanceJob)}-trigger")
-        //This Cron interval can be described as "run every minute" (when second is zero)
-        .WithCronSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 0).InTimeZone(TimeZoneInfo.Utc)
+        .WithDescription("Minute past midnight")
+        .WithCronSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 1).InTimeZone(TimeZoneInfo.Utc)
             .WithMisfireHandlingInstructionFireAndProceed()));
 });
 builder.Services.AddQuartzHostedService(config =>
@@ -149,6 +159,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IDataService, DataService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 
 var app = builder.Build();

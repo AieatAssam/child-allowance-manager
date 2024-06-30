@@ -18,9 +18,9 @@ public class DailyAllowanceJob(
             var children = await dataService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
             foreach (var child in children)
             {
-                if (child.NextRegularChangeDate.UtcDateTime.Date != (context.ScheduledFireTimeUtc ?? DateTime.UtcNow).Date)
+                if (child.NextRegularChangeDate.UtcDateTime.Date > (context.ScheduledFireTimeUtc ?? DateTime.UtcNow).Date)
                 {
-                    // not the same date, so skip
+                    // in the future, skip
                     logger.LogWarning($"Skipping daily allowance for {child.Name} as the next due date is {child.NextRegularChangeDate} and the current time is {context.ScheduledFireTimeUtc}");
                     continue;
                 }

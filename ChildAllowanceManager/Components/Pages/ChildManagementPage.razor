@@ -1,5 +1,7 @@
 @page "/{tenantSuffix}/configuration"
 @using ChildAllowanceManager.Common.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "admin,parent")]
 <PageTitle>Parent Configuration</PageTitle>
 
 <MudText Typo="Typo.h2">Configuration</MudText>

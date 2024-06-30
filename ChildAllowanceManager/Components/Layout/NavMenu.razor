@@ -1,18 +1,20 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+﻿@using ChildAllowanceManager.Services
+@using Microsoft.AspNetCore.Components.Authorization
 <MudNavMenu>
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="counter" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Counter</MudNavLink>
-    <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
-    <MudNavLink Href="auth" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Auth Required</MudNavLink>
-
-    <AuthorizeView>
-        <Authorized>
-            <MudNavLink Href="Account/Manage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">@context.User.Identity?.Name</MudNavLink>
+    @if (!string.IsNullOrEmpty(TenantSuffix))
+    {
+        <MudNavLink Href="@($"/{TenantSuffix}/children")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ChildCare">Children</MudNavLink>
+    }
+    
+    <AuthorizeView Roles="parent">
+        <Authorized >
+            <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Manage Children</MudNavLink>
         </Authorized>
-        <NotAuthorized>
-            <MudNavLink Href="Account/Register" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Register</MudNavLink>
-            <MudNavLink Href="Account/Login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Login</MudNavLink>
-        </NotAuthorized>
     </AuthorizeView>
-
+    
+    <AuthorizeView Roles="admin">
+        <Authorized >
+            <MudNavLink Href="@($"/admin")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">Administration</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
 </MudNavMenu>

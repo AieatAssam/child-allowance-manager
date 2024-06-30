@@ -14,6 +14,7 @@ public class UserService(
         var user = await GetUserByEmail(email, cancellationToken) ?? new User();
         user.Name = name;
         user.Email = email;
+        user.LastLoggedIn = DateTimeOffset.UtcNow;
         // add tenant to array if not already there
         if (!string.IsNullOrEmpty(tenantId))
         {
@@ -42,11 +43,8 @@ public class UserService(
 
     public async ValueTask<User?> GetUserByEmail(string email, CancellationToken cancellationToken)
     {
-        if (await userRepository.ExistsAsync(email.ToLowerInvariant(), cancellationToken: cancellationToken) is false)
-        {
-            return null;
-        }
-        var users = await userRepository.GetAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase) && u.Deleted == false, cancellationToken:cancellationToken);
+        var users = await userRepository.GetAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase),
+            cancellationToken: cancellationToken);
         return users.SingleOrDefault(u => !u.Deleted);
     }
 

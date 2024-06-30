@@ -10,4 +10,5 @@ public interface ITransactionService
 
     Task<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
     Task<AllowanceTransaction> AddTransaction(AllowanceTransaction transaction, CancellationToken cancellationToken = default);
+    Task<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
 }
