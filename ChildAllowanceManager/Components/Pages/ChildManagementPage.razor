@@ -41,8 +41,7 @@
                     @for (int idx = 0; idx < Children.Length; idx++)
                     {
                         var idxLocal = idx;
-                        <MudExpansionPanel Class="ma-5"
-                                           IsInitiallyExpanded="false">
+                        <MudExpansionPanel Class="ma-5">
                             <TitleContent>
                                 <div class="d-flex">
                                     <MudIcon Icon="@(ChildBeingEditedId == Children[idxLocal].Id ? Icons.Material.Filled.Edit : Icons.Material.Filled.Person)"
