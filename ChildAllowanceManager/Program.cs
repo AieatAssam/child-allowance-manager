@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Azure.CosmosRepository.AspNetCore.Extensions;
 using MudBlazor.Services;
 using Newtonsoft.Json.Linq;
 using Quartz;
@@ -41,7 +42,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
-
+builder.Services.AddHealthChecks().AddCosmosRepository();
 builder.Services.AddHttpContextAccessor();
 
 var configuration = builder.Configuration;
@@ -217,5 +218,5 @@ app.Map("/logout", signoutApp =>
 });
 
 app.MapHub<NotificationHub>("/notifications");
-
+app.MapHealthChecks("/health");
 app.Run();
