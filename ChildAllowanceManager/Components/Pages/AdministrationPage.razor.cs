@@ -32,7 +32,7 @@ public partial class AdministrationPage : ComponentBase
 
     private async Task DeleteTenant(TenantConfiguration tenant)
     {
-        if (true != await DeleteTenantMessageBox.Show())
+        if (true != await DeleteTenantMessageBox.ShowAsync())
         {
             return;
         }

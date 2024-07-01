@@ -69,7 +69,7 @@ public partial class ChildManagementPage : ComponentBase
             return;
         }
         // Confirmation dialog
-        if (true != await DeleteChildMessageBox.Show())
+        if (true != await DeleteChildMessageBox.ShowAsync())
         {
             return;
         }

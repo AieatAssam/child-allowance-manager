@@ -47,11 +47,21 @@ public class DataService(HttpClient httpClient,
         return childrenWithBalance;
     }
 
-    public ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
+    public async ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
         child.CreatedTimestamp = DateTimeOffset.UtcNow;
         child.UpdatedTimestamp = child.CreatedTimestamp;
-        return childConfigurationRepository.CreateAsync(child, cancellationToken);
+        var result = await childConfigurationRepository.CreateAsync(child, cancellationToken);
+        // initialise balance
+        await transactionService.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = result.Id,
+            TenantId = result.TenantId,
+            TransactionAmount = 0m,
+            TransactionType = TransactionType.Adjustment,
+            Description = "Initial balance"
+        }, cancellationToken);
+        return result;
     }
 
     public ValueTask<ChildConfiguration> UpdateChild(ChildConfiguration child, CancellationToken cancellationToken = default)

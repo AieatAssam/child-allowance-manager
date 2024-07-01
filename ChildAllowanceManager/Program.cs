@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using MudBlazor.Services;
 using Newtonsoft.Json.Linq;
 using Quartz;
@@ -154,6 +155,14 @@ builder.Services.AddQuartzHostedService(config =>
     config.WaitForJobsToComplete = true;
 });
 
+// Notification support
+builder.Services.AddSignalR();
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        ["application/octet-stream"]);
+});
+
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped<IDataService, DataService>();
@@ -163,8 +172,10 @@ builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 
 var app = builder.Build();
+app.UseResponseCompression();
 
 app.UseRequestLocalization();
+
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -204,5 +215,7 @@ app.Map("/logout", signoutApp =>
         response.Redirect("/");
     });
 });
+
+app.MapHub<NotificationHub>("/notifications");
 
 app.Run();

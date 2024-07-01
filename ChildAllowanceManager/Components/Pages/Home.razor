@@ -1,7 +1,15 @@
 @page "/"
 <PageTitle>Child Allowance Manager</PageTitle>
 
-<MudAlert>Please log in or use your secret link to access</MudAlert>
+@if (!_initialised)
+{
+    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true"/>
+}
+else
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Please log in or use your secret link to access</MudAlert>
+}
+
 @code {
     
 

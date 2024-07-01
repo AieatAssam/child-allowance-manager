@@ -2,6 +2,7 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChildAllowanceManager.Components.Pages;
 
@@ -33,6 +34,8 @@ public partial class ChildrenListPage : ComponentBase
     
     private string? _tenantId = null;
     private ChildWithBalance[]? Children = null;
+    private HubConnection? hubConnection;
+
     
     protected override async Task OnInitializedAsync()
     {
@@ -51,6 +54,19 @@ public partial class ChildrenListPage : ComponentBase
             }
 
             _tenantId = tenant.Id;
+            
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri($"/notifications?tenant={_tenantId}"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            hubConnection.On("AllowanceUpdated", async () =>
+            {
+                await InvokeAsync(ReloadChildren);
+            });
+
+            await hubConnection.StartAsync();
+            
             await ReloadChildren();
         }
 
@@ -75,5 +91,6 @@ public partial class ChildrenListPage : ComponentBase
             return;
         }
         Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken.None)).ToArray();
+        StateHasChanged();
     }
 }

@@ -25,7 +25,7 @@
             <MudCardContent>
                 <MudText Typo="Typo.h6" Color="@(child.Balance > 0 ? Color.Success : Color.Error)">@child.Balance.ToString("C2")</MudText>
                 <MudText Typo="Typo.subtitle1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
-                <MudButton OnClick="Callback">Topup</MudButton>
+                <MudButton OnClick="async () => await TopUp(child)">Topup</MudButton>
             </MudCardContent>
         </MudCard>
     }
@@ -33,15 +33,15 @@
 
 @code {
     
-    private async Task Callback()
+    private async Task TopUp(ChildWithBalance child)
     {
         var transaction = new AllowanceTransaction
         {
-            ChildId = Children[0].Id,
-            TenantId = _tenantId,
-            TransactionAmount = Children[0].NextRegularChange,
-            TransactionType = Children[0].IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
-            Description = Children[0].IsBirthday ? "Birthday allowance" : "Daily allowance"
+            ChildId = child.Id,
+            TenantId = child.TenantId,
+            TransactionAmount = child.NextRegularChange,
+            TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
+            Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance"
         };
         await TransactionService.AddTransaction(transaction, CancellationToken.None);
     }

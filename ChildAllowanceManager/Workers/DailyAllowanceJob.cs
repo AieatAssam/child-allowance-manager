@@ -1,5 +1,7 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
+using ChildAllowanceManager.Services;
+using Microsoft.AspNetCore.SignalR;
 using Quartz;
 
 namespace ChildAllowanceManager.Workers;

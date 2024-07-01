@@ -17,9 +17,13 @@ public partial class Home : ComponentBase
     
     [Inject]
     protected IDataService DataService { get; set; } = default!;
+
+    private bool _initialised = false;
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+            _initialised = true;
         if (firstRender && await LocalStorage.GetAsync<string>("current_tenant") is { Success: true } currentTenant)
         {
             // get tenant

@@ -9,7 +9,7 @@
 
     <ItemGroup>
       <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
-      <PackageReference Include="IEvangelist.Azure.CosmosRepository" Version="8.1.5" />
+      <PackageReference Include="IEvangelist.Azure.CosmosRepository" Version="8.1.6" />
     </ItemGroup>
 
 </Project>

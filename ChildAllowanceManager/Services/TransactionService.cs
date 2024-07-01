@@ -1,5 +1,6 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Azure.CosmosRepository;
 using Microsoft.Azure.CosmosRepository.Specification;
 
@@ -7,6 +8,7 @@ namespace ChildAllowanceManager.Services;
 
 public class TransactionService(
     IRepository<AllowanceTransaction> transactionRepository,
+    IHubContext<NotificationHub> notificationHub,
     ILogger<TransactionService> logger) : ITransactionService
 {
     public async Task<IEnumerable<AllowanceTransaction>> GetTransactionsForChild(string childId, string tenantId,
@@ -48,7 +50,12 @@ public class TransactionService(
         transaction.CreatedTimestamp = DateTimeOffset.UtcNow;
         transaction.Balance = oldBalance + transaction.TransactionAmount;
 
-        return await transactionRepository.CreateAsync(transaction, cancellationToken);
+        var result = await transactionRepository.CreateAsync(transaction, cancellationToken);
+        
+        // notify connected clients to update themselves
+        await notificationHub.Clients.Group(transaction.TenantId)
+            .SendAsync(NotificationHub.AllowanceUpdated, cancellationToken);
+        return result;
     }
 
     class ChildTransactionOrderedByDateDescending : DefaultSpecification<AllowanceTransaction>
