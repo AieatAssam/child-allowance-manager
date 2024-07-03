@@ -1,0 +1,26 @@
+@using MudBlazor.Utilities
+<MudDialog>
+    <TitleContent>
+        Add Parent
+    </TitleContent>
+    <DialogContent>
+        <MudForm Model="@NewParent">
+            <MudTextField For="() => NewParent.Email" 
+                          @bind-Value="NewParent.Email" 
+                          InputMode="InputMode.email" 
+                          Label="Email"
+                          Required="true"
+                          T="string?"></MudTextField>
+            <MudTextField For="() => NewParent.Name" 
+                          @bind-Value="NewParent.Name" 
+                          Required="true"
+                          Label="Full Name"
+                          T="string?"></MudTextField>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="MudDialog.Cancel">Cancel</MudButton>
+        <MudButton Color="@Color.Primary" Variant="Variant.Filled" OnClick="AddParentAsync">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+

@@ -53,6 +53,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
         options.Cookie.MaxAge = options.ExpireTimeSpan; // optional
         options.SlidingExpiration = true;
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
     })
     .AddMicrosoftAccount("Microsoft", "Microsoft", options =>
     {
@@ -79,7 +81,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                 
                 if (email != null)
                 {
-                    var user = await userService.GetUserByEmail(email, CancellationToken.None);
+                    var user = await userService.GetUserByEmailAsync(email, CancellationToken.None);
                     if (user == null)
                     {
                         var name = identity.FindFirst(ClaimTypes.Name)?.Value;
@@ -88,7 +90,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                             identity.AddClaim(new Claim("current_tenant", tenant));
                         }
 
-                        await userService.InitializeUser(email, name, tenant, CancellationToken.None);
+                        await userService.InitializeUserAsync(email, name, tenant, CancellationToken.None);
                     }
                     else
                     {
@@ -99,7 +101,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                         // ensure tenant user logged into is listed as their accessible one
                         if (!string.IsNullOrEmpty(tenant))
                             user.Tenants = user.Tenants.Append(tenant).Distinct().ToArray();
-                        await userService.UpsertUser(user, CancellationToken.None);
+                        await userService.UpsertUserAsync(user, CancellationToken.None);
                     }
                 }
             }
@@ -109,8 +111,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         {
             var tenant = context.Request.Cookies.TryGetValue("current_tenant", out var currentTenant) ? currentTenant : null;
 
-            if (!string.IsNullOrEmpty(tenant))
+            if (!string.IsNullOrEmpty(tenant) && string.IsNullOrEmpty(context.ReturnUri?.Trim('/')))
             {
+                // no return uri specified, so set one for user's tenant
                 var dataService = context.HttpContext.RequestServices.GetRequiredService<IDataService>();
                 var redirectTenant = await dataService.GetTenant(tenant);
                 if (redirectTenant is not null)

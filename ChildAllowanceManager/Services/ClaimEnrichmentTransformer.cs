@@ -18,7 +18,7 @@ public class ClaimEnrichmentTransformer(IUserService _userService,
             return principal;
         }
 
-        var matchingUser = await _userService.GetUserByEmail(email, CancellationToken.None);
+        var matchingUser = await _userService.GetUserByEmailAsync(email, CancellationToken.None);
         if (matchingUser is null)
         {
             _logger.LogWarning("No user found for email {Email}. Cannot enrich cla with rolesims", email);

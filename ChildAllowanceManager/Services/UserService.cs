@@ -9,9 +9,10 @@ public class UserService(
     ILogger<UserService> logger
     ) : IUserService
 {
-    public async Task InitializeUser(string email, string name, string? tenantId, CancellationToken cancellationToken)
+    public async ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId,
+        CancellationToken cancellationToken)
     {
-        var user = await GetUserByEmail(email, cancellationToken) ?? new User();
+        var user = await GetUserByEmailAsync(email, cancellationToken) ?? new User();
         user.Name = name;
         user.Email = email;
         user.LastLoggedIn = DateTimeOffset.UtcNow;
@@ -20,37 +21,37 @@ public class UserService(
         {
             user.Tenants = user.Tenants.Append(tenantId).Distinct().ToArray();
         }
-        await UpsertUser(user, cancellationToken);
+        return await UpsertUserAsync(user, cancellationToken);
     }
 
-    public async Task UpsertUser(User user, CancellationToken cancellationToken)
+    public async ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken)
     {
-        var existingUser = await GetUserByEmail(user.Email, cancellationToken);
+        var existingUser = await GetUserByEmailAsync(user.Email, cancellationToken);
         if (existingUser is not null)
         {
             user.UpdatedTimestamp = DateTimeOffset.UtcNow;
             user.CreatedTimestamp = existingUser.CreatedTimestamp;
             user.Id = existingUser.Id;
-            await userRepository.UpdateAsync(user, cancellationToken: cancellationToken);
+            return await userRepository.UpdateAsync(user, cancellationToken: cancellationToken);
         }
         else
         {
             user.CreatedTimestamp = DateTimeOffset.UtcNow;
             user.UpdatedTimestamp = user.CreatedTimestamp;
-            await userRepository.CreateAsync(user, cancellationToken: cancellationToken);
+            return await userRepository.CreateAsync(user, cancellationToken: cancellationToken);
         }
     }
 
-    public async ValueTask<User?> GetUserByEmail(string email, CancellationToken cancellationToken)
+    public async ValueTask<User?> GetUserByEmailAsync(string email, CancellationToken cancellationToken)
     {
         var users = await userRepository.GetAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase),
             cancellationToken: cancellationToken);
         return users.SingleOrDefault(u => !u.Deleted);
     }
 
-    public async Task DeleteUser(string email, CancellationToken cancellationToken)
+    public async Task DeleteUserAsync(string email, CancellationToken cancellationToken)
     {
-        var user = await GetUserByEmail(email, cancellationToken);
+        var user = await GetUserByEmailAsync(email, cancellationToken);
         if (user is not null)
         {
             user.Deleted = true;
@@ -59,8 +60,31 @@ public class UserService(
         }
     }
 
-    public async Task<IEnumerable<User>> GetUsers(CancellationToken cancellationToken)
+    public async ValueTask<IEnumerable<User>> GetUsersAsync(CancellationToken cancellationToken)
     {
         return await userRepository.GetAsync(u => u.Deleted == false, cancellationToken: cancellationToken);
+    }
+    
+    public async ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken)
+    {
+        var users = await userRepository.GetAsync(u => u.Tenants.Contains(tenantId) && u.Roles.Contains(role),
+            cancellationToken: cancellationToken);
+        return users;
+    }
+    
+    public async ValueTask<bool> AddUserToTenantAsync(string email, string name, string tenantId, string role,
+        CancellationToken cancellationToken)
+    {
+        var user = await GetUserByEmailAsync(email, cancellationToken);
+        if (user is null)
+        {
+            user = await InitializeUserAsync(email, name, tenantId, cancellationToken);
+        }
+
+        user.Name = name;
+        user.Tenants = user.Tenants.Append(tenantId).Distinct().ToArray();
+        user.Roles = user.Roles.Append(role).Distinct().ToArray();
+        await UpsertUserAsync(user, cancellationToken);
+        return true;
     }
 }

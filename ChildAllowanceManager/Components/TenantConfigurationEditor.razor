@@ -9,10 +9,25 @@
                   Label="Name"></MudTextField>
     <MudTextField @bind-Value="Tenant.UrlSuffix"
                   For="() => Tenant.UrlSuffix"
-                  Label="URL Suffix"
-                  ></MudTextField>
+                  Label="URL Suffix" />
+    <MudText Typo="Typo.subtitle1" Class="mt-1 pt-1">Parents:</MudText>
+    <MudChipSet T="string"
+                >
+        @foreach (var parent in Parents)
+        {
+            <MudChip Color="Color.Primary"
+                     Variant="Variant.Filled"
+                     Class="ma-1"
+                     Value="@parent.Id"
+                     Text="@parent.Email"
+                     OnClose="RemoveParentAsync"
+                     T="string">
+            </MudChip>
+        }
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddParentDialogue">
+            Add
+        </MudButton>
+    </MudChipSet>
 </MudForm>
-
-@code {
-    
-}

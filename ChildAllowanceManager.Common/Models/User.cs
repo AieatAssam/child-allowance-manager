@@ -12,11 +12,11 @@ public class User : BaseItem
 
     public string Email
     {
-        get => _email.ToLowerInvariant();
+        get => _email?.ToLowerInvariant();
         set => _email = value.ToLowerInvariant();
     }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 
     [Description("Roles for this user")]
     public string[] Roles { get; set; } = [];

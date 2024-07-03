@@ -4,13 +4,16 @@ namespace ChildAllowanceManager.Common.Interfaces;
 
 public interface IUserService
 {
-    public Task InitializeUser(string email, string name, string? tenantId, CancellationToken cancellationToken);
+    public ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId,
+        CancellationToken cancellationToken);
     
-    public Task UpsertUser(User user, CancellationToken cancellationToken);
+    public ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken);
     
-    public ValueTask<User?> GetUserByEmail(string email, CancellationToken cancellationToken);
+    public ValueTask<User?> GetUserByEmailAsync(string email, CancellationToken cancellationToken);
     
-    public Task DeleteUser(string email, CancellationToken cancellationToken);
+    public Task DeleteUserAsync(string email, CancellationToken cancellationToken);
     
-    public Task<IEnumerable<User>> GetUsers(CancellationToken cancellationToken);
+    public ValueTask<IEnumerable<User>> GetUsersAsync(CancellationToken cancellationToken);
+    ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken);
+    ValueTask<bool> AddUserToTenantAsync(string email, string name, string tenantId, string role, CancellationToken cancellationToken);
 }
