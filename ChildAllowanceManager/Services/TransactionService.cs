@@ -2,6 +2,8 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Azure.CosmosRepository;
+using Microsoft.Azure.CosmosRepository.Paging;
+using Microsoft.Azure.CosmosRepository.Providers;
 using Microsoft.Azure.CosmosRepository.Specification;
 
 namespace ChildAllowanceManager.Services;
@@ -11,7 +13,7 @@ public class TransactionService(
     IHubContext<NotificationHub> notificationHub,
     ILogger<TransactionService> logger) : ITransactionService
 {
-    public async Task<IEnumerable<AllowanceTransaction>> GetTransactionsForChild(string childId, string tenantId,
+    public async ValueTask<IEnumerable<AllowanceTransaction>> GetTransactionsForChild(string childId, string tenantId,
         bool ignoreDailyAllowance = false,
         CancellationToken cancellationToken = default)
     {
@@ -20,8 +22,16 @@ public class TransactionService(
             cancellationToken);
         return transactionResult.Items;
     }
-    
-    public async Task<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
+
+    public ValueTask<IPageQueryResult<AllowanceTransaction>> GetPagedTransactionsForChild(string childId, string tenantId, int page, int pageSize,
+        bool ignoreDailyAllowance = false, CancellationToken cancellationToken = default)
+    {
+        return transactionRepository.QueryAsync(
+            new ChildTransactionOrderedByDateDescendingPaged(childId, tenantId, false, page, pageSize),
+            cancellationToken);
+    }
+
+    public async ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
     {
         var transactionResult = await transactionRepository.QueryAsync(
             new ChildTransactionOrderedByDateDescending(childId, tenantId, false).WithPageSize(1),
@@ -29,7 +39,7 @@ public class TransactionService(
         return transactionResult.Items.FirstOrDefault();
     }
 
-    public async Task<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
+    public async ValueTask<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
     {
         var transaction =
             await transactionRepository.QueryAsync(
@@ -42,7 +52,7 @@ public class TransactionService(
         return 0m;
     }
     
-    public async Task<AllowanceTransaction> AddTransaction(AllowanceTransaction transaction, CancellationToken cancellationToken = default)
+    public async ValueTask<AllowanceTransaction> AddTransaction(AllowanceTransaction transaction, CancellationToken cancellationToken = default)
     {
         transaction.TransactionTimestamp = DateTimeOffset.UtcNow;
 
@@ -74,6 +84,27 @@ public class TransactionService(
         {
             Query.PageSize(pageSize);
             return this;
+        }
+        
+        public ChildTransactionOrderedByDateDescending WithPageNumber(int pageNumber)
+        {
+            Query.PageNumber(pageNumber);
+            return this;
+        }
+    }
+    
+    class ChildTransactionOrderedByDateDescendingPaged : OffsetByPageNumberSpecification<AllowanceTransaction>
+    {
+        public ChildTransactionOrderedByDateDescendingPaged(string childId, string tenantId, bool ignoreDailyAllowance, int pageNumber, int pageSize) : base(pageNumber, pageSize)
+        {
+            var typeName = nameof(AllowanceTransaction);
+            Query.Where(x => x.TenantId == tenantId && x.ChildId == childId
+                && x.Type == typeName) // workaround for https://github.com/IEvangelist/azure-cosmos-dotnet-repository/issues/408
+                .OrderByDescending(x => x.TransactionTimestamp);
+            if (ignoreDailyAllowance)
+            {
+                Query.Where(x => x.TransactionType != TransactionType.DailyAllowance);
+            }
         }
     }
 }

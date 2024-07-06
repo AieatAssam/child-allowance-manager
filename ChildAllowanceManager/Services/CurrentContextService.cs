@@ -10,7 +10,7 @@ public class CurrentContextService(IDataService _dataService) : ICurrentContextS
         return _currentTenant;
     }
 
-    public async Task<string?> GetCurrentTenantSuffix()
+    public async ValueTask<string?> GetCurrentTenantSuffix()
     {
         if (!string.IsNullOrEmpty(_currentTenant))
         {

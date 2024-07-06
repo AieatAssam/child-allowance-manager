@@ -3,6 +3,7 @@ using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.SignalR.Client;
+using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
@@ -28,6 +29,9 @@ public partial class ChildrenListPage : ComponentBase
     
     [Inject]
     public ILogger<ChildrenListPage> Logger { get; set; } = default!;
+    
+    [Inject]
+    public IDialogService DialogService { get; set; } = default!;
 
     [Parameter]
     public string? TenantSuffix { get; set; }
@@ -92,5 +96,12 @@ public partial class ChildrenListPage : ComponentBase
         }
         Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken.None)).ToArray();
         StateHasChanged();
+    }
+    
+    private async Task ShowTransactionsForChild(ChildWithBalance child)
+    {
+        var parameters = new DialogParameters<ChildTransactionsDialogue>();
+        parameters.Add(x => x.Child, child);
+        await DialogService.ShowAsync<ChildTransactionsDialogue>(null, parameters);
     }
 }

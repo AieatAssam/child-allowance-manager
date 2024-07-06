@@ -1,0 +1,20 @@
+@using MudBlazor.Utilities;
+
+<MudDialog  Options="@(new DialogOptions()
+            {
+                BackdropClick = true,
+                CloseOnEscapeKey = true,
+                FullScreen = true,
+                FullWidth = true,
+            })"
+            >
+    <TitleContent>
+        Transactions
+    </TitleContent>
+    <DialogContent>
+        <ChildTransactionsTable Child="Child"></ChildTransactionsTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close()">Close</MudButton>
+    </DialogActions>
+</MudDialog>

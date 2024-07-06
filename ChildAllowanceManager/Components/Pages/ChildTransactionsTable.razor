@@ -1,0 +1,45 @@
+
+
+<MudTable @ref="@_table" 
+          Items="@_transactions" 
+          RowsPerPage="25" 
+          Hover="true" 
+          Breakpoint="Breakpoint.Sm" 
+          LoadingProgressColor="Color.Info"
+          Striped="true"
+          ServerData="RetrievePage"
+          >
+    <HeaderContent>
+        <MudTh>Date</MudTh>
+        <MudTh>Time</MudTh>
+        <MudTh>Amount</MudTh>
+        <MudTh>Description</MudTh>
+        <MudTh>Balance After</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Date">@context.TransactionTimestamp.Date.ToString("d")</MudTd>
+        <MudTd DataLabel="Time">@context.TransactionTimestamp.ToString("t")</MudTd>
+        <MudTd DataLabel="Amount">
+            <MudNumericField 
+                Format="C2" 
+                ReadOnly="true" 
+                HideSpinButtons="true" 
+                Underline="false"
+                Value="@context.TransactionAmount" 
+                Variant="Variant.Text"
+                Style="@(context.TransactionAmount > 0 ? "color: green" : "color: red")"
+                />
+        </MudTd>
+        <MudTd DataLabel="Description">@context.Description</MudTd>
+        <MudTd DataLabel="Balance">
+            <MudNumericField Format="C2" 
+                             ReadOnly="true" 
+                             HideSpinButtons="true" 
+                             Value="@context.Balance" 
+                             Variant="Variant.Text" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudPagination Class="pa-4"/>
+    </PagerContent>
+</MudTable>

@@ -21,6 +21,7 @@
                 {
                     <MudIcon Icon="Icons.Material.Filled.Cake" Color="Color.Success"></MudIcon>
                 }
+                <MudIconButton Icon="@Icons.Material.Filled.ViewList" OnClick="() => ShowTransactionsForChild(child)"></MudIconButton>
             </MudCardHeader>
             <MudCardContent>
                 <MudText Typo="Typo.h6" Color="@(child.Balance > 0 ? Color.Success : Color.Error)">@child.Balance.ToString("C2")</MudText>
@@ -45,5 +46,7 @@
         };
         await TransactionService.AddTransaction(transaction, CancellationToken.None);
     }
+
+    
 
 }
