@@ -17,7 +17,7 @@ public partial class AddHoldDialogue : ComponentBase
 
     public int Days { get; set; } = 1;
     
-    public string Description { get; set; } = FilterOperator.String.Empty;
+    public string Description { get; set; } = string.Empty;
     
     private async Task AddHold()
     {
