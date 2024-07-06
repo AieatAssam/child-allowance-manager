@@ -1,0 +1,10 @@
+::deep .positive-amount .mud-input>input.mud-input-root {
+    color: green !important;
+    text-align: right;
+}
+
+
+::deep .negative-amount .mud-input>input.mud-input-root {
+    color: red !important;
+    text-align: right;
+}

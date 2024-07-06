@@ -104,4 +104,33 @@ public partial class ChildrenListPage : ComponentBase
         parameters.Add(x => x.Child, child);
         await DialogService.ShowAsync<ChildTransactionsDialogue>(null, parameters);
     }
+    
+    private async Task ShowAddFundsForChild(ChildWithBalance child)
+    {
+        var parameters = new DialogParameters<AddFundsDialogue>();
+        parameters.Add(x => x.Child, child);
+        await DialogService.ShowAsync<AddFundsDialogue>(null, parameters);
+    }
+    
+    private async Task ShowWithdrawFundsForChild(ChildWithBalance child)
+    {
+        var parameters = new DialogParameters<WithdrawFundsDialogue>();
+        parameters.Add(x => x.Child, child);
+        await DialogService.ShowAsync<WithdrawFundsDialogue>(null, parameters);
+    }
+    
+    private async Task ApplyHold(ChildWithBalance child)
+    {
+        var parameters = new DialogParameters<AddHoldDialogue>();
+        parameters.Add(x => x.Child, child);
+        await DialogService.ShowAsync<AddHoldDialogue>(null, parameters);
+    }
+    
+    private async Task RemoveHoldDay(ChildWithBalance child)
+    {
+        var childToUpdate = await DataService.GetChild(child.Id, child.TenantId, CancellationToken.None);
+        childToUpdate.HoldDaysRemaining--;
+        await DataService.UpdateChild(childToUpdate, CancellationToken.None);
+        await ReloadChildren();
+    }
 }

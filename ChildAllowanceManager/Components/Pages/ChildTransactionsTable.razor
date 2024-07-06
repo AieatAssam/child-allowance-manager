@@ -1,5 +1,4 @@
-
-
+<div>
 <MudTable @ref="@_table" 
           Items="@_transactions" 
           RowsPerPage="25" 
@@ -8,7 +7,7 @@
           LoadingProgressColor="Color.Info"
           Striped="true"
           ServerData="RetrievePage"
-          >
+>
     <HeaderContent>
         <MudTh>Date</MudTh>
         <MudTh>Time</MudTh>
@@ -20,26 +19,36 @@
         <MudTd DataLabel="Date">@context.TransactionTimestamp.Date.ToString("d")</MudTd>
         <MudTd DataLabel="Time">@context.TransactionTimestamp.ToString("t")</MudTd>
         <MudTd DataLabel="Amount">
-            <MudNumericField 
-                Format="C2" 
-                ReadOnly="true" 
-                HideSpinButtons="true" 
-                Underline="false"
-                Value="@context.TransactionAmount" 
-                Variant="Variant.Text"
-                Style="@(context.TransactionAmount > 0 ? "color: green" : "color: red")"
-                />
+            @if (context.TransactionAmount == 0m)
+            {
+                <MudText Color="Color.Error" Style="text-align: right;">--</MudText>
+            }
+            else
+            {
+                <MudNumericField
+                    Format="C2"
+                    ReadOnly="true"
+                    HideSpinButtons="true"
+                    Underline="false"
+                    Value="@context.TransactionAmount"
+                    Variant="Variant.Text"
+                    Class="@(context.TransactionAmount > 0 ? "positive-amount" : "negative-amount")"/>
+            }
         </MudTd>
         <MudTd DataLabel="Description">@context.Description</MudTd>
         <MudTd DataLabel="Balance">
             <MudNumericField Format="C2" 
                              ReadOnly="true" 
                              HideSpinButtons="true" 
+                             Underline="false"
                              Value="@context.Balance" 
-                             Variant="Variant.Text" />
+                             Variant="Variant.Text"
+                             Class="@(context.Balance > 0 ? "positive-amount" : "negative-amount")"
+                             />
         </MudTd>
     </RowTemplate>
     <PagerContent>
         <MudPagination Class="pa-4"/>
     </PagerContent>
 </MudTable>
+</div>

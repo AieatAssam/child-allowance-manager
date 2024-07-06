@@ -15,6 +15,8 @@ public class ChildConfiguration : BaseItem
     
     [DataType(DataType.Currency)]
     public decimal RegularAllowance { get; set; } = 1.0m;
+    
+    public int HoldDaysRemaining { get; set; } = 0;
 
     [DataType(DataType.Currency)] public decimal? BirthdayAllowance { get; set; } = null;
     

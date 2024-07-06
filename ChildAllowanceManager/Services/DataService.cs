@@ -26,7 +26,7 @@ public class DataService(HttpClient httpClient,
             var balance = lastTransaction?.Balance ?? 0m;
             // one minute past midnight
             DateTimeOffset nextRegularChangeDate =
-                new DateTimeOffset((lastTransaction?.TransactionTimestamp ?? DateTimeOffset.UtcNow).AddDays(1).Date, TimeSpan.Zero).AddMinutes(1);
+                new DateTimeOffset((lastTransaction?.TransactionTimestamp ?? DateTimeOffset.UtcNow).AddDays(1 + child.HoldDaysRemaining).Date, TimeSpan.Zero).AddMinutes(1);
             var birthdayNext = child.BirthDate is not null &&
                                nextRegularChangeDate.Date == child.BirthDate.Value.Date;
             childrenWithBalance.Add(new ChildWithBalance
@@ -35,6 +35,7 @@ public class DataService(HttpClient httpClient,
                 TenantId = child.TenantId,
                 Balance = balance,
                 Name = $"{child.FirstName} {child.LastName}",
+                HoldDaysRemaining = child.HoldDaysRemaining,
                 IsBirthday = child.BirthDate is not null &&
                              DateTimeOffset.UtcNow.Date == child.BirthDate.Value.Date,
                 NextRegularChange = birthdayNext && child.BirthdayAllowance is not null
@@ -110,6 +111,11 @@ public class DataService(HttpClient httpClient,
             (tenant) => tenant.UrlSuffix.Equals(urlSuffix, StringComparison.OrdinalIgnoreCase) &&
                         !tenant.Deleted, cancellationToken);
         return tenants.FirstOrDefault();
+    }
+
+    public ValueTask<ChildConfiguration> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default)
+    {
+        return childConfigurationRepository.GetAsync(childId, childTenantId, cancellationToken: cancellationToken);
     }
 
     public async ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default)

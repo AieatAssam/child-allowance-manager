@@ -1,0 +1,16 @@
+<MudDialog>
+    <TitleContent>Suspend Allowance</TitleContent>
+    <DialogContent>
+        <MudNumericField Label="Days" 
+                         @bind-Value="Days" 
+                         Min="1"
+                         Required="true"/>
+        <MudTextField Label="Description" 
+                      @bind-Value="Description" 
+                      Required="true"/>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="AddHold" Color="Color.Primary">Suspend</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Color="Color.Secondary">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>

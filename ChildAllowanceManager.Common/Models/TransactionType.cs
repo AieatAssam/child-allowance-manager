@@ -9,5 +9,6 @@ public enum TransactionType
     Transfer,
     Adjustment,
     Interest,
+    Hold,
     Other
 }

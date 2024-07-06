@@ -23,8 +23,6 @@
                 <MudLink Color="Color.Inherit" Typo="Typo.h6" Class="mr-2" Href="/login">Log In</MudLink>
             </NotAuthorized>
         </AuthorizeView>
-        
-        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End"/>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu/>
@@ -35,7 +33,7 @@
 </MudLayout>
 
 @code {
-    private bool _drawerOpen = true;
+    private bool _drawerOpen = false;
     private ClaimsPrincipal? _user;
     
     [CascadingParameter]

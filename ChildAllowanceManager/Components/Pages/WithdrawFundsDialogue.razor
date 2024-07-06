@@ -1,0 +1,16 @@
+<MudDialog>
+    <TitleContent>Withdraw Funds</TitleContent>
+    <DialogContent>
+        <MudNumericField Label="Amount" 
+                         @bind-Value="Amount" 
+                         Min="0.1m"
+                         Required="true"/>
+        <MudTextField Label="Description" 
+                      @bind-Value="Description" 
+                      Required="true"/>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="WithdrawFunds" Color="Color.Primary">Withdraw</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Color="Color.Secondary">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>

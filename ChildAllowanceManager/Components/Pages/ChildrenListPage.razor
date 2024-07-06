@@ -6,47 +6,83 @@
 @using Quartz
 @using Quartz.Impl
 @using Quartz.Spi
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
 <PageTitle>Child Allowance Manager</PageTitle>
-
-<MudPaper Elevation="10" Class="ma-6">
+<div>
     @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
     {
-        <MudCard>
+        <MudCard Outlined="true"
+                 Elevation="12"
+                 Class="ma-4 pa-2">
             <MudCardHeader>
-                <MudAvatar Class="mr-3">@child.Name[0]</MudAvatar>
+                <MudAvatar Class="mr-3" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Inherit)">@child.Name[0]</MudAvatar>
                 <MudText Typo="Typo.h5">@child.Name</MudText>
                 <MudSpacer></MudSpacer>
                 @if (child.IsBirthday)
                 {
                     <MudIcon Icon="Icons.Material.Filled.Cake" Color="Color.Success"></MudIcon>
                 }
-                <MudIconButton Icon="@Icons.Material.Filled.ViewList" OnClick="() => ShowTransactionsForChild(child)"></MudIconButton>
             </MudCardHeader>
             <MudCardContent>
                 <MudText Typo="Typo.h6" Color="@(child.Balance > 0 ? Color.Success : Color.Error)">@child.Balance.ToString("C2")</MudText>
-                <MudText Typo="Typo.subtitle1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
-                <MudButton OnClick="async () => await TopUp(child)">Topup</MudButton>
+                @if (child.HoldDaysRemaining > 0)
+                {
+                    <MudChipSet T="string">
+                        @for (int i = 0; i < child.HoldDaysRemaining; i++)
+                        {
+                            <AuthorizeView Roles="admin,parent">
+                                <Authorized>
+                                    <MudChip Icon="@Icons.Material.Filled.StopCircle"
+                                             IconColor="Color.Error"
+                                             OnClose="() => RemoveHoldDay(child)"
+                                             T="string"/>
+                                </Authorized>
+                                <NotAuthorized>
+                                    <MudChip Icon="@Icons.Material.Filled.StopCircle"
+                                             IconColor="Color.Error"
+                                             Variant="Variant.Outlined"
+                                             T="string"/>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        }
+                    </MudChipSet>
+                }
+                <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+                
             </MudCardContent>
+            <MudCardActions>
+                <MudTooltip Text="Transactions">
+                    <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
+                                   Color="Color.Primary"
+                                   OnClick="() => ShowTransactionsForChild(child)" />
+                </MudTooltip>
+                <AuthorizeView Roles="admin,parent">
+                <Authorized>
+                    <MudTooltip Text="Add Funds">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddCircle"
+                                       Color="Color.Success"
+                                       OnClick="() => ShowAddFundsForChild(child)">
+                            Add
+                        </MudIconButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Withdraw">
+                        <MudIconButton Icon="@Icons.Material.Filled.RemoveCircle"
+                                       Color="Color.Warning"
+                                       OnClick="() => ShowWithdrawFundsForChild(child)">
+                            Withdraw
+                        </MudIconButton>
+                    </MudTooltip>
+                    <MudSpacer/>
+                    <MudTooltip Text="Suspend allowance">
+                        <MudIconButton Icon="@Icons.Material.Filled.StopCircle"
+                                       Color="Color.Error"
+                                       OnClick="() => ApplyHold(child)"/>
+                    </MudTooltip>
+                </Authorized>
+                </AuthorizeView>
+            </MudCardActions>
         </MudCard>
     }
-</MudPaper>
-
-@code {
-    
-    private async Task TopUp(ChildWithBalance child)
-    {
-        var transaction = new AllowanceTransaction
-        {
-            ChildId = child.Id,
-            TenantId = child.TenantId,
-            TransactionAmount = child.NextRegularChange,
-            TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
-            Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance"
-        };
-        await TransactionService.AddTransaction(transaction, CancellationToken.None);
-    }
-
-    
-
-}
+</div>    
