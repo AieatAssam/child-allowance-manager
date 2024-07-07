@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class Home : ComponentBase
+public partial class Home : CancellableComponentBase
 {
     [Inject]
     public NavigationManager Navigation { get; set; } = default!;

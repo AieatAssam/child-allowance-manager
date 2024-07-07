@@ -5,7 +5,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class AddHoldDialogue : ComponentBase
+public partial class AddHoldDialogue : CancellableComponentBase
 {
     [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
     
@@ -18,13 +18,18 @@ public partial class AddHoldDialogue : ComponentBase
     public int Days { get; set; } = 1;
     
     public string Description { get; set; } = string.Empty;
+
+    private MudForm _form;
     
     private async Task AddHold()
     {
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
         // update child
         var child = await DataService.GetChild(Child.Id, Child.TenantId);
         child.HoldDaysRemaining += Days;
-        await DataService.UpdateChild(child, CancellationToken.None);
+        await DataService.UpdateChild(child, CancellationToken);
         await TransactionService.AddTransaction(new AllowanceTransaction
         {
             Description = Description + $" ({Days} days)",
@@ -32,7 +37,7 @@ public partial class AddHoldDialogue : ComponentBase
             TenantId = Child.TenantId,
             ChildId = Child.Id,
             TransactionType = TransactionType.Hold
-        });
+        }, CancellationToken);
         MudDialog.Close();
     }
 }

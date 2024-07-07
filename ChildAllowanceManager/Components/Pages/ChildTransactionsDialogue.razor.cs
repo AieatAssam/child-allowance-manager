@@ -4,7 +4,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class ChildTransactionsDialogue : ComponentBase
+public partial class ChildTransactionsDialogue : CancellableComponentBase
 {
     [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public ChildWithBalance Child { get; set; } = default!; 

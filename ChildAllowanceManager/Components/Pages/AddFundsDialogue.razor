@@ -1,22 +1,22 @@
 <MudDialog>
     <TitleContent>Add Funds</TitleContent>
     <DialogContent>
-        <MudNumericField Label="Amount" 
-                         @bind-Value="Amount" 
-                         Min="0.1m"
-                         Required="true"
-                         Immediate="true"
-                         />
-        <MudText Typo="Typo.caption">@($"{Child.Balance:C2} + {Amount:C2} = {Child.Balance + Amount:C2}")</MudText>
-        <MudTooltip Text="Round Up">
-            <MudIconButton Icon="@Icons.Material.Filled.ArrowCircleUp" 
-                           Color="Color.Success"
-                           OnClick="RoundUp"
-                           ></MudIconButton>
-        </MudTooltip>
-        <MudTextField Label="Description" 
-                      @bind-Value="Description" 
-                      Required="true" />
+        <MudForm @ref="_form">
+            <MudNumericField Label="Amount"
+                             @bind-Value="Amount"
+                             Min="0.1m"
+                             Required="true"
+                             Immediate="true"/>
+            <MudText Typo="Typo.caption">@($"{Child.Balance:C2} + {Amount:C2} = {Child.Balance + Amount:C2}")</MudText>
+            <MudTooltip Text="Round Up">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowCircleUp"
+                               Color="Color.Success"
+                               OnClick="RoundUp"></MudIconButton>
+            </MudTooltip>
+            <MudTextField Label="Description"
+                          @bind-Value="Description"
+                          Required="true"/>
+        </MudForm>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="AddFunds" Color="Color.Primary">Add</MudButton>

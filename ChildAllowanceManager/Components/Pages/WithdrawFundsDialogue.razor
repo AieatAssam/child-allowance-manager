@@ -1,13 +1,15 @@
 <MudDialog>
     <TitleContent>Withdraw Funds</TitleContent>
     <DialogContent>
-        <MudNumericField Label="Amount" 
-                         @bind-Value="Amount" 
-                         Min="0.1m"
-                         Required="true"/>
-        <MudTextField Label="Description" 
-                      @bind-Value="Description" 
-                      Required="true"/>
+        <MudForm @ref="_form">
+            <MudNumericField Label="Amount"
+                             @bind-Value="Amount"
+                             Min="0.1m"
+                             Required="true"/>
+            <MudTextField Label="Description"
+                          @bind-Value="Description"
+                          Required="true"/>
+        </MudForm>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="WithdrawFunds" Color="Color.Primary">Withdraw</MudButton>

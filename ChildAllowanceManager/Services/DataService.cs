@@ -8,6 +8,7 @@ namespace ChildAllowanceManager.Services;
 public class DataService(HttpClient httpClient,
     IRepository<ChildConfiguration> childConfigurationRepository,
     IRepository<TenantConfiguration> tenantConfigurationRepository,
+    IRepository<User> userRepository,
     ITransactionService transactionService,
     ILogger<DataService> logger) : IDataService
 {
@@ -150,6 +151,21 @@ public class DataService(HttpClient httpClient,
             tenant.Deleted = true;
             tenant.UpdatedTimestamp = DateTimeOffset.UtcNow;
             await tenantConfigurationRepository.UpdateAsync(tenant, cancellationToken: cancellationToken);
+            
+            // delete all children
+            var children = await GetChildren(id, cancellationToken);
+            foreach (var child in children)
+            {
+                await DeleteChild(child.Id, id, cancellationToken);
+            }
+            
+            // remove tenant from all users
+            var users = await userRepository.GetAsync((user) => user.Tenants.Contains(id), cancellationToken);
+            foreach (var user in users)
+            {
+                user.Tenants = user.Tenants.Where(t => t != id).ToArray();
+                await userRepository.UpdateAsync(user, cancellationToken: cancellationToken);
+            }
             return true;
         }
         else

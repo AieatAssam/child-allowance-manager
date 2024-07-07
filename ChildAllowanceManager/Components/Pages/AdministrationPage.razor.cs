@@ -5,12 +5,12 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class AdministrationPage : ComponentBase
+public partial class AdministrationPage : CancellableComponentBase
 {
     [Inject]
     private IDataService DataService { get; set; } = default!;
     
-    private TenantConfiguration NewTenant { get; set; } = new TenantConfiguration();
+    private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
     private TenantConfiguration[] Tenants { get; set; } = null;
     
@@ -26,7 +26,7 @@ public partial class AdministrationPage : ComponentBase
 
     private async Task AddTenant()
     {
-        await DataService.AddTenant(NewTenant, CancellationToken.None);
+        await DataService.AddTenant(NewTenant, CancellationToken);
         await ReloadTenants();
     }
 
@@ -36,13 +36,13 @@ public partial class AdministrationPage : ComponentBase
         {
             return;
         }
-        await DataService.DeleteTenant(tenant.Id, CancellationToken.None);
+        await DataService.DeleteTenant(tenant.Id, CancellationToken);
         await ReloadTenants();
     }
 
     private async Task ReloadTenants()
     {
-        Tenants = (await DataService.GetTenants(CancellationToken.None)).ToArray();
+        Tenants = (await DataService.GetTenants(CancellationToken)).ToArray();
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();
@@ -50,7 +50,7 @@ public partial class AdministrationPage : ComponentBase
 
     private async Task UpdateTenant(TenantConfiguration tenant)
     {
-        await DataService.UpdateTenant(tenant, CancellationToken.None);
+        await DataService.UpdateTenant(tenant, CancellationToken);
         await ReloadTenants();
     }
 }

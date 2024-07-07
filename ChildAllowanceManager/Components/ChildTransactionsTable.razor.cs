@@ -3,9 +3,9 @@ using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 
-namespace ChildAllowanceManager.Components.Pages;
+namespace ChildAllowanceManager.Components;
 
-public partial class ChildTransactionsTable : ComponentBase
+public partial class ChildTransactionsTable : CancellableComponentBase
 {
     [Parameter] public ChildWithBalance? Child { get; set; }
     

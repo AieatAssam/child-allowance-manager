@@ -6,7 +6,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components;
 
-public partial class ChildConfigurationEditor : ComponentBase
+public partial class ChildConfigurationEditor : CancellableComponentBase
 {
     [Parameter]
     public ChildConfiguration Child { get; set; }
@@ -17,13 +17,13 @@ public partial class ChildConfigurationEditor : ComponentBase
     [Parameter] 
     public bool ReadOnly { get; set; } = false;
 
-    private MudForm Form;
-    private ChildConfigurationValidator Validator = new();
+    private MudForm _form;
+    private ChildConfigurationValidator _validator = new();
     
     private async Task OnChildChanged()
     {
-        await Form.Validate();
-        if (Form.IsValid)
+        await _form.Validate();
+        if (_form.IsValid)
         {
             await ChildChanged.InvokeAsync(Child);
         }

@@ -7,7 +7,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class ChildrenListPage : ComponentBase
+public partial class ChildrenListPage : CancellableComponentBase
 {
     [Inject]
     public IDataService DataService { get; set; } = default!;
@@ -50,7 +50,7 @@ public partial class ChildrenListPage : ComponentBase
     {
         if (!string.IsNullOrWhiteSpace(TenantSuffix))
         {
-            var tenant = await DataService.GetTenantBySuffix(TenantSuffix);
+            var tenant = await DataService.GetTenantBySuffix(TenantSuffix, CancellationToken);
             if (tenant is null)
             {
                 Navigation.NavigateTo("/error/404");
@@ -94,7 +94,7 @@ public partial class ChildrenListPage : ComponentBase
         {
             return;
         }
-        Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken.None)).ToArray();
+        Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
         StateHasChanged();
     }
     
@@ -128,9 +128,9 @@ public partial class ChildrenListPage : ComponentBase
     
     private async Task RemoveHoldDay(ChildWithBalance child)
     {
-        var childToUpdate = await DataService.GetChild(child.Id, child.TenantId, CancellationToken.None);
+        var childToUpdate = await DataService.GetChild(child.Id, child.TenantId, CancellationToken);
         childToUpdate.HoldDaysRemaining--;
-        await DataService.UpdateChild(childToUpdate, CancellationToken.None);
+        await DataService.UpdateChild(childToUpdate, CancellationToken);
         await ReloadChildren();
     }
 }

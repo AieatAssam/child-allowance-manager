@@ -7,7 +7,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components;
 
-public partial class TenantConfigurationEditor : ComponentBase
+public partial class TenantConfigurationEditor : CancellableComponentBase
 {
     [Parameter]
     public TenantConfiguration? Tenant { get; set; }
@@ -25,13 +25,13 @@ public partial class TenantConfigurationEditor : ComponentBase
     
     public readonly TenantConfigurationValidator Validator = new();
     
-    private MudForm? Form;
-    private List<User> Parents = new();
+    private MudForm? _form;
+    private List<User> _parents = new();
     
     private async Task OnTenantChanged()
     {
-        await (Form?.Validate() ?? Task.CompletedTask);
-        if (Form?.IsValid ?? false)
+        await (_form?.Validate() ?? Task.CompletedTask);
+        if (_form?.IsValid ?? false)
         {
             await TenantChanged.InvokeAsync(Tenant);
         }
@@ -47,17 +47,19 @@ public partial class TenantConfigurationEditor : ComponentBase
 
     private async Task ReloadParentsAsync()
     {
+        if (Tenant is null)
+            return;
         var parents = await UserService.GetTenantUsersInRole(Tenant.Id, ValidRoles.Parent, CancellationToken.None);
-        Parents = parents.ToList();
+        _parents = parents.ToList();
         StateHasChanged();
     }
 
     private async Task RemoveParentAsync(MudChip<string> chip)
     {
-        var parent = Parents.FirstOrDefault(p => p.Id == chip.Value);
+        var parent = _parents.FirstOrDefault(p => p.Id == chip.Value);
         if (parent is not null)
         {
-            Parents.Remove(parent);
+            _parents.Remove(parent);
             parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
             await UserService.UpsertUserAsync(parent, CancellationToken.None);
             await ReloadParentsAsync();
@@ -71,7 +73,7 @@ public partial class TenantConfigurationEditor : ComponentBase
         var parent = await UserService.GetUserByEmailAsync(email, CancellationToken.None);
         if (parent is null)
             parent = await UserService.InitializeUserAsync(email, name, Tenant.Id, CancellationToken.None);
-        Parents.Remove(parent);
+        _parents.Remove(parent);
         parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
         await UserService.UpsertUserAsync(parent, CancellationToken.None);
         await ReloadParentsAsync();
@@ -79,9 +81,11 @@ public partial class TenantConfigurationEditor : ComponentBase
     
     private async Task AddParentDialogue()
     {
+        if (Tenant is null)
+            return;
         var options = new DialogOptions { CloseOnEscapeKey = true };
         DialogParameters<AddParentDialogue> parameters = new();
-        parameters.Add(d => d.TenantId, Tenant?.Id);
+        parameters.Add(d => d.TenantId, Tenant.Id);
         var dialogue = await DialogService.ShowAsync<AddParentDialogue>(null, parameters: parameters, options: options);
         var dialogueResult = await dialogue.Result;
         if (dialogueResult is not null && !dialogueResult.Canceled)

@@ -4,7 +4,7 @@
         Add Parent
     </TitleContent>
     <DialogContent>
-        <MudForm Model="@NewParent">
+        <MudForm Model="@NewParent" @ref="_form">
             <MudTextField For="() => NewParent.Email" 
                           @bind-Value="NewParent.Email" 
                           InputMode="InputMode.email" 

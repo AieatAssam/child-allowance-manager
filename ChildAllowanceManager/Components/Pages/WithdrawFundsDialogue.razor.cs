@@ -5,7 +5,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class WithdrawFundsDialogue : ComponentBase
+public partial class WithdrawFundsDialogue : CancellableComponentBase
 {
     [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
     
@@ -15,6 +15,7 @@ public partial class WithdrawFundsDialogue : ComponentBase
     
     private decimal _amount;
     private string _description = string.Empty;
+    private MudForm _form;
     
     public decimal Amount
     {
@@ -30,6 +31,9 @@ public partial class WithdrawFundsDialogue : ComponentBase
 
     private async Task WithdrawFunds()
     {
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
         await TransactionService.AddTransaction(new AllowanceTransaction
         {
             Description = Description,
@@ -37,7 +41,7 @@ public partial class WithdrawFundsDialogue : ComponentBase
             TenantId = Child.TenantId,
             ChildId = Child.Id,
             TransactionType = TransactionType.Withdrawal
-        });
+        }, CancellationToken);
         MudDialog.Close();
     }
 }

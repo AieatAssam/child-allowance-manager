@@ -1,9 +1,9 @@
 <MudForm FieldChanged="args => OnChildChanged()" 
          ReadOnly="@ReadOnly" 
-         Validation="@(Validator.ValidateValue)"
+         Validation="@(_validator.ValidateValue)"
          Model="@Child"
          ValidationDelay="0"
-         @ref="@Form">
+         @ref="@_form">
     <MudTextField Label="First Name" 
                   @bind-Value="Child.FirstName" 
                   For="() => Child.FirstName"></MudTextField>
