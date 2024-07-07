@@ -28,6 +28,17 @@ public partial class AddHoldDialogue : CancellableComponentBase
             return;
         // update child
         var child = await DataService.GetChild(Child.Id, Child.TenantId);
+        if (child is null)
+        {
+            var error = new MudMessageBox()
+            {
+                Message = "Child not found",
+                YesText = "OK"
+            };
+            await error.ShowAsync();
+            MudDialog.Cancel();
+            return;
+        }
         child.HoldDaysRemaining += Days;
         await DataService.UpdateChild(child, CancellationToken);
         await TransactionService.AddTransaction(new AllowanceTransaction

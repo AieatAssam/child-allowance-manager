@@ -129,6 +129,16 @@ public partial class ChildrenListPage : CancellableComponentBase
     private async Task RemoveHoldDay(ChildWithBalance child)
     {
         var childToUpdate = await DataService.GetChild(child.Id, child.TenantId, CancellationToken);
+        if (childToUpdate is null)
+        {
+            var error = new MudMessageBox()
+            {
+                Message = "Child not found",
+                YesText = "OK"
+            };
+            await error.ShowAsync();
+            return;
+        }
         childToUpdate.HoldDaysRemaining--;
         await DataService.UpdateChild(childToUpdate, CancellationToken);
         await ReloadChildren();

@@ -12,10 +12,16 @@ public class UserService(
     public async ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId,
         CancellationToken cancellationToken)
     {
+        var firstUser = 0 == await userRepository.CountAsync(u => u.Deleted == false, cancellationToken: cancellationToken);
         var user = await GetUserByEmailAsync(email, cancellationToken) ?? new User();
         user.Name = name;
         user.Email = email;
         user.LastLoggedIn = DateTimeOffset.UtcNow;
+        if (firstUser)
+        {
+            // First user to login is always admin to ensure we have an administrator
+            user.Roles = new[] {ValidRoles.Admin};
+        }
         // add tenant to array if not already there
         if (!string.IsNullOrEmpty(tenantId))
         {
@@ -44,7 +50,7 @@ public class UserService(
 
     public async ValueTask<User?> GetUserByEmailAsync(string email, CancellationToken cancellationToken)
     {
-        var users = await userRepository.GetAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase),
+        var users = await userRepository.GetAsync(u => !u.Deleted && u.Email.Equals(email, StringComparison.OrdinalIgnoreCase),
             cancellationToken: cancellationToken);
         return users.SingleOrDefault(u => !u.Deleted);
     }
@@ -67,7 +73,7 @@ public class UserService(
     
     public async ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken)
     {
-        var users = await userRepository.GetAsync(u => u.Tenants.Contains(tenantId) && u.Roles.Contains(role),
+        var users = await userRepository.GetAsync(u => !u.Deleted && u.Tenants.Contains(tenantId) && u.Roles.Contains(role),
             cancellationToken: cancellationToken);
         return users;
     }

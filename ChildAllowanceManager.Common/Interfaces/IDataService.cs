@@ -17,7 +17,7 @@ public interface IDataService
     ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
     ValueTask<TenantConfiguration> UpdateTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
     ValueTask<bool> DeleteTenant(string id, CancellationToken cancellationToken = default);
-    ValueTask<TenantConfiguration> GetTenant(string id, CancellationToken cancellationToken = default);
+    ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default);
     ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix, CancellationToken cancellationToken = default);
-    ValueTask<ChildConfiguration> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);
+    ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);
 }

@@ -28,8 +28,11 @@ public partial class Home : CancellableComponentBase
         {
             // get tenant
             var tenant = await DataService.GetTenant(currentTenant.Value!);
-            Logger.LogInformation("Navigating to /{Tenant}/children", tenant.UrlSuffix);
-            Navigation.NavigateTo($"/{tenant.UrlSuffix}/children");
+            if (tenant != null)
+            {
+                Logger.LogInformation("Navigating to /{Tenant}/children", tenant.UrlSuffix);
+                Navigation.NavigateTo($"/{tenant.UrlSuffix}/children");
+            }
         }
     }
 }

@@ -100,9 +100,10 @@ public class DataService(HttpClient httpClient,
         return tenantConfigurationRepository.GetAsync((tenant) => !tenant.Deleted, cancellationToken);
     }
     
-    public ValueTask<TenantConfiguration> GetTenant(string id, CancellationToken cancellationToken = default)
+    public async ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default)
     {
-        return tenantConfigurationRepository.GetAsync(id, cancellationToken: cancellationToken);
+        var result = await tenantConfigurationRepository.GetAsync(id, cancellationToken: cancellationToken);
+        return result.Deleted ? null : result;
     }
 
     public async ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix,
@@ -114,9 +115,10 @@ public class DataService(HttpClient httpClient,
         return tenants.FirstOrDefault();
     }
 
-    public ValueTask<ChildConfiguration> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default)
+    public async ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default)
     {
-        return childConfigurationRepository.GetAsync(childId, childTenantId, cancellationToken: cancellationToken);
+        var result = await childConfigurationRepository.GetAsync(childId, childTenantId, cancellationToken: cancellationToken);
+        return result.Deleted ? null : result;
     }
 
     public async ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default)
