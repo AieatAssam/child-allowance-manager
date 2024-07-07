@@ -3,12 +3,12 @@
 <MudNavMenu>
     @if (!string.IsNullOrEmpty(TenantSuffix))
     {
-        <MudNavLink Href="@($"/{TenantSuffix}/children")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ChildCare">Children</MudNavLink>
+        <MudNavLink Href="@($"/{TenantSuffix}/children")" Match="NavLinkMatch.Prefix" Icon="fa-solid fa-children">Children</MudNavLink>
     }
     
     <AuthorizeView Roles="parent">
         <Authorized >
-            <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Manage Children</MudNavLink>
+            <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="fa-solid fa-hands-holding-child">Manage Children</MudNavLink>
         </Authorized>
     </AuthorizeView>
     

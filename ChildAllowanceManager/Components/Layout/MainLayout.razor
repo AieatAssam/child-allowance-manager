@@ -16,11 +16,21 @@
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
-                <MudText Color="Color.Inherit" Typo="Typo.h6" Class="mr-2">@(_user?.Identity?.Name)</MudText>
-                <MudLink Color="Color.Inherit" Href="/logout">Log Out</MudLink>
+                <MudMenu Icon="fa-solid fa-user" Color="Color.Inherit">
+                    <MudMenuItem Icon="@Icons.Material.Filled.VerifiedUser">
+                        @context.User.Identity?.Name
+                    </MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Custom.Brands.Microsoft">@context.User.FindFirst(ClaimTypes.Email)?.Value</MudMenuItem>
+                    <MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">Log Out</MudMenuItem>
+                </MudMenu>
             </Authorized>
             <NotAuthorized>
-                <MudLink Color="Color.Inherit" Typo="Typo.h6" Class="mr-2" Href="/login">Log In</MudLink>
+                <MudLink Color="Color.Inherit"
+                         Typo="Typo.inherit"
+                         Class="mr-2"
+                         Href="/login">
+                    <MudIcon Icon="@Icons.Material.Filled.Login">Login</MudIcon>
+                </MudLink>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>

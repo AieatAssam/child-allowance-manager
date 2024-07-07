@@ -26,7 +26,9 @@
                 }
             </MudCardHeader>
             <MudCardContent>
-                <MudText Typo="Typo.h6" Color="@(child.Balance > 0 ? Color.Success : Color.Error)">@child.Balance.ToString("C2")</MudText>
+                <MudText Typo="Typo.h4" 
+                         Color="@(child.Balance > 0 ? Color.Success : Color.Error)"
+                         Class="mb-2 pb-2">@child.Balance.ToString("C2")</MudText>
                 @if (child.HoldDaysRemaining > 0)
                 {
                     <MudChipSet T="string">
@@ -34,13 +36,13 @@
                         {
                             <AuthorizeView Roles="admin,parent">
                                 <Authorized>
-                                    <MudChip Icon="@Icons.Material.Filled.StopCircle"
+                                    <MudChip Icon="fa-solid fa-ban"
                                              IconColor="Color.Error"
                                              OnClose="() => RemoveHoldDay(child)"
                                              T="string"/>
                                 </Authorized>
                                 <NotAuthorized>
-                                    <MudChip Icon="@Icons.Material.Filled.StopCircle"
+                                    <MudChip Icon="fa-solid fa-ban"
                                              IconColor="Color.Error"
                                              Variant="Variant.Outlined"
                                              T="string"/>
@@ -54,8 +56,8 @@
             </MudCardContent>
             <MudCardActions>
                 <MudTooltip Text="Transactions">
-                    <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
-                                   Color="Color.Primary"
+                    <MudIconButton Icon="fa-solid fa-coins"
+                                   Style="@($"color:{Colors.Yellow.Darken2};")"
                                    OnClick="() => ShowTransactionsForChild(child)" />
                 </MudTooltip>
                 <AuthorizeView Roles="admin,parent">
@@ -76,7 +78,7 @@
                     </MudTooltip>
                     <MudSpacer/>
                     <MudTooltip Text="Suspend allowance">
-                        <MudIconButton Icon="@Icons.Material.Filled.StopCircle"
+                        <MudIconButton Icon="fa-solid fa-ban"
                                        Color="Color.Error"
                                        OnClick="() => ApplyHold(child)"/>
                     </MudTooltip>
