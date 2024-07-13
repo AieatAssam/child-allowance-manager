@@ -29,7 +29,7 @@ public class DataService(HttpClient httpClient,
             DateTimeOffset nextRegularChangeDate =
                 new DateTimeOffset((lastTransaction?.TransactionTimestamp ?? DateTimeOffset.UtcNow).AddDays(1 + child.HoldDaysRemaining).Date, TimeSpan.Zero).AddMinutes(1);
             var birthdayNext = child.BirthDate is not null &&
-                               nextRegularChangeDate.Date == child.BirthDate.Value.Date;
+                               SameDayInYear(nextRegularChangeDate.Date, child.BirthDate.Value.Date);
             childrenWithBalance.Add(new ChildWithBalance
             {
                 Id = child.Id,
@@ -38,7 +38,7 @@ public class DataService(HttpClient httpClient,
                 Name = $"{child.FirstName} {child.LastName}",
                 HoldDaysRemaining = child.HoldDaysRemaining,
                 IsBirthday = child.BirthDate is not null &&
-                             DateTimeOffset.UtcNow.Date == child.BirthDate.Value.Date,
+                             SameDayInYear(child.BirthDate, DateTime.Today),
                 NextRegularChange = birthdayNext && child.BirthdayAllowance is not null
                     ? child.BirthdayAllowance.Value
                     : child.RegularAllowance,
@@ -48,6 +48,11 @@ public class DataService(HttpClient httpClient,
 
         return childrenWithBalance;
     }
+    
+    private bool SameDayInYear(DateTime? first, DateTime? second) =>
+        first is not null && second is not null &&
+        first.Value.Month == second.Value.Month &&
+        first.Value.Day == second.Value.Day;
 
     public async ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
