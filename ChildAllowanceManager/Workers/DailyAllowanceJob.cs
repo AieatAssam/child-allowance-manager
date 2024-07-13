@@ -17,7 +17,6 @@ public class DailyAllowanceJob(
         var tenants = await dataService.GetTenants(context.CancellationToken);
         foreach (var tenant in tenants)
         {
-            await ProcessHoldForTenantAsync(tenant.Id, context.CancellationToken);
             var children = await dataService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
             foreach (var child in children)
             {
@@ -39,6 +38,9 @@ public class DailyAllowanceJob(
                 logger.LogInformation($"Adding allowance transaction for {child.Name} with type {transaction.TransactionType}");
                 await transactionService.AddTransaction(transaction, context.CancellationToken);
             }
+            
+            // process hold at the end of the tenant processing to ensure it is not cleared early
+            await ProcessHoldForTenantAsync(tenant.Id, context.CancellationToken);
         }
     }
 

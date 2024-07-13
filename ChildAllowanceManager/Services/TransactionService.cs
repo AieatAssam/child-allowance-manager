@@ -23,7 +23,8 @@ public class TransactionService(
         return transactionResult.Items;
     }
 
-    public ValueTask<IPageQueryResult<AllowanceTransaction>> GetPagedTransactionsForChild(string childId, string tenantId, int page, int pageSize,
+    public ValueTask<IPageQueryResult<AllowanceTransaction>> GetPagedTransactionsForChild(string childId,
+        string tenantId, int page, int pageSize,
         bool ignoreDailyAllowance = false, CancellationToken cancellationToken = default)
     {
         return transactionRepository.QueryAsync(
@@ -31,13 +32,17 @@ public class TransactionService(
             cancellationToken);
     }
 
-    public async ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
+    public async ValueTask<AllowanceTransaction?> GetLatestRegularTransactionForChild(string childId, string tenantId,
+        CancellationToken cancellationToken = default)
     {
         var transactionResult = await transactionRepository.QueryAsync(
-            new ChildTransactionOrderedByDateDescending(childId, tenantId, false).WithPageSize(1),
+            new ChildTransactionOrderedByDateDescending(childId, tenantId, false)
+                .WithTransactionTypes(TransactionType.DailyAllowance, TransactionType.BirthdayAllowance)
+                .WithPageSize(1),
             cancellationToken);
         return transactionResult.Items.FirstOrDefault();
     }
+
 
     public async ValueTask<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
     {
@@ -78,6 +83,16 @@ public class TransactionService(
             {
                 Query.Where(x => x.TransactionType != TransactionType.DailyAllowance);
             }
+        }
+
+        public ChildTransactionOrderedByDateDescending WithTransactionTypes(params TransactionType[] types)
+        {
+            if (types.Any())
+            {
+                Query.Where(x => types.Contains(x.TransactionType));
+            }
+
+            return this;
         }
         
         public ChildTransactionOrderedByDateDescending WithPageSize(int pageSize)

@@ -1,3 +1,7 @@
+@inherits IAsyncDisposable
+@implements IBrowserViewportObserver
+
+
 <div>
 <MudTable @ref="@_table" 
           Items="@_transactions" 
@@ -32,6 +36,7 @@
                     Underline="false"
                     Value="@context.TransactionAmount"
                     Variant="Variant.Text"
+                    Style="font-size: 0.875rem"
                     Class="@(context.TransactionAmount > 0 ? "positive-amount" : "negative-amount")"/>
             }
         </MudTd>
@@ -43,6 +48,7 @@
                              Underline="false"
                              Value="@context.Balance" 
                              Variant="Variant.Text"
+                             Style="font-size: 0.875rem"
                              Class="@(context.Balance > 0 ? "positive-amount" : "negative-amount")"
                              />
         </MudTd>

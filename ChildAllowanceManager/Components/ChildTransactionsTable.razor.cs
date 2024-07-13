@@ -8,6 +8,9 @@ namespace ChildAllowanceManager.Components;
 public partial class ChildTransactionsTable : CancellableComponentBase
 {
     [Parameter] public ChildWithBalance? Child { get; set; }
+
+    [Inject] private IBrowserViewportService BrowserViewportService { get; set; } = default!;
+
     
     [Inject]
     public ITransactionService TransactionService { get; set; } = default!;
@@ -39,4 +42,29 @@ public partial class ChildTransactionsTable : CancellableComponentBase
 
         return new TableData<AllowanceTransaction>();
     }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await BrowserViewportService.SubscribeAsync(this, fireImmediately: true);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    public async ValueTask DisposeAsync() => await BrowserViewportService.UnsubscribeAsync(this);
+    Task IBrowserViewportObserver.NotifyBrowserViewportChangeAsync(BrowserViewportEventArgs browserViewportEventArgs)
+    {
+        var currentDensity = _table.Dense;
+        IsSmallSize = browserViewportEventArgs.Breakpoint is Breakpoint.Sm or Breakpoint.Xs;
+        if (IsSmallSize == currentDensity) return Task.CompletedTask;
+#pragma warning disable BL0005
+        _table.Dense = IsSmallSize;
+#pragma warning restore BL0005
+        return InvokeAsync(StateHasChanged);
+    }
+    Guid IBrowserViewportObserver.Id { get; } = Guid.NewGuid();
+
+    private bool IsSmallSize { get; set; } = false;
 }
