@@ -19,4 +19,7 @@ public interface ITransactionService
     ValueTask<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
     ValueTask<AllowanceTransaction> AddTransaction(AllowanceTransaction transaction, CancellationToken cancellationToken = default);
     ValueTask<AllowanceTransaction?> GetLatestRegularTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
+    ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
+
+    
 }

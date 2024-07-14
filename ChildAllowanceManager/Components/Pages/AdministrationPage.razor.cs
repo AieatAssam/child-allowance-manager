@@ -10,6 +10,9 @@ public partial class AdministrationPage : CancellableComponentBase
     [Inject]
     private IDataService DataService { get; set; } = default!;
     
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+    
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
     private TenantConfiguration[] Tenants { get; set; } = null;

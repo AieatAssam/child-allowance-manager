@@ -50,6 +50,7 @@
                                 </div>
                             </TitleContent>
                             <ChildContent>
+                                <MudNavLink Href="@($"/{Tenants[idxLocal].UrlSuffix}/children")">@(Navigation.ToAbsoluteUri($"/{Tenants[idxLocal].UrlSuffix}/children"))</MudNavLink>
                                 <TenantConfigurationEditor @bind-Tenant="Tenants[idxLocal]" ReadOnly="@(TenantBeingEditedId != Tenants[idxLocal].Id)"></TenantConfigurationEditor>
 
                                 @if (TenantBeingEditedId != Tenants[idxLocal].Id)
@@ -63,7 +64,7 @@
                                     // already being edited
                                     <MudButton Color="Color.Primary"
                                                OnClick="async () => await UpdateTenant(Tenants[idxLocal])">Save</MudButton>
-                                    <MudButton Color="Color.Secondary" 
+                                    <MudButton Color="Color.Secondary"
                                                OnClick="async () => await ReloadTenants()">Cancel</MudButton>
                                 }
                             </ChildContent>

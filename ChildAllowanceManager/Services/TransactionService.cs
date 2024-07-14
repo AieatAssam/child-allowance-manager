@@ -43,6 +43,15 @@ public class TransactionService(
         return transactionResult.Items.FirstOrDefault();
     }
 
+    public async ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var transactionResult = await transactionRepository.QueryAsync(
+            new ChildTransactionOrderedByDateDescending(childId, tenantId, false)
+                .WithPageSize(1),
+            cancellationToken);
+        return transactionResult.Items.FirstOrDefault();
+    }
 
     public async ValueTask<decimal> GetBalanceForChild(string childId, string tenantId, CancellationToken cancellationToken = default)
     {

@@ -10,6 +10,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
+using ChildAllowanceManager.Middleware;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
@@ -175,6 +176,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 
+builder.Services.AddSingleton<ResponseHeaderMiddleware>();
+
 var app = builder.Build();
 app.UseResponseCompression();
 
@@ -197,6 +200,8 @@ app.UseAntiforgery();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<ResponseHeaderMiddleware>();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

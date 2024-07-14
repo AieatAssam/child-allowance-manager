@@ -23,7 +23,7 @@ public class DataService(HttpClient httpClient,
         var childrenWithBalance = new List<ChildWithBalance>();
         foreach (var child in children)
         {
-            var lastTransaction = await transactionService.GetLatestRegularTransactionForChild(child.Id, tenantId, cancellationToken);
+            var lastTransaction = await transactionService.GetLatestTransactionForChild(child.Id, tenantId, cancellationToken);
             var balance = lastTransaction?.Balance ?? 0m;
             // one minute past midnight
             DateTimeOffset nextRegularChangeDate =
