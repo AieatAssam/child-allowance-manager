@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
@@ -7,7 +8,7 @@ namespace ChildAllowanceManager.Components;
 
 public partial class ChildTransactionsTable : CancellableComponentBase
 {
-    [Parameter] public ChildWithBalance? Child { get; set; }
+    [Parameter, Required] public ChildWithBalance? Child { get; set; }
 
     [Inject] private IBrowserViewportService BrowserViewportService { get; set; } = default!;
 

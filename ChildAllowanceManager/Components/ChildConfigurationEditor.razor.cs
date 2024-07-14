@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Common.Validators;
@@ -8,7 +9,7 @@ namespace ChildAllowanceManager.Components;
 
 public partial class ChildConfigurationEditor : CancellableComponentBase
 {
-    [Parameter]
+    [Parameter, Required]
     public ChildConfiguration Child { get; set; }
     
     [Parameter]

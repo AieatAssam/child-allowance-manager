@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Common.Validators;
@@ -9,7 +10,7 @@ namespace ChildAllowanceManager.Components;
 
 public partial class TenantConfigurationEditor : CancellableComponentBase
 {
-    [Parameter]
+    [Parameter, Required]
     public TenantConfiguration? Tenant { get; set; }
     
     [Parameter]

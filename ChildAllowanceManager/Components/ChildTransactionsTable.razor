@@ -36,8 +36,9 @@
                     Underline="false"
                     Value="@context.TransactionAmount"
                     Variant="Variant.Text"
-                    Style="font-size: 0.875rem"
+                    Style="font-size: 0.875rem; font-weight: bold;"
                     Class="@(context.TransactionAmount > 0 ? "positive-amount" : "negative-amount")"/>
+                
             }
         </MudTd>
         <MudTd DataLabel="Description">@context.Description</MudTd>
