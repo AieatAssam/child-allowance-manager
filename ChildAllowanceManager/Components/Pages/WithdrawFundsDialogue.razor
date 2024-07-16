@@ -5,6 +5,7 @@
             <MudNumericField Label="Amount"
                              @bind-Value="Amount"
                              Min="0.1m"
+                             InputMode="@(InputMode.@decimal)"
                              Required="true"/>
             <MudTextField Label="Description"
                           @bind-Value="Description"

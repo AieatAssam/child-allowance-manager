@@ -25,12 +25,14 @@
                          HideSpinButtons="true"
                          @bind-Value="Child.BirthdayAllowance"
                          For="() => Child.BirthdayAllowance"
+                         InputMode="@(InputMode.@decimal)"
                          HelperText="Optional alternative allowance on birthday"></MudNumericField>
     }
     <MudNumericField Label="Regular Allowance"
                      Format="C2"
                      HideSpinButtons="true"
                      @bind-Value="Child.RegularAllowance"
+                     InputMode="@(InputMode.@decimal)"
                      For="() => Child.RegularAllowance"></MudNumericField>
 </MudForm>
 

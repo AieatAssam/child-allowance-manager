@@ -6,6 +6,7 @@
                              @bind-Value="Amount"
                              Min="0.1m"
                              Required="true"
+                             InputMode="@(InputMode.@decimal)"
                              Immediate="true"/>
             <MudText Typo="Typo.caption">@($"{Child.Balance:C2} + {Amount:C2} = {Child.Balance + Amount:C2}")</MudText>
             <MudTooltip Text="Round Up">
