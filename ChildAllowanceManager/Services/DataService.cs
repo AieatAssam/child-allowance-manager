@@ -23,11 +23,27 @@ public class DataService(HttpClient httpClient,
         var childrenWithBalance = new List<ChildWithBalance>();
         foreach (var child in children)
         {
+            // Retrieve the latest transaction for the child to have accurate balance
             var lastTransaction = await transactionService.GetLatestTransactionForChild(child.Id, tenantId, cancellationToken);
+            // Retrieve the latest regular transaction for the child to have accurate next regular transaction stamp
+            var lastRegularTransaction = await transactionService.GetLatestRegularTransactionForChild(child.Id, tenantId, cancellationToken);
             var balance = lastTransaction?.Balance ?? 0m;
-            // one minute past midnight
-            DateTimeOffset nextRegularChangeDate =
-                new DateTimeOffset((lastTransaction?.TransactionTimestamp ?? DateTimeOffset.UtcNow).AddDays(1 + child.HoldDaysRemaining).Date, TimeSpan.Zero).AddMinutes(1);
+            
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset lastRegularTransactionDate = lastRegularTransaction?.TransactionTimestamp.Date ?? now.Date.AddDays(-1);
+
+            // Calculate the base next transaction date
+            DateTimeOffset baseNextTransactionDate = lastRegularTransactionDate.Date >= now.Date 
+                ? now.Date.AddDays(1) // If last transaction was today, next is tomorrow
+                : now.Date;           // If last transaction was before today, next is today
+
+            // Add hold days to the base next transaction date
+            DateTimeOffset nextRegularChangeDate = 
+                new DateTimeOffset(
+                    baseNextTransactionDate.AddDays(child.HoldDaysRemaining).Date, 
+                    TimeSpan.Zero
+                );
+
             var birthdayNext = child.BirthDate is not null &&
                                SameDayInYear(nextRegularChangeDate.Date, child.BirthDate.Value.Date);
             childrenWithBalance.Add(new ChildWithBalance
