@@ -7,7 +7,9 @@
 @using Quartz.Impl
 @using Quartz.Spi
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
+@using Newtonsoft.Json.Serialization
+@using Plotly.Blazor
+@using Plotly.Blazor.Traces
 
 <PageTitle>Child Allowance Manager</PageTitle>
 <div>
@@ -58,17 +60,10 @@
                         <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="9" Class="d-flex align-stretch ma-0 pa-0" Style="height: 100%;width: 100%;">
-                        <MudChart ChartType="ChartType.Line"
-                                    ChartSeries="@(new[] { ChildBalanceHistorySeries.GetValueOrDefault(child.Id) }.ToList())"
-                                    Width="100%"
-                                    
-                                    ChartOptions="@(new ChartOptions { 
-                                        ChartPalette = ["red"], 
-                                        ShowLegend = false,
-                                        LineStrokeWidth = 5,
-                                        YAxisFormat = "C"
-                                    })">
-                        </MudChart>
+                        <PlotlyChart @bind-Config="_plotlyConfig" 
+                                     @bind-Layout="_plotlyLayout" 
+                                     @bind-Data="_plotlyData[child.Id]" 
+                                     @ref="_plotlyChart"/>
                     </MudItem>
                 </MudGrid>
             </MudCardContent>
