@@ -59,11 +59,7 @@ public class TransactionService(
         }
         
         result.AddRange(extraRecords);
-        // remove time component
-        for(var i = 0; i < result.Count; i++)
-        {
-            result[i] = result[i] with { Timestamp = result[i].Timestamp.Date };
-        }
+        // time component is needed for cleaner chart display, so we retain it.
         // re-sort by date ascending
         result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp));
         return result;
