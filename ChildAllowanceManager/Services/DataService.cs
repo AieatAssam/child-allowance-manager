@@ -16,6 +16,21 @@ public class DataService(HttpClient httpClient,
     {
         return childConfigurationRepository.GetAsync((child) => child.TenantId == tenantId && !child.Deleted, cancellationToken);
     }
+
+    public async ValueTask<IEnumerable<ChildWithBalanceHistory>> GetChildrenWithBalanceHistory(string tenantId, 
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken cancellationToken)
+    {
+        var children = await GetChildren(tenantId, cancellationToken);
+        var childrenWithBalanceHistory = new List<ChildWithBalanceHistory>();
+        foreach (var child in children)
+        {
+            var balanceHistory = await transactionService.GetBalanceHistoryForChild(child.Id, tenantId, startDate, endDate, cancellationToken);
+            childrenWithBalanceHistory.Add(new ChildWithBalanceHistory(child.Id, child.TenantId, balanceHistory.ToArray()));
+        }
+        return childrenWithBalanceHistory;
+    }
     
     public async ValueTask<IEnumerable<ChildWithBalance>> GetChildrenWithBalance(string tenantId, CancellationToken cancellationToken)
     {
@@ -34,8 +49,8 @@ public class DataService(HttpClient httpClient,
 
             // Calculate the base next transaction date
             DateTimeOffset baseNextTransactionDate = lastRegularTransactionDate.Date >= now.Date 
-                ? now.Date.AddDays(1) // If last transaction was today, next is tomorrow
-                : now.Date;           // If last transaction was before today, next is today
+                ? now.AddDays(1) // If last transaction was today, next is tomorrow
+                : now;           // If last transaction was before today, next is today
 
             // Add hold days to the base next transaction date
             DateTimeOffset nextRegularChangeDate = 

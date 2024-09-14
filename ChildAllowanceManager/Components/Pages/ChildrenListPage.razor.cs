@@ -38,6 +38,7 @@ public partial class ChildrenListPage : CancellableComponentBase
     
     private string? _tenantId = null;
     private ChildWithBalance[]? Children = null;
+    private Dictionary<string, ChartSeries> ChildBalanceHistorySeries = new();
     private HubConnection? hubConnection;
 
     
@@ -95,7 +96,21 @@ public partial class ChildrenListPage : CancellableComponentBase
             return;
         }
         Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
+        foreach (var child in Children)
+        {
+            ChildBalanceHistorySeries[child.Id] = await GetChildBalanceHistorySeries(child) ?? new();
+        }
         StateHasChanged();
+    }
+
+    async Task<ChartSeries> GetChildBalanceHistorySeries(ChildWithBalance child)
+    {
+        var balanceHistory = await TransactionService.GetBalanceHistoryForChild(child.Id, child.TenantId, null, null, CancellationToken);
+        return new ChartSeries
+        {
+            Name = child.Name,
+            Data = balanceHistory.Select(x => (double)x.Balance).ToArray()
+        };
     }
     
     private async Task ShowTransactionsForChild(ChildWithBalance child)

@@ -26,35 +26,51 @@
                 }
             </MudCardHeader>
             <MudCardContent>
-                <MudText Typo="Typo.h4" 
-                         Color="@(child.Balance > 0 ? Color.Success : Color.Error)"
-                         Class="mb-2 pb-2">@child.Balance.ToString("C2")</MudText>
-                @if (child.HoldDaysRemaining > 0)
-                {
-                    <MudChipSet T="string">
-                        @for (int i = 0; i < child.HoldDaysRemaining; i++)
+                <MudGrid>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.h4" 
+                                Color="@(child.Balance > 0 ? Color.Success : Color.Error)"
+                                Class="mb-2 pb-2">@child.Balance.ToString("C2")</MudText>
+                        @if (child.HoldDaysRemaining > 0)
                         {
-                            <AuthorizeView Roles="admin,parent">
-                                <Authorized>
-                                    <MudChip Icon="fa-solid fa-ban"
-                                             IconColor="Color.Error"
-                                             Class="ma-2 px-3"
-                                             OnClose="() => RemoveHoldDay(child)"
-                                             T="string"/>
-                                </Authorized>
-                                <NotAuthorized>
-                                    <MudChip Icon="fa-solid fa-ban"
-                                             IconColor="Color.Error"
-                                             Variant="Variant.Outlined"
-                                             Class="ma-2 px-1"
-                                             T="string"/>
-                                </NotAuthorized>
-                            </AuthorizeView>
+                            <MudChipSet T="string">
+                                @for (int i = 0; i < child.HoldDaysRemaining; i++)
+                                {
+                                    <AuthorizeView Roles="admin,parent">
+                                        <Authorized>
+                                            <MudChip Icon="fa-solid fa-ban"
+                                                    IconColor="Color.Error"
+                                                    Class="ma-2 px-3"
+                                                    OnClose="() => RemoveHoldDay(child)"
+                                                    T="string"/>
+                                        </Authorized>
+                                        <NotAuthorized>
+                                            <MudChip Icon="fa-solid fa-ban"
+                                                    IconColor="Color.Error"
+                                                    Variant="Variant.Outlined"
+                                                    Class="ma-2 px-1"
+                                                    T="string"/>
+                                        </NotAuthorized>
+                                    </AuthorizeView>
+                                }
+                            </MudChipSet>
                         }
-                    </MudChipSet>
-                }
-                <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
-                
+                        <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="9" Class="d-flex align-stretch ma-0 pa-0" Style="height: 100%;width: 100%;">
+                        <MudChart ChartType="ChartType.Line"
+                                    ChartSeries="@(new[] { ChildBalanceHistorySeries.GetValueOrDefault(child.Id) }.ToList())"
+                                    Width="100%"
+                                    
+                                    ChartOptions="@(new ChartOptions { 
+                                        ChartPalette = ["red"], 
+                                        ShowLegend = false,
+                                        LineStrokeWidth = 5,
+                                        YAxisFormat = "C"
+                                    })">
+                        </MudChart>
+                    </MudItem>
+                </MudGrid>
             </MudCardContent>
             <MudCardActions>
                 <MudTooltip Text="Transactions">
