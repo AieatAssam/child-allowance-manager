@@ -32,7 +32,10 @@ public partial class ChildTransactionsTable : CancellableComponentBase
     {
         if (Child is not null)
         {
-            var data = await TransactionService.GetPagedTransactionsForChild(Child.Id, Child.TenantId, tableState.Page,
+            var data = await TransactionService.GetPagedTransactionsForChild(
+                Child.Id, 
+                Child.TenantId, 
+                tableState.Page + 1, // ICosmosRepository uses 1-based page numbers and MudBlazor uses 0-based
                 tableState.PageSize, _ignoreDailyTransactions, token);
             return new TableData<AllowanceTransaction>
                 {
