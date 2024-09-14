@@ -59,6 +59,7 @@ public class TransactionService(
         }
         
         result.AddRange(extraRecords);
+        result.ForEach(x => x = x with { Timestamp = x.Timestamp.Date }); // remove time component
         // re-sort by date ascending
         result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp));
         return result;
@@ -118,6 +119,7 @@ public class TransactionService(
     {
         public ChildTransactionHistoryByDateAscending(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate)
         {
+            Query.PageSize(Int32.MaxValue); // default is 25 which stops a lot of things from working
             Query.Where(x => x.TenantId == tenantId && x.ChildId == childId);
 
             if (startDate.HasValue)
@@ -130,7 +132,7 @@ public class TransactionService(
                 Query.Where(x => x.TransactionTimestamp <= endDate.Value);
             }
 
-            Query.OrderByDescending(x => x.TransactionTimestamp);
+            Query.OrderBy(x => x.TransactionTimestamp);
         }
     }
 
@@ -138,6 +140,7 @@ public class TransactionService(
     {
         public ChildTransactionOrderedByDateDescending(string childId, string tenantId, bool ignoreDailyAllowance)
         {
+            Query.PageSize(Int32.MaxValue); // default is 25 which stops a lot of things from working
             Query.Where(x => x.TenantId == tenantId && x.ChildId == childId)
                 .OrderByDescending(x => x.TransactionTimestamp);
             if (ignoreDailyAllowance)
