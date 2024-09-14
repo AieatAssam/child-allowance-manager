@@ -59,7 +59,11 @@ public class TransactionService(
         }
         
         result.AddRange(extraRecords);
-        result.ForEach(x => x = x with { Timestamp = x.Timestamp.Date }); // remove time component
+        // remove time component
+        for(var i = 0; i < result.Count; i++)
+        {
+            result[i] = result[i] with { Timestamp = result[i].Timestamp.Date };
+        }
         // re-sort by date ascending
         result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp));
         return result;
