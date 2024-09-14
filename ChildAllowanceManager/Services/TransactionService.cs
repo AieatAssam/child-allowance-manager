@@ -32,6 +32,38 @@ public class TransactionService(
             cancellationToken);
     }
 
+    public async ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken)
+    {
+        // retrieve direct from repository for performance, since we only need a few columns
+        var query = new ChildTransactionHistoryByDateAscending(childId, tenantId, startDate, endDate);
+        var transactions = await transactionRepository.QueryAsync(query, cancellationToken);
+        var result = transactions.Items.Select(x => new BalanceHistoryEntry(x.TransactionTimestamp, x.Balance)).ToList();
+        result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp)); // ensure correct ordering even though our query is descending
+        // add in any missing days with no balance changes, treating them as same balance as previous day
+        // we need this to ensure that the graph can be displayed as a continuous line without gradual changes when no actual change in balance occurred
+        var currentDate = result.Min(x => x.Timestamp).Date;
+        var extraRecords = new List<BalanceHistoryEntry>();
+        decimal lastBalance = result.FirstOrDefault()?.Balance ?? 0;
+        
+        for (var date = startDate ?? result.Min(x => x.Timestamp.Date); date <= endDate; date = date.AddDays(1))
+        {
+            var existingRecord = result.FirstOrDefault(x => x.Timestamp.Date == date);
+            if (existingRecord != null)
+            {
+                lastBalance = existingRecord.Balance;
+            }
+            else
+            {
+                extraRecords.Add(new BalanceHistoryEntry(date, lastBalance));
+            }
+        }
+        
+        result.AddRange(extraRecords);
+        // re-sort by date ascending
+        result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp));
+        return result;
+    }
+
     public async ValueTask<AllowanceTransaction?> GetLatestRegularTransactionForChild(string childId, string tenantId,
         CancellationToken cancellationToken = default)
     {
@@ -80,6 +112,26 @@ public class TransactionService(
         await notificationHub.Clients.Group(transaction.TenantId)
             .SendAsync(NotificationHub.AllowanceUpdated, cancellationToken);
         return result;
+    }
+
+    class ChildTransactionHistoryByDateAscending : DefaultSpecification<AllowanceTransaction>
+    {
+        public ChildTransactionHistoryByDateAscending(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate)
+        {
+            Query.Where(x => x.TenantId == tenantId && x.ChildId == childId);
+
+            if (startDate.HasValue)
+            {
+                Query.Where(x => x.TransactionTimestamp >= startDate.Value);
+            }
+
+            if (endDate.HasValue)
+            {
+                Query.Where(x => x.TransactionTimestamp <= endDate.Value);
+            }
+
+            Query.OrderByDescending(x => x.TransactionTimestamp);
+        }
     }
 
     class ChildTransactionOrderedByDateDescending : DefaultSpecification<AllowanceTransaction>
