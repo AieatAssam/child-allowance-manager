@@ -50,11 +50,17 @@
                              Variant="Variant.Text"
                              Style="font-size: 0.875rem"
                              Class="@(context.Balance > 0 ? "positive-amount" : "negative-amount")"
-                             />
+            />
         </MudTd>
     </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
     <PagerContent>
-        <MudPagination Class="pa-4"/>
+        <MudTablePager Class="pa-4"/>
     </PagerContent>
 </MudTable>
 </div>
