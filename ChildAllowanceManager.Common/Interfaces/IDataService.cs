@@ -20,4 +20,9 @@ public interface IDataService
     ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default);
     ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix, CancellationToken cancellationToken = default);
     ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);
+
+    ValueTask<IEnumerable<ChildWithBalanceHistory>> GetChildrenWithBalanceHistory(string tenantId, 
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken cancellationToken);
 }
