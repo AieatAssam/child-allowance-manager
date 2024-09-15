@@ -27,7 +27,7 @@ public class DataService(HttpClient httpClient,
         foreach (var child in children)
         {
             var balanceHistory = await transactionService.GetBalanceHistoryForChild(child.Id, tenantId, startDate, endDate, cancellationToken);
-            childrenWithBalanceHistory.Add(new ChildWithBalanceHistory(child.Id, child.TenantId, balanceHistory.ToArray()));
+            childrenWithBalanceHistory.Add(new ChildWithBalanceHistory(child.Id, child.FirstName, child.TenantId, balanceHistory.ToArray()));
         }
         return childrenWithBalanceHistory;
     }

@@ -8,7 +8,9 @@ using Plotly.Blazor;
 using Plotly.Blazor.ConfigLib;
 using Plotly.Blazor.LayoutLib;
 using Plotly.Blazor.LayoutLib.YAxisLib;
+using Plotly.Blazor.Traces;
 using Plotly.Blazor.Traces.ScatterLib;
+using Margin = Plotly.Blazor.LayoutLib.Margin;
 using Title = Plotly.Blazor.LayoutLib.YAxisLib.Title;
 
 namespace ChildAllowanceManager.Components.Pages;
@@ -62,19 +64,20 @@ public partial class ChildrenListPage : CancellableComponentBase
 
     private Plotly.Blazor.Layout _plotlyLayout = new()
     {
-        ShowLegend = false,
+        ShowLegend = true,
         YAxis = new List<YAxis>(){ new Plotly.Blazor.LayoutLib.YAxis()
             {
                 TickPrefix = "£",
                 ShowTickPrefix = ShowTickPrefixEnum.All,
                 ShowTickLabels = true,
             }
-        }
+        },
+        Margin = new Margin() { T = 40, R = 40, B = 40, L = 40},
     };
     
     private PlotlyChart _plotlyChart;
     
-    Dictionary<string, IList<ITrace>> _plotlyData = new();
+    IList<ITrace> _plotlyData = new List<ITrace>();
     #endregion Plotly
     
     protected override async Task OnInitializedAsync()
@@ -133,6 +136,8 @@ public partial class ChildrenListPage : CancellableComponentBase
             CurrentContextService.SetCurrentTenant(_tenantId);
             Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
         }
+
+        await SyncChildBalanceHistorySeries();
     }
 
     private async Task ReloadChildren()
@@ -142,28 +147,44 @@ public partial class ChildrenListPage : CancellableComponentBase
             return;
         }
         Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
-        foreach (var child in Children)
-        {
-            var history = 
-            //ChildBalanceHistorySeries[child.Id] = await GetChildBalanceHistorySeries(child) ?? new();
-            _plotlyData[child.Id] = new List<ITrace> { await GetChildBalanceHistorySeries(child) };
-        }
         StateHasChanged();
     }
 
-    async Task<ITrace> GetChildBalanceHistorySeries(ChildWithBalance child)
+    async Task SyncChildBalanceHistorySeries()
     {
-        var balanceHistory = await TransactionService.GetBalanceHistoryForChild(child.Id, child.TenantId, null, null, CancellationToken);
-        return new Plotly.Blazor.Traces.Scatter()
+        if (_tenantId is null)
         {
-            Name = child.Name,
-            X = balanceHistory.Select(x => (object)x.Timestamp).ToList(),
-            Y = balanceHistory.Select(x => (object)x.Balance).ToArray(),
-            Mode = ModeFlag.Lines,
-            Fill = FillEnum.ToZeroY,
-            XCalendar = XCalendarEnum.Gregorian,
-            
-        };
+            return;
+        }
+
+        var balanceHistory = await DataService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
+        bool changesFound = false;
+        foreach (var child in balanceHistory)
+        {
+
+            var existingTrace = _plotlyData.Cast<Scatter>().FirstOrDefault((t) => t.Name == child.ChildName);
+            if (existingTrace is null)
+            {
+                changesFound = true;
+                _plotlyData.Add(new Plotly.Blazor.Traces.Scatter()
+                {
+                    Name = child.ChildName,
+                    X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList(),
+                    Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray(),
+                    Mode = ModeFlag.Lines,
+                    Fill = FillEnum.ToZeroY,
+                    XCalendar = XCalendarEnum.Gregorian,
+                });
+            }
+            else if (existingTrace.X.Count != child.BalanceHistory.Length)
+            {
+                changesFound = true;
+                existingTrace.X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList();
+                existingTrace.Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray();
+            }
+        }
+        if (changesFound)
+            await _plotlyChart.React(CancellationToken);
     }
     
     
