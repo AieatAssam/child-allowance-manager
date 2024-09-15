@@ -17,7 +17,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="8.0.6" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.6" />
         <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.41.0" />
-        <PackageReference Include="MudBlazor" Version="7.0.0" />
+        <PackageReference Include="MudBlazor" Version="7.8.0" />
         <PackageReference Include="Plotly.Blazor" Version="5.1.1" />
         <PackageReference Include="Quartz.AspNetCore" Version="3.10.0" />
     </ItemGroup>
