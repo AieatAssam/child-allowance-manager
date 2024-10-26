@@ -2,7 +2,7 @@ using ChildAllowanceManager.Common.Interfaces;
 
 namespace ChildAllowanceManager.Services;
 
-public class CurrentContextService(IDataService dataService) : ICurrentContextService
+public class CurrentContextService(ITenantService tenantService) : ICurrentContextService
 {
     private string? _currentTenant = null;
     public string? GetCurrentTenant()
@@ -14,7 +14,7 @@ public class CurrentContextService(IDataService dataService) : ICurrentContextSe
     {
         if (!string.IsNullOrEmpty(_currentTenant))
         {
-            var tenant = await dataService.GetTenant(_currentTenant);
+            var tenant = await tenantService.GetTenant(_currentTenant);
             return tenant?.UrlSuffix;
         }
         return null;

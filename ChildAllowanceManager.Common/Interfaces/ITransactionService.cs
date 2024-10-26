@@ -23,3 +23,4 @@ public interface ITransactionService
 
     ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken);
 }
+

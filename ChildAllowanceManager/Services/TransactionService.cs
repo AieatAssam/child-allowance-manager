@@ -10,7 +10,7 @@ namespace ChildAllowanceManager.Services;
 
 public class TransactionService(
     IRepository<AllowanceTransaction> transactionRepository,
-    IHubContext<NotificationHub> notificationHub,
+    IGlobalNotificationService globalNotificationService,
     ILogger<TransactionService> logger) : ITransactionService
 {
     public async ValueTask<IEnumerable<AllowanceTransaction>> GetTransactionsForChild(string childId, string tenantId,
@@ -60,7 +60,7 @@ public class TransactionService(
         
         result.AddRange(extraRecords);
         // time component is needed for cleaner chart display, so we retain it.
-        // re-sort by date ascending
+        // re-sort by date ascendingq
         result.Sort((x, y) => x.Timestamp.CompareTo(y.Timestamp));
         return result;
     }
@@ -109,9 +109,10 @@ public class TransactionService(
 
         var result = await transactionRepository.CreateAsync(transaction, cancellationToken);
         
-        // notify connected clients to update themselves
-        await notificationHub.Clients.Group(transaction.TenantId)
-            .SendAsync(NotificationHub.AllowanceUpdated, cancellationToken);
+        // notify global notification service
+        globalNotificationService.OnChildStateChanged(transaction.ChildId, 
+            transaction.TenantId, 
+            $"Balance changed by {transaction.TransactionAmount:C} to {transaction.Balance:C}");
         return result;
     }
 

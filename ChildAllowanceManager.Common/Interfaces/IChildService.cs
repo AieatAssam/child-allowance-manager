@@ -2,7 +2,7 @@ using ChildAllowanceManager.Common.Models;
 
 namespace ChildAllowanceManager.Common.Interfaces;
 
-public interface IDataService
+public interface IChildService
 {
     public ValueTask<IEnumerable<ChildConfiguration>> GetChildren(string tenantId, CancellationToken cancellationToken);
 
@@ -13,12 +13,6 @@ public interface IDataService
     public ValueTask<ChildConfiguration> UpdateChild(ChildConfiguration child, CancellationToken cancellationToken);
     
     public ValueTask<bool> DeleteChild(string id, string tenantId, CancellationToken cancellationToken);
-    ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default);
-    ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
-    ValueTask<TenantConfiguration> UpdateTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
-    ValueTask<bool> DeleteTenant(string id, CancellationToken cancellationToken = default);
-    ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default);
-    ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix, CancellationToken cancellationToken = default);
     ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);
 
     ValueTask<IEnumerable<ChildWithBalanceHistory>> GetChildrenWithBalanceHistory(string tenantId, 

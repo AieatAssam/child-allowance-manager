@@ -115,8 +115,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             if (!string.IsNullOrEmpty(tenant) && string.IsNullOrEmpty(context.ReturnUri?.Trim('/')))
             {
                 // no return uri specified, so set one for user's tenant
-                var dataService = context.HttpContext.RequestServices.GetRequiredService<IDataService>();
-                var redirectTenant = await dataService.GetTenant(tenant);
+                var tenantService = context.HttpContext.RequestServices.GetRequiredService<ITenantService>();
+                var redirectTenant = await tenantService.GetTenant(tenant);
                 if (redirectTenant is not null)
                 {
                     context.ReturnUri = $"/{redirectTenant.UrlSuffix}/children";
@@ -170,13 +170,16 @@ builder.Services.AddResponseCompression(opts =>
 
 builder.Services.AddCascadingAuthenticationState();
 
-builder.Services.AddScoped<IDataService, DataService>();
+builder.Services.AddScoped<IChildService, ChildService>();
+builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
+builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
 
 builder.Services.AddSingleton<ResponseHeaderMiddleware>();
+builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
 
 var app = builder.Build();
 app.UseResponseCompression();
@@ -226,6 +229,5 @@ app.Map("/logout", signoutApp =>
     });
 });
 
-app.MapHub<NotificationHub>("/notifications");
 app.MapHealthChecks("/health");
 app.Run();

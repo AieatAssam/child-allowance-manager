@@ -13,7 +13,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
     
     [Inject] private ITransactionService TransactionService { get; set; } = default!;
     
-    [Inject] private IDataService DataService { get; set; } = default!;
+    [Inject] private IChildService ChildService { get; set; } = default!;
 
     public int Days { get; set; } = 1;
     
@@ -27,7 +27,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
         if (!_form.IsValid)
             return;
         // update child
-        var child = await DataService.GetChild(Child.Id, Child.TenantId);
+        var child = await ChildService.GetChild(Child.Id, Child.TenantId);
         if (child is null)
         {
             var error = new MudMessageBox()
@@ -40,7 +40,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
             return;
         }
         child.HoldDaysRemaining += Days;
-        await DataService.UpdateChild(child, CancellationToken);
+        await ChildService.UpdateChild(child, CancellationToken);
         await TransactionService.AddTransaction(new AllowanceTransaction
         {
             Description = Description + $" ({Days} days)",
