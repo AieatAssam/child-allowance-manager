@@ -16,7 +16,7 @@ public partial class Home : CancellableComponentBase
     public ILogger<Home> Logger { get; set; } = default!;
     
     [Inject]
-    protected IDataService DataService { get; set; } = default!;
+    protected ITenantService TenantService { get; set; } = default!;
 
     private bool _initialised = false;
     
@@ -27,7 +27,7 @@ public partial class Home : CancellableComponentBase
         if (firstRender && await LocalStorage.GetAsync<string>("current_tenant") is { Success: true } currentTenant)
         {
             // get tenant
-            var tenant = await DataService.GetTenant(currentTenant.Value!);
+            var tenant = await TenantService.GetTenant(currentTenant.Value!);
             if (tenant != null)
             {
                 Logger.LogInformation("Navigating to /{Tenant}/children", tenant.UrlSuffix);

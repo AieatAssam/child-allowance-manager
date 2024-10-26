@@ -2,7 +2,6 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
-using Microsoft.AspNetCore.SignalR.Client;
 using MudBlazor;
 using Plotly.Blazor;
 using Plotly.Blazor.ConfigLib;
@@ -15,10 +14,16 @@ using Title = Plotly.Blazor.LayoutLib.YAxisLib.Title;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class ChildrenListPage : CancellableComponentBase
+public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
+    [Inject] 
+    private ITenantService TenantService { get; set; } = default!;
+    
     [Inject]
-    public IDataService DataService { get; set; } = default!;
+    public IChildService ChildService { get; set; } = default!;
+    
+    [Inject]
+    private ITenantNotificationService TenantNotificationService { get; set; } = default!;
     
     [Inject]
     public ITransactionService TransactionService { get; set; } = default!;
@@ -40,6 +45,9 @@ public partial class ChildrenListPage : CancellableComponentBase
     
     [Inject]
     public IDialogService DialogService { get; set; } = default!;
+    
+    [Inject]
+    public ISnackbar Snackbar { get; set; } = default!;
 
     [Parameter]
     public string? TenantSuffix { get; set; }
@@ -49,7 +57,6 @@ public partial class ChildrenListPage : CancellableComponentBase
     
     private string? _tenantId = null;
     private ChildWithBalance[]? Children = null;
-    private HubConnection? hubConnection;
 
     #region Plotly
     private Config _plotlyConfig = new()
@@ -92,15 +99,31 @@ public partial class ChildrenListPage : CancellableComponentBase
         {
             Color = palette.TextPrimary.ToString()
         };
+        
+        TenantNotificationService.ChildStateChanged += ChildStateChangedNotification;
 
         await ReloadChildren();
+    }
+
+    private void ChildStateChangedNotification(object? sender, IGlobalNotificationService.ChildStateChangedEventArgs e)
+    {
+        Logger.LogDebug("Child {Child} has been updated", e.ChildId);
+        if (!string.IsNullOrEmpty(e.NotificationMessage))
+        {
+            var child = Children.FirstOrDefault(c => c.Id == e.ChildId);
+            if (child is not null)
+            {
+                Snackbar.Add($"{child.Name}\r\n{e.NotificationMessage}", Severity.Info);
+            }
+        }
+        this.InvokeAsync(async () => await ReloadChildren());
     }
 
     protected override async Task OnParametersSetAsync()
     {
         if (!string.IsNullOrWhiteSpace(TenantSuffix))
         {
-            var tenant = await DataService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+            var tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
             if (tenant is null)
             {
                 Navigation.NavigateTo("/error/404");
@@ -108,18 +131,6 @@ public partial class ChildrenListPage : CancellableComponentBase
             }
 
             _tenantId = tenant.Id;
-            
-            hubConnection = new HubConnectionBuilder()
-                .WithUrl(Navigation.ToAbsoluteUri($"/notifications?tenant={_tenantId}"))
-                .WithAutomaticReconnect()
-                .Build();
-
-            hubConnection.On("AllowanceUpdated", async () =>
-            {
-                await InvokeAsync(ReloadChildren);
-            });
-
-            await hubConnection.StartAsync();
             
             await ReloadChildren();
         }
@@ -146,7 +157,7 @@ public partial class ChildrenListPage : CancellableComponentBase
         {
             return;
         }
-        Children = (await DataService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
+        Children = (await ChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
         StateHasChanged();
     }
 
@@ -157,7 +168,7 @@ public partial class ChildrenListPage : CancellableComponentBase
             return;
         }
 
-        var balanceHistory = await DataService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
+        var balanceHistory = await ChildService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
         bool changesFound = false;
         foreach (var child in balanceHistory)
         {
@@ -218,7 +229,7 @@ public partial class ChildrenListPage : CancellableComponentBase
     
     private async Task RemoveHoldDay(ChildWithBalance child)
     {
-        var childToUpdate = await DataService.GetChild(child.Id, child.TenantId, CancellationToken);
+        var childToUpdate = await ChildService.GetChild(child.Id, child.TenantId, CancellationToken);
         if (childToUpdate is null)
         {
             var error = new MudMessageBox()
@@ -230,7 +241,13 @@ public partial class ChildrenListPage : CancellableComponentBase
             return;
         }
         childToUpdate.HoldDaysRemaining--;
-        await DataService.UpdateChild(childToUpdate, CancellationToken);
+        await ChildService.UpdateChild(childToUpdate, CancellationToken);
         await ReloadChildren();
+    }
+
+    public override void Dispose()
+    {
+        TenantNotificationService.ChildStateChanged -= ChildStateChangedNotification;
+        base.Dispose();
     }
 }

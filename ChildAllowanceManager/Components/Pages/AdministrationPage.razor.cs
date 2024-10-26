@@ -7,8 +7,8 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class AdministrationPage : CancellableComponentBase
 {
-    [Inject]
-    private IDataService DataService { get; set; } = default!;
+    [Inject] 
+    private ITenantService TenantService { get; set; } = default!;
     
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -29,7 +29,7 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task AddTenant()
     {
-        await DataService.AddTenant(NewTenant, CancellationToken);
+        await TenantService.AddTenant(NewTenant, CancellationToken);
         await ReloadTenants();
     }
 
@@ -39,13 +39,13 @@ public partial class AdministrationPage : CancellableComponentBase
         {
             return;
         }
-        await DataService.DeleteTenant(tenant.Id, CancellationToken);
+        await TenantService.DeleteTenant(tenant.Id, CancellationToken);
         await ReloadTenants();
     }
 
     private async Task ReloadTenants()
     {
-        Tenants = (await DataService.GetTenants(CancellationToken)).ToArray();
+        Tenants = (await TenantService.GetTenants(CancellationToken)).ToArray();
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();
@@ -53,7 +53,7 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task UpdateTenant(TenantConfiguration tenant)
     {
-        await DataService.UpdateTenant(tenant, CancellationToken);
+        await TenantService.UpdateTenant(tenant, CancellationToken);
         await ReloadTenants();
     }
 }

@@ -8,8 +8,11 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class ChildManagementPage : CancellableComponentBase
 {
+    [Inject] 
+    private ITenantService TenantService { get; set; } = default!;
+    
     [Inject]
-    private IDataService DataService { get; set; } = default!;
+    private IChildService ChildService { get; set; } = default!;
     
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
@@ -38,7 +41,7 @@ public partial class ChildManagementPage : CancellableComponentBase
     {
         if (!string.IsNullOrWhiteSpace(TenantSuffix))
         {
-            var tenant = await DataService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+            var tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
             if (tenant is null)
             {
                 Navigation.NavigateTo("/error/404");
@@ -58,7 +61,7 @@ public partial class ChildManagementPage : CancellableComponentBase
             return;
         }
         NewChild.TenantId = _tenantId;
-        await DataService.AddChild(NewChild, CancellationToken);
+        await ChildService.AddChild(NewChild, CancellationToken);
         await ReloadChildren();
     }
 
@@ -73,7 +76,7 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
-        await DataService.DeleteChild(child.Id, _tenantId, CancellationToken);
+        await ChildService.DeleteChild(child.Id, _tenantId, CancellationToken);
         await ReloadChildren();
     }
 
@@ -83,7 +86,7 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
-        Children = (await DataService.GetChildren(_tenantId, CancellationToken)).ToArray();
+        Children = (await ChildService.GetChildren(_tenantId, CancellationToken)).ToArray();
         ChildBeingEditedId = null;
         AddingChild = false;
         NewChild = new ChildConfiguration();
@@ -91,7 +94,7 @@ public partial class ChildManagementPage : CancellableComponentBase
 
     private async Task UpdateChild(ChildConfiguration child)
     {
-        await DataService.UpdateChild(child, CancellationToken);
+        await ChildService.UpdateChild(child, CancellationToken);
         await ReloadChildren();
     }
 }
