@@ -207,7 +207,8 @@ app.UseAuthorization();
 app.UseMiddleware<ResponseHeaderMiddleware>();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    // set headers to allow iframe embedding - disable this (use parametersless overload) if you want to block embedding
+    .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'self' *");
 
 // Choose an authentication type
 app.Map("/login", signinApp =>
