@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
@@ -6,10 +7,13 @@ using MudBlazor;
 using Plotly.Blazor;
 using Plotly.Blazor.ConfigLib;
 using Plotly.Blazor.LayoutLib;
+using Plotly.Blazor.LayoutLib.LegendLib;
 using Plotly.Blazor.LayoutLib.YAxisLib;
 using Plotly.Blazor.Traces;
 using Plotly.Blazor.Traces.ScatterLib;
+using Font = Plotly.Blazor.LayoutLib.Font;
 using Margin = Plotly.Blazor.LayoutLib.Margin;
+using OrientationEnum = Plotly.Blazor.Traces.ScatterLib.OrientationEnum;
 using Title = Plotly.Blazor.LayoutLib.YAxisLib.Title;
 
 namespace ChildAllowanceManager.Components.Pages;
@@ -82,6 +86,16 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         },
         AutoSize = true,
         Margin = new Margin() { T = 40, R = 40, B = 40, L = 40},
+        Legend = new List<Legend>()
+        {
+            new Legend()
+            {
+                X = 0,
+                Y = 1,
+                XAnchor = XAnchorEnum.Left,
+                YAnchor = YAnchorEnum.Top
+            }
+        },
     };
     
     private PlotlyChart _plotlyChart = null!; // referenced in razor page
