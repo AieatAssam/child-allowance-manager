@@ -50,7 +50,7 @@
                                     <MudText Color="Color.Error">x @child.HoldDaysRemaining</MudText>
                                 </Authorized>
                                 <NotAuthorized>
-                                    <MudChip Icon="fa-solid fa-ban"
+                                    <MudChip Icon="fa-solid fa-ban fa-flip"
                                              IconColor="Color.Error"
                                              Variant="Variant.Outlined"
                                              Class="ma-2 px-1"
@@ -73,7 +73,7 @@
                                                  T="string"/>
                                     </Authorized>
                                     <NotAuthorized>
-                                        <MudChip Icon="fa-solid fa-ban"
+                                        <MudChip Icon="fa-solid fa-ban fa-flip"
                                                  IconColor="Color.Error"
                                                  Variant="Variant.Outlined"
                                                  Class="ma-2 px-1"
@@ -84,7 +84,10 @@
                         }
                     </MudChipSet>
                 }
-                <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <MudIcon Icon="fa-solid fa-piggy-bank fa-fade" Style="@($"color:{Colors.Yellow.Darken2};")"></MudIcon>
+                    <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+                </div>
             </MudCardContent>
             <MudCardActions>
                 <MudTooltip Text="Transactions">

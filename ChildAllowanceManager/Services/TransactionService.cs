@@ -110,9 +110,19 @@ public class TransactionService(
         var result = await transactionRepository.CreateAsync(transaction, cancellationToken);
         
         // notify global notification service
+        string message;
+        if (transaction.TransactionType != TransactionType.Hold)
+        {
+            message = $"Balance changed by {transaction.TransactionAmount:C} to {transaction.Balance:C}";
+        }
+        else
+        {
+            message = transaction.Description;
+        }
+
         globalNotificationService.OnChildStateChanged(transaction.ChildId, 
             transaction.TenantId, 
-            $"Balance changed by {transaction.TransactionAmount:C} to {transaction.Balance:C}");
+            message);
         return result;
     }
 

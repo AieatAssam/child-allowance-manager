@@ -112,7 +112,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         Logger.LogDebug("Child {Child} has been updated", e.ChildId);
         if (!string.IsNullOrEmpty(e.NotificationMessage))
         {
-            var child = Children.FirstOrDefault(c => c.Id == e.ChildId);
+            var child = Children?.FirstOrDefault(c => c.Id == e.ChildId);
             if (child is not null)
             {
                 Snackbar.Add($"{child.Name}\r\n{e.NotificationMessage}", Severity.Info);
