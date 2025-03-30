@@ -15,7 +15,7 @@ public partial class AdministrationPage : CancellableComponentBase
     
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
-    private TenantConfiguration[] Tenants { get; set; } = null;
+    private TenantConfiguration[] Tenants { get; set; } = [];
     
     private string? TenantBeingEditedId = null;
     private MudMessageBox DeleteTenantMessageBox { get; set; } = null!;

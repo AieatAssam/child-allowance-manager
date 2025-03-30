@@ -18,7 +18,7 @@ public partial class ChildTransactionsTable : CancellableComponentBase
 
     private bool _ignoreDailyTransactions = false;
     private List<AllowanceTransaction> _transactions = new();
-    private MudTable<AllowanceTransaction> _table;
+    private MudTable<AllowanceTransaction> _table = null!; // referenced in razor page
     
     protected override async Task OnParametersSetAsync()
     {

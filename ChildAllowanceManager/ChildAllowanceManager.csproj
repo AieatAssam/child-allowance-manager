@@ -1,24 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
-      <UserSecretsId>576c5c0c-e163-4fa4-8ee1-e4518941a320</UserSecretsId>
+        <UserSecretsId>576c5c0c-e163-4fa4-8ee1-e4518941a320</UserSecretsId>
+        
   </PropertyGroup>
 
 
     <ItemGroup>
-        <PackageReference Include="Azure.Core" Version="1.44.1" />
+        <PackageReference Include="Azure.Core" Version="1.45.0" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.2.0" />
         <PackageReference Include="Humanizer" Version="2.14.1" />
-        <PackageReference Include="IEvangelist.Azure.CosmosRepository.AspNetCore" Version="8.1.7" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="8.0.10" />
-        <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.45.0" />
-        <PackageReference Include="MudBlazor" Version="7.14.0" />
-        <PackageReference Include="Plotly.Blazor" Version="5.3.0" />
-        <PackageReference Include="Quartz.AspNetCore" Version="3.13.0" />
+        <PackageReference Include="IEvangelist.Azure.CosmosRepository.AspNetCore" Version="9.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="9.0.3" />
+        <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
+        <PackageReference Include="MudBlazor" Version="8.3.0" />
+        <PackageReference Include="Plotly.Blazor" Version="6.0.1" />
+        <PackageReference Include="Quartz.AspNetCore" Version="3.14.0" />
     </ItemGroup>
 
 
