@@ -28,7 +28,7 @@ public class TransactionService(
         bool ignoreDailyAllowance = false, CancellationToken cancellationToken = default)
     {
         return transactionRepository.QueryAsync(
-            new ChildTransactionOrderedByDateDescendingPaged(childId, tenantId, false, page, pageSize),
+            new ChildTransactionOrderedByDateDescendingPaged(childId, tenantId, ignoreDailyAllowance, page, pageSize),
             cancellationToken);
     }
 

@@ -10,20 +10,30 @@ public partial class ChildTransactionsTable : CancellableComponentBase
 {
     [Parameter, Required] public ChildWithBalance? Child { get; set; }
 
+    [Parameter]
+    public bool HideRegularTransactions { get; set; }
+
     [Inject] private IBrowserViewportService BrowserViewportService { get; set; } = default!;
 
     
     [Inject]
     public ITransactionService TransactionService { get; set; } = default!;
 
-    private bool _ignoreDailyTransactions = false;
     private List<AllowanceTransaction> _transactions = new();
     private MudTable<AllowanceTransaction> _table = null!; // referenced in razor page
-    
+    private bool _hideRegularTransactionsLast = false;
+
+
     protected override async Task OnParametersSetAsync()
     {
         if (Child is not null)
         {
+            if (_hideRegularTransactionsLast != HideRegularTransactions)
+            {
+                _hideRegularTransactionsLast = HideRegularTransactions;
+                await _table.ReloadServerData();
+            }
+
             StateHasChanged();
         }
     }
@@ -36,14 +46,14 @@ public partial class ChildTransactionsTable : CancellableComponentBase
                 Child.Id, 
                 Child.TenantId, 
                 tableState.Page + 1, // ICosmosRepository uses 1-based page numbers and MudBlazor uses 0-based
-                tableState.PageSize, _ignoreDailyTransactions, token);
+                tableState.PageSize, HideRegularTransactions, token);
             return new TableData<AllowanceTransaction>
                 {
                     Items = data.Items,
                     TotalItems = data.Total ?? data.TotalPages * tableState.PageSize ?? 0
                 };
         }
-
+        
         return new TableData<AllowanceTransaction>();
     }
     

@@ -12,9 +12,10 @@
         Transactions
     </TitleContent>
     <DialogContent>
-        <ChildTransactionsTable Child="Child"></ChildTransactionsTable>
+        <ChildTransactionsTable Child="Child" HideRegularTransactions="_hideRegularTransactions"></ChildTransactionsTable>
     </DialogContent>
     <DialogActions>
+        <MudCheckBox T="bool" @bind-Value="_hideRegularTransactions">Hide Regular</MudCheckBox>
         <MudButton OnClick="() => MudDialog.Close()">Close</MudButton>
     </DialogActions>
 </MudDialog>

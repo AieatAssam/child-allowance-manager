@@ -66,7 +66,8 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         FrameMargins = 0,
         Editable = false,
         DisplayModeBar = DisplayModeBarEnum.False,
-        Locale = "en-GB"
+        Locale = "en-GB",
+        Responsive = true
     };
 
     private Plotly.Blazor.Layout _plotlyLayout = new()
@@ -79,6 +80,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 ShowTickLabels = true,
             }
         },
+        AutoSize = true,
         Margin = new Margin() { T = 40, R = 40, B = 40, L = 40},
     };
     

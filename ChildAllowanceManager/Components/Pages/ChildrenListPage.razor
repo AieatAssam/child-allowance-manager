@@ -14,7 +14,7 @@
 <PageTitle>Child Allowance Manager</PageTitle>
 <div>
 <MudGrid>
-    <MudItem xs="12" sm="6" md="3">
+    <MudItem xs="12" sm="6" md="4">
     @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
     {
         <MudCard Outlined="true"
@@ -120,7 +120,7 @@
         </MudCard>
     }
     </MudItem>
-    <MudItem xs="12" sm="6" md="9">
+    <MudItem xs="12" sm="6" md="8">
         <div class="pt-4" style="width: 100%; height: 100%; align-content: center;">
             <PlotlyChart @bind-Config="_plotlyConfig"
                          @bind-Layout="_plotlyLayout"
