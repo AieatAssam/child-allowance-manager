@@ -82,7 +82,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         Margin = new Margin() { T = 40, R = 40, B = 40, L = 40},
     };
     
-    private PlotlyChart _plotlyChart;
+    private PlotlyChart _plotlyChart = null!; // referenced in razor page
     
     IList<ITrace> _plotlyData = new List<ITrace>();
     #endregion Plotly
@@ -232,12 +232,10 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         var childToUpdate = await ChildService.GetChild(child.Id, child.TenantId, CancellationToken);
         if (childToUpdate is null)
         {
-            var error = new MudMessageBox()
-            {
-                Message = "Child not found",
-                YesText = "OK"
-            };
-            await error.ShowAsync();
+            await DialogService.ShowMessageBox(
+                title: "Error",
+                message: "Child not found",
+                yesText: "OK");
             return;
         }
         childToUpdate.HoldDaysRemaining--;

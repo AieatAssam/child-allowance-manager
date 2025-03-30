@@ -36,24 +36,51 @@
                 @if (child.HoldDaysRemaining > 0)
                 {
                     <MudChipSet T="string">
-                        @for (int i = 0; i < child.HoldDaysRemaining; i++)
+                        @if (child.HoldDaysRemaining > 3)
                         {
+                            // heavy hold. Simplify the view
+                            <div style="display: flex; flex-direction: row; align-items: center; gap: 0;">
                             <AuthorizeView Roles="admin,parent">
                                 <Authorized>
                                     <MudChip Icon="fa-solid fa-ban"
-                                            IconColor="Color.Error"
-                                            Class="ma-2 px-3"
-                                            OnClose="() => RemoveHoldDay(child)"
-                                            T="string"/>
+                                             IconColor="Color.Error"
+                                             Class="ma-2 px-3"
+                                             OnClose="() => RemoveHoldDay(child)"
+                                             T="string"/>
+                                    <MudText Color="Color.Error">x @child.HoldDaysRemaining</MudText>
                                 </Authorized>
                                 <NotAuthorized>
                                     <MudChip Icon="fa-solid fa-ban"
-                                            IconColor="Color.Error"
-                                            Variant="Variant.Outlined"
-                                            Class="ma-2 px-1"
-                                            T="string"/>
+                                             IconColor="Color.Error"
+                                             Variant="Variant.Outlined"
+                                             Class="ma-2 px-1"
+                                             T="string"/>
+                                    <MudText Color="Color.Error">x @child.HoldDaysRemaining</MudText>
                                 </NotAuthorized>
                             </AuthorizeView>
+                            </div>
+                        }
+                        else
+                        {
+                            @for (int i = 0; i < child.HoldDaysRemaining; i++)
+                            {
+                                <AuthorizeView Roles="admin,parent">
+                                    <Authorized>
+                                        <MudChip Icon="fa-solid fa-ban"
+                                                 IconColor="Color.Error"
+                                                 Class="ma-2 px-3"
+                                                 OnClose="() => RemoveHoldDay(child)"
+                                                 T="string"/>
+                                    </Authorized>
+                                    <NotAuthorized>
+                                        <MudChip Icon="fa-solid fa-ban"
+                                                 IconColor="Color.Error"
+                                                 Variant="Variant.Outlined"
+                                                 Class="ma-2 px-1"
+                                                 T="string"/>
+                                    </NotAuthorized>
+                                </AuthorizeView>
+                            }
                         }
                     </MudChipSet>
                 }

@@ -7,19 +7,21 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class AddHoldDialogue : CancellableComponentBase
 {
-    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     
     [Parameter] public ChildWithBalance Child { get; set; } = default!;
     
     [Inject] private ITransactionService TransactionService { get; set; } = default!;
     
     [Inject] private IChildService ChildService { get; set; } = default!;
+    
+    [Inject] private IDialogService DialogService { get; set; } = default!;
 
     public int Days { get; set; } = 1;
     
     public string Description { get; set; } = string.Empty;
 
-    private MudForm _form;
+    private MudForm _form = null!;
     
     private async Task AddHold()
     {
@@ -30,12 +32,8 @@ public partial class AddHoldDialogue : CancellableComponentBase
         var child = await ChildService.GetChild(Child.Id, Child.TenantId);
         if (child is null)
         {
-            var error = new MudMessageBox()
-            {
-                Message = "Child not found",
-                YesText = "OK"
-            };
-            await error.ShowAsync();
+            await DialogService.ShowMessageBox(title:"Error", message: "Child not found",
+                yesText: "OK");
             MudDialog.Cancel();
             return;
         }

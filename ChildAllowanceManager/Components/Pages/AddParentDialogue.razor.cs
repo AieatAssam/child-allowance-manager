@@ -8,13 +8,13 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class AddParentDialogue : CancellableComponentBase
 {
-    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string TenantId { get; set; } = default!;
     
     [Inject] private IUserService UserService { get; set; } = default!;
     
     private User NewParent { get; set; } = new User();
-    private MudForm _form;
+    private MudForm _form = null!;
 
     private async Task AddParentAsync()
     {

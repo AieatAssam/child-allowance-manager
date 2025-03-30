@@ -8,7 +8,7 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class AddFundsDialogue : CancellableComponentBase
 {
-    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = default!;
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     
     [Parameter] public ChildWithBalance Child { get; set; } = default!;
     
