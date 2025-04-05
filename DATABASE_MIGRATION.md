@@ -29,7 +29,7 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 ### Future Tasks
 
 #### 1. Setup and Infrastructure
-- [x] Create new `ChildAllowanceManager.Data.PostgreSQL` project for EF Core implementation
+- [x] Create new `ChildAllowanceManager.Data` project for EF Core implementation
 - [x] Add required NuGet packages:
   - [x] Microsoft.EntityFrameworkCore
   - [x] Microsoft.EntityFrameworkCore.Design
@@ -119,6 +119,62 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [ ] Performance testing
 - [ ] Relationship loading tests
 
+#### 7. .NET Aspire Integration
+- [ ] Create new `ChildAllowanceManager.Aspire` project
+- [ ] Add required NuGet packages:
+  - [ ] Aspire.Hosting
+  - [ ] Aspire.Components.Common
+  - [ ] Aspire.Components.ServiceDefaults
+  - [ ] Aspire.Components.OpenTelemetry
+  - [ ] Aspire.Components.HealthChecks
+  - [ ] Aspire.Components.Caching
+- [ ] Configure Aspire host builder:
+  - [ ] Set up service defaults
+  - [ ] Configure OpenTelemetry for distributed tracing
+  - [ ] Set up health checks
+  - [ ] Configure metrics collection
+  - [ ] Implement distributed caching
+- [ ] Implement service resilience patterns:
+  - [ ] Circuit breaker pattern
+  - [ ] Retry policies
+  - [ ] Timeout policies
+  - [ ] Rate limiting
+- [ ] Configure environment variables:
+  - [ ] Development environment settings
+  - [ ] Production environment settings
+  - [ ] Secrets management
+- [ ] Set up container orchestration:
+  - [ ] Configure container networking
+  - [ ] Set up service discovery
+  - [ ] Configure load balancing
+  - [ ] Implement health-based routing
+- [ ] Implement cloud-native features:
+  - [ ] Configure service-to-service communication
+  - [ ] Set up distributed logging
+  - [ ] Implement distributed tracing
+  - [ ] Configure metrics and dashboards
+- [ ] Create Aspire dashboard:
+  - [ ] Configure service visualization
+  - [ ] Set up metrics visualization
+  - [ ] Configure log aggregation
+  - [ ] Implement distributed tracing visualization
+
+#### 8. Container Deployment
+- [ ] Create Dockerfile for API project
+- [ ] Create Dockerfile for PostgreSQL database
+- [ ] Create docker-compose.yml file with:
+  - [ ] API service configuration
+  - [ ] PostgreSQL service configuration
+  - [ ] Volume mappings for data persistence
+  - [ ] Network configuration
+  - [ ] Environment variables
+- [ ] Create deployment documentation
+- [ ] Implement container health checks
+- [ ] Set up container logging
+- [ ] Configure container resource limits
+- [ ] Create deployment scripts
+- [ ] Document scaling strategies
+
 ## Implementation Plan
 
 ### Architecture Decisions
@@ -131,10 +187,13 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 7. Implement efficient relationship loading strategies
 8. Maintain database provider abstraction for future flexibility
 9. Create separate project for data migration tool
+10. Implement .NET Aspire for cloud-native application development
+11. Use Docker Compose for container orchestration
 
 ### Data Flow
 1. Application layer → Repository Interface → Database Provider Abstraction → Concrete Repository → DbContext → Database
 2. Migration: CosmosDB → Data Migration Tool → PostgreSQL
+3. Containerized deployment with Docker Compose
 
 ### Technical Components
 1. Clean entity configurations with proper relationships
@@ -142,12 +201,16 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 3. Database provider abstraction layer
 4. PostgreSQL-specific DbContext implementation
 5. Separate data migration tool project for CosmosDB to PostgreSQL migration
+6. .NET Aspire project for cloud-native features
+7. Docker Compose configuration for containerized deployment
 
 ### Environment Configuration
 1. Database connection strings
 2. Provider selection
 3. Migration settings
 4. Performance tuning parameters
+5. Container environment variables
+6. Aspire service configuration
 
 ## Relevant Files
 - `ChildAllowanceManager.Common/Models/*` - Entity models to be migrated
@@ -155,6 +218,9 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - `ChildAllowanceManager/Program.cs` - Dependency injection configuration
 - `ChildAllowanceManager.Data.PostgreSQL/DataContext.cs` - Existing PostgreSQL context (reference)
 - `ChildAllowanceManager.DataMigration/*` - New project for data migration tool
+- `ChildAllowanceManager.Aspire/*` - New project for .NET Aspire integration
+- `Dockerfile` - Container definition for API
+- `docker-compose.yml` - Container orchestration configuration
 
 ## Entity Relationships
 1. AllowanceTransaction
@@ -168,4 +234,62 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
    - AllowanceTransactions (one-to-many)
    - Users (many-to-many through UserTenant)
 4. User
-   - Tenants (many-to-many through UserTenant) 
+   - Tenants (many-to-many through UserTenant)
+
+## Docker Compose Deployment Instructions
+
+### Prerequisites
+- Docker Desktop installed
+- .NET 8 SDK installed
+- Git for cloning the repository
+
+### Deployment Steps
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/ChildAllowanceManager.git
+   cd ChildAllowanceManager
+   ```
+
+2. Build the Docker images:
+   ```bash
+   docker-compose build
+   ```
+
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Access the application:
+   - API: http://localhost:5000
+   - Swagger UI: http://localhost:5000/swagger
+   - Aspire Dashboard: http://localhost:8080
+
+5. Monitor the services:
+   ```bash
+   docker-compose logs -f
+   ```
+
+6. Stop the services:
+   ```bash
+   docker-compose down
+   ```
+
+### Environment Configuration
+
+The application uses environment variables for configuration. These can be set in the `docker-compose.yml` file or in a `.env` file in the project root.
+
+Key environment variables:
+- `ConnectionStrings__DefaultConnection`: PostgreSQL connection string
+- `ASPNETCORE_ENVIRONMENT`: Application environment (Development, Staging, Production)
+- `ASPNETCORE_URLS`: URLs the application listens on
+
+### Scaling
+
+To scale the API service:
+```bash
+docker-compose up -d --scale api=3
+```
+
+This will start 3 instances of the API service behind a load balancer. 

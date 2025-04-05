@@ -16,7 +16,7 @@ public class TenantConfiguration
     public string Name { get; set; } = string.Empty;
     
     [Column("description")]
-    [MaxLength(500)]
+    [MaxLength(1000)]
     public string Description { get; set; } = string.Empty;
     
     [Column("deleted")]
