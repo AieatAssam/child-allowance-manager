@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ChildAllowanceManager.Data.PostgreSQL.Configurations
 {
-    public class AllowanceTransactionConfiguration : IEntityTypeConfiguration<AllowanceTransaction>
+    public class AllowanceTransactionSetup : IEntityTypeConfiguration<AllowanceTransaction>
     {
         public void Configure(EntityTypeBuilder<AllowanceTransaction> builder)
         {
@@ -79,4 +79,4 @@ namespace ChildAllowanceManager.Data.PostgreSQL.Configurations
             builder.HasIndex(x => x.TransactionTimestamp);
         }
     }
-}
+} 

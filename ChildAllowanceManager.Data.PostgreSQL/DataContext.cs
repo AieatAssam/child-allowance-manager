@@ -19,6 +19,8 @@ public class DataContext : DbContext
     // Add other DbSets for your entities
     public DbSet<ChildConfiguration> Children { get; set; }
     public DbSet<TenantConfiguration> Tenants { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<UserTenant> UserTenants { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -33,6 +35,10 @@ public class DataContext : DbContext
         base.OnModelCreating(modelBuilder);
         
         // Configurations
-        modelBuilder.ApplyConfiguration(new AllowanceTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new AllowanceTransactionSetup());
+        modelBuilder.ApplyConfiguration(new ChildConfigurationSetup());
+        modelBuilder.ApplyConfiguration(new TenantConfigurationSetup());
+        modelBuilder.ApplyConfiguration(new UserSetup());
+        modelBuilder.ApplyConfiguration(new UserTenantSetup());
     }
 }

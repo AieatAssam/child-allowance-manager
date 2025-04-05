@@ -1,7 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.Azure.CosmosRepository;
-using Microsoft.Azure.CosmosRepository.Attributes;
 
 namespace ChildAllowanceManager.Common.Models;
 

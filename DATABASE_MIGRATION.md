@@ -8,13 +8,20 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
   - [x] Microsoft.EntityFrameworkCore
   - [x] Npgsql.EntityFrameworkCore.PostgreSQL
 - [x] Create basic DataContext with DbSet properties for entities
-- [x] Create AllowanceTransactionConfiguration with proper column mappings and relationships
+- [x] Create AllowanceTransactionSetup with proper column mappings and relationships
+- [x] Create ChildConfigurationSetup with proper column mappings and relationships
+- [x] Create TenantConfigurationSetup with proper column mappings and relationships
+- [x] Update TenantConfiguration model to remove CosmosDB-specific attributes
+- [x] Rename configuration files and classes to avoid naming conflicts
+- [x] Update User model to remove CosmosDB-specific attributes
+- [x] Create UserSetup with proper column mappings and relationships
+- [x] Implement many-to-many relationship between Users and Tenants
 
 ### In Progress Tasks
 - [ ] Complete entity configurations for remaining entities:
-  - [ ] ChildConfiguration (partially started)
-  - [ ] TenantConfiguration (not started)
-  - [ ] User (not started)
+  - [x] ChildConfiguration (completed)
+  - [x] TenantConfiguration (completed)
+  - [x] User (completed)
 - [ ] Implement database provider abstraction layer
 - [ ] Create generic repository interface `IRepository<T>` with basic CRUD operations
 - [ ] Implement PostgreSQL-specific repository
@@ -22,7 +29,7 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 ### Future Tasks
 
 #### 1. Setup and Infrastructure
-- [x] Create new `ChildAllowanceManager.Data` project for EF Core implementation
+- [x] Create new `ChildAllowanceManager.Data.PostgreSQL` project for EF Core implementation
 - [x] Add required NuGet packages:
   - [x] Microsoft.EntityFrameworkCore
   - [x] Microsoft.EntityFrameworkCore.Design
@@ -37,14 +44,15 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
   - [x] AllowanceTransaction
     - [x] Configure relationships with Child and Tenant
     - [x] Set up proper indexing for queries
-  - [ ] ChildConfiguration
-    - [ ] Configure relationships with Tenant and AllowanceTransactions
-    - [ ] Set up proper indexing for queries
-  - [ ] TenantConfiguration
-    - [ ] Configure relationships with Children and AllowanceTransactions
-    - [ ] Set up proper indexing for queries
-  - [ ] User
-    - [ ] Set up proper indexing for queries
+  - [x] ChildConfiguration
+    - [x] Configure relationships with Tenant and AllowanceTransactions
+    - [x] Set up proper indexing for queries
+  - [x] TenantConfiguration
+    - [x] Configure relationships with Children and AllowanceTransactions
+    - [x] Set up proper indexing for queries
+  - [x] User
+    - [x] Set up proper indexing for queries
+    - [x] Configure many-to-many relationship with Tenants
 - [ ] Configure PostgreSQL-specific settings:
   - [x] Table names (for AllowanceTransaction)
   - [x] Column types and constraints (for AllowanceTransaction)
@@ -158,5 +166,6 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 3. TenantConfiguration
    - Children (one-to-many)
    - AllowanceTransactions (one-to-many)
+   - Users (many-to-many through UserTenant)
 4. User
-   - No direct relationships, but has tenant references 
+   - Tenants (many-to-many through UserTenant) 
