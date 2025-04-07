@@ -10,6 +10,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
+using ChildAllowanceManager.Data.PostgreSQL;
 using ChildAllowanceManager.Middleware;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
@@ -20,6 +21,7 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Azure.CosmosRepository.AspNetCore.Extensions;
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using Newtonsoft.Json.Linq;
 using Quartz;
@@ -127,6 +129,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddHttpClient();
+
+builder.Services.AddDbContext<DataContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("postgresdb")
+                      ?? throw new InvalidOperationException("Connection string 'postgresdb' not found.")));
+
 builder.Services.AddCosmosRepository(options =>
 {
     // serverless throughput will ensure that shared database throughput is used
@@ -180,6 +187,9 @@ builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService
 
 builder.Services.AddSingleton<ResponseHeaderMiddleware>();
 builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
+
+// Aspire support
+builder.AddServiceDefaults();
 
 var app = builder.Build();
 app.UseResponseCompression();

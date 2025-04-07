@@ -10,14 +10,19 @@ public class TenantConfiguration
     [Column("id")]
     public string Id { get; set; } = Guid.NewGuid().ToString();
     
-    [Column("name")]
+    [Column("tenant_name")]
     [Required]
     [MaxLength(100)]
-    public string Name { get; set; } = string.Empty;
+    public string TenantName { get; set; } = string.Empty;
     
     [Column("description")]
     [MaxLength(1000)]
     public string Description { get; set; } = string.Empty;
+    
+    [Column("url_suffix")]
+    [Required]
+    [MaxLength(255)]
+    public string UrlSuffix { get; set; } = string.Empty;
     
     [Column("deleted")]
     public bool Deleted { get; set; } = false;

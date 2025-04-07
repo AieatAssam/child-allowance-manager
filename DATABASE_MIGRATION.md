@@ -16,6 +16,14 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [x] Update User model to remove CosmosDB-specific attributes
 - [x] Create UserSetup with proper column mappings and relationships
 - [x] Implement many-to-many relationship between Users and Tenants
+- [x] Create new `ChildAllowanceManager.AppHost` project for Aspire
+- [x] Add required NuGet packages for Aspire:
+  - [x] Aspire.Hosting.AppHost
+  - [x] Aspire.Hosting.PostgreSQL
+- [x] Configure Aspire host builder:
+  - [x] Set up service defaults
+  - [x] Configure PostgreSQL connection
+  - [x] Set up project references
 
 ### In Progress Tasks
 - [ ] Complete entity configurations for remaining entities:
@@ -25,6 +33,19 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [ ] Implement database provider abstraction layer
 - [ ] Create generic repository interface `IRepository<T>` with basic CRUD operations
 - [ ] Implement PostgreSQL-specific repository
+- [ ] Create Dockerfile for API project
+- [ ] Create Dockerfile for PostgreSQL database
+- [ ] Create docker-compose.yml file with:
+  - [ ] API service configuration
+  - [ ] PostgreSQL service configuration
+  - [ ] Volume mappings for data persistence
+  - [ ] Network configuration
+  - [ ] Environment variables
+- [ ] Implement service resilience patterns:
+  - [ ] Circuit breaker pattern
+  - [ ] Retry policies
+  - [ ] Timeout policies
+  - [ ] Rate limiting
 
 ### Future Tasks
 
@@ -40,7 +61,7 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [ ] Set up database provider abstraction layer
 
 #### 2. Entity Configuration
-- [ ] Create clean entity models without CosmosDB-specific attributes:
+- [x] Create clean entity models without CosmosDB-specific attributes:
   - [x] AllowanceTransaction
     - [x] Configure relationships with Child and Tenant
     - [x] Set up proper indexing for queries
@@ -53,7 +74,7 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
   - [x] User
     - [x] Set up proper indexing for queries
     - [x] Configure many-to-many relationship with Tenants
-- [ ] Configure PostgreSQL-specific settings:
+- [x] Configure PostgreSQL-specific settings:
   - [x] Table names (for AllowanceTransaction)
   - [x] Column types and constraints (for AllowanceTransaction)
   - [x] Indexes and foreign keys (for AllowanceTransaction)
@@ -120,20 +141,14 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [ ] Relationship loading tests
 
 #### 7. .NET Aspire Integration
-- [ ] Create new `ChildAllowanceManager.Aspire` project
-- [ ] Add required NuGet packages:
-  - [ ] Aspire.Hosting
-  - [ ] Aspire.Components.Common
-  - [ ] Aspire.Components.ServiceDefaults
-  - [ ] Aspire.Components.OpenTelemetry
-  - [ ] Aspire.Components.HealthChecks
-  - [ ] Aspire.Components.Caching
-- [ ] Configure Aspire host builder:
-  - [ ] Set up service defaults
-  - [ ] Configure OpenTelemetry for distributed tracing
-  - [ ] Set up health checks
-  - [ ] Configure metrics collection
-  - [ ] Implement distributed caching
+- [x] Create new `ChildAllowanceManager.AppHost` project
+- [x] Add required NuGet packages:
+  - [x] Aspire.Hosting.AppHost
+  - [x] Aspire.Hosting.PostgreSQL
+- [x] Configure Aspire host builder:
+  - [x] Set up service defaults
+  - [x] Configure PostgreSQL connection
+  - [x] Set up project references
 - [ ] Implement service resilience patterns:
   - [ ] Circuit breaker pattern
   - [ ] Retry policies
@@ -218,9 +233,9 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - `ChildAllowanceManager/Program.cs` - Dependency injection configuration
 - `ChildAllowanceManager.Data.PostgreSQL/DataContext.cs` - Existing PostgreSQL context (reference)
 - `ChildAllowanceManager.DataMigration/*` - New project for data migration tool
-- `ChildAllowanceManager.Aspire/*` - New project for .NET Aspire integration
-- `Dockerfile` - Container definition for API
-- `docker-compose.yml` - Container orchestration configuration
+- `ChildAllowanceManager.AppHost/*` - New project for .NET Aspire integration
+- `Dockerfile` - Container definition for API (to be created)
+- `docker-compose.yml` - Container orchestration configuration (to be created)
 
 ## Entity Relationships
 1. AllowanceTransaction
@@ -264,6 +279,7 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 4. Access the application:
    - API: http://localhost:5000
    - Swagger UI: http://localhost:5000/swagger
+   - Blazor UI: http://localhost:5001
    - Aspire Dashboard: http://localhost:8080
 
 5. Monitor the services:

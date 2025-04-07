@@ -25,6 +25,8 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ChildAllowanceManager.Common\ChildAllowanceManager.Common.csproj" />
+      <ProjectReference Include="..\ChildAllowanceManager.Data.PostgreSQL\ChildAllowanceManager.Data.PostgreSQL.csproj" />
+      <ProjectReference Include="..\ChildAllowanceManager.ServiceDefaults\ChildAllowanceManager.ServiceDefaults.csproj" />
     </ItemGroup>
 
 </Project>

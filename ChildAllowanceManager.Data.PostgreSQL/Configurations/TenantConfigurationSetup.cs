@@ -16,9 +16,14 @@ public class TenantConfigurationSetup : IEntityTypeConfiguration<TenantConfigura
             .HasColumnName("id")
             .IsRequired();
             
-        builder.Property(x => x.Name)
-            .HasColumnName("name")
+        builder.Property(x => x.TenantName)
+            .HasColumnName("tenant_name")
             .HasMaxLength(100)
+            .IsRequired();
+        
+        builder.Property(x => x.UrlSuffix)
+            .HasColumnName("url_suffix")
+            .HasMaxLength(255)
             .IsRequired();
             
         builder.Property(x => x.Description)
@@ -41,7 +46,7 @@ public class TenantConfigurationSetup : IEntityTypeConfiguration<TenantConfigura
             .IsRequired();
             
         // Add indexes
-        builder.HasIndex(x => x.Name).IsUnique();
+        builder.HasIndex(x => x.TenantName).IsUnique();
         
         // Configure one-to-many relationships
         builder.HasMany(x => x.Children)

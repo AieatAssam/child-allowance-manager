@@ -41,7 +41,7 @@ public class AllowanceTransaction
     [Column("updated_timestamp")]
     public DateTimeOffset UpdatedTimestamp { get; set; } = DateTimeOffset.UtcNow;
     
-    // Add navigation properties if there are relationships to other entities
+    // Add navigation properties
     [ForeignKey(nameof(ChildId))]
     public virtual ChildConfiguration Child { get; set; }
     
