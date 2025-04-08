@@ -24,6 +24,13 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
   - [x] Set up service defaults
   - [x] Configure PostgreSQL connection
   - [x] Set up project references
+- [x] Create generic repository interface `IRepository<T>` with basic CRUD operations
+- [x] Create tenant-aware repository interface `ITenantAwareRepository<T>`
+- [x] Implement base repository `BaseRepository<T>` with common CRUD operations
+- [x] Implement base tenant-aware repository `BaseTenantAwareRepository<T>`
+- [x] Implement pagination support using EF Core's built-in pagination
+- [x] Implement proper relationship loading strategies
+- [x] Add query helper methods for common operations
 
 ### In Progress Tasks
 - [ ] Complete entity configurations for remaining entities:
@@ -31,8 +38,11 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
   - [x] TenantConfiguration (completed)
   - [x] User (completed)
 - [ ] Implement database provider abstraction layer
-- [ ] Create generic repository interface `IRepository<T>` with basic CRUD operations
-- [ ] Implement PostgreSQL-specific repository
+- [ ] Create specific repository implementations:
+  - [ ] ChildConfigurationRepository
+  - [ ] AllowanceTransactionRepository
+  - [ ] TenantConfigurationRepository
+  - [ ] UserRepository
 - [ ] Create Dockerfile for API project
 - [ ] Create Dockerfile for PostgreSQL database
 - [ ] Create docker-compose.yml file with:
@@ -83,13 +93,13 @@ This document outlines the plan for migrating directly from CosmosDB to PostgreS
 - [x] Ensure all properties are mapped correctly (for AllowanceTransaction)
 
 #### 3. Repository Pattern Implementation
-- [ ] Create generic repository interface `IRepository<T>` with basic CRUD operations
-- [ ] Implement database provider abstraction interface
-- [ ] Implement PostgreSQL-specific repository
-- [ ] Implement pagination support using EF Core's built-in pagination
+- [x] Create generic repository interface `IRepository<T>` with basic CRUD operations
+- [x] Implement database provider abstraction interface
+- [x] Implement PostgreSQL-specific repository
+- [x] Implement pagination support using EF Core's built-in pagination
 - [ ] Add bulk operations support using EF Core's bulk operations
-- [ ] Implement proper relationship loading strategies
-- [ ] Add query helper methods for common operations
+- [x] Implement proper relationship loading strategies
+- [x] Add query helper methods for common operations
 
 #### 4. Data Migration Tool
 - [ ] Create separate `ChildAllowanceManager.DataMigration` project
