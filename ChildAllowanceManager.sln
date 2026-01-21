@@ -4,6 +4,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChildAllowanceManager", "Ch
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChildAllowanceManager.Common", "ChildAllowanceManager.Common\ChildAllowanceManager.Common.csproj", "{5998504A-D8CB-4969-B903-EE789537D7AD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChildAllowanceManager.UnitTests", "ChildAllowanceManager.UnitTests\ChildAllowanceManager.UnitTests.csproj", "{616D2D5D-8069-4A86-AEFF-54B720178D2B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChildAllowanceManager.UiTests", "ChildAllowanceManager.UiTests\ChildAllowanceManager.UiTests.csproj", "{A4E4B5B1-ED25-4C6B-9D77-1716D1AEA59F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChildAllowanceManager.CosmosDbTests", "ChildAllowanceManager.CosmosDbTests\ChildAllowanceManager.CosmosDbTests.csproj", "{B5A66149-AE3C-4673-B858-8933AF867DEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +24,17 @@ Global
 		{5998504A-D8CB-4969-B903-EE789537D7AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5998504A-D8CB-4969-B903-EE789537D7AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5998504A-D8CB-4969-B903-EE789537D7AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{616D2D5D-8069-4A86-AEFF-54B720178D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{616D2D5D-8069-4A86-AEFF-54B720178D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{616D2D5D-8069-4A86-AEFF-54B720178D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{616D2D5D-8069-4A86-AEFF-54B720178D2B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4E4B5B1-ED25-4C6B-9D77-1716D1AEA59F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4E4B5B1-ED25-4C6B-9D77-1716D1AEA59F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4E4B5B1-ED25-4C6B-9D77-1716D1AEA59F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4E4B5B1-ED25-4C6B-9D77-1716D1AEA59F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5A66149-AE3C-4673-B858-8933AF867DEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5A66149-AE3C-4673-B858-8933AF867DEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5A66149-AE3C-4673-B858-8933AF867DEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5A66149-AE3C-4673-B858-8933AF867DEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
