@@ -15,7 +15,7 @@ Allowance manager is an application for tracking child allowance and managing it
 
 ## Requirements
 
-- .NET 8
+- .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
 - Azure Cosmos DB account (free tier sufficient, to be configured with shared or serverless throughput)
 - Azure App Registration for OAuth2 authentication
 - Blazor-compatible hosting (Azure App Service, etc.)
