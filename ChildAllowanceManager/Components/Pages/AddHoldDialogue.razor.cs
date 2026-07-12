@@ -32,7 +32,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
         var child = await ChildService.GetChild(Child.Id, Child.TenantId);
         if (child is null)
         {
-            await DialogService.ShowMessageBox(title:"Error", message: "Child not found",
+            await DialogService.ShowMessageBoxAsync(title:"Error", message: "Child not found",
                 yesText: "OK");
             MudDialog.Cancel();
             return;

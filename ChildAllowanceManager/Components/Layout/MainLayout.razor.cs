@@ -63,13 +63,13 @@ public partial class MainLayout
         {
             // system light/dark theme support,
             // based on example from https://crispycode.net/exploring-the-mudthemeprovider-in-mudblazor/
-            _useDarkMode = await _themeProvider.GetSystemPreference();
+            _useDarkMode = await _themeProvider.GetSystemDarkModeAsync();
             _themeConfiguration = new ThemeConfiguration
             {
                 IsDarkMode = _useDarkMode,
                 Theme = _themeProvider.Theme ?? new()
             };
-            await _themeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
+            await _themeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
             StateHasChanged();
         }
     }

@@ -248,7 +248,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         var childToUpdate = await ChildService.GetChild(child.Id, child.TenantId, CancellationToken);
         if (childToUpdate is null)
         {
-            await DialogService.ShowMessageBox(
+            await DialogService.ShowMessageBoxAsync(
                 title: "Error",
                 message: "Child not found",
                 yesText: "OK");

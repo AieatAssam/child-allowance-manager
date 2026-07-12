@@ -16,7 +16,7 @@
         <PackageReference Include="IEvangelist.Azure.CosmosRepository.AspNetCore" Version="10.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="10.0.9" />
         <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
-        <PackageReference Include="MudBlazor" Version="8.3.0" />
+        <PackageReference Include="MudBlazor" Version="9.7.0" />
         <PackageReference Include="Plotly.Blazor" Version="7.1.0" />
         <PackageReference Include="Quartz.AspNetCore" Version="3.18.2" />
     </ItemGroup>
