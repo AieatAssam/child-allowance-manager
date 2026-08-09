@@ -1,5 +1,3 @@
-using Microsoft.Azure.CosmosRepository;
-
 namespace ChildAllowanceManager.Common.Models;
 
 public class TenantConfiguration: BaseItem

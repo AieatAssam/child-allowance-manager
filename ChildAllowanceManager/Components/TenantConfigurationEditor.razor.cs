@@ -31,7 +31,7 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
     
     private async Task OnTenantChanged()
     {
-        await (_form?.Validate() ?? Task.CompletedTask);
+        await (_form?.ValidateAsync() ?? Task.CompletedTask);
         if (_form?.IsValid ?? false)
         {
             await TenantChanged.InvokeAsync(Tenant);

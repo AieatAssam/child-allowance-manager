@@ -4,125 +4,114 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Plotly.Blazor
 
-<PageTitle>Child Allowance Manager</PageTitle>
-<div>
-<MudGrid>
-    <MudItem xs="12" sm="6" md="4">
-    @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
-    {
-        <MudCard Outlined="true"
-                 Elevation="12"
-                 Class="ma-4 pa-2">
-            <MudCardHeader>
-                <MudAvatar Class="mr-3" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Inherit)">@child.Name[0]</MudAvatar>
-                <MudText Typo="Typo.h5">@child.Name</MudText>
-                <MudSpacer></MudSpacer>
-                @if (child.IsBirthday)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.Cake" Color="Color.Success"></MudIcon>
-                }
-            </MudCardHeader>
-            <MudCardContent>
-                <MudText Typo="Typo.h4" 
-                        Color="@(child.Balance > 0 ? Color.Success : Color.Error)"
-                        Class="mb-2 pb-2">@child.Balance.ToString("C2")</MudText>
-                @if (child.HoldDaysRemaining > 0)
-                {
-                    <MudChipSet T="string">
-                        @if (child.HoldDaysRemaining > 3)
-                        {
-                            // heavy hold. Simplify the view
-                            <div style="display: flex; flex-direction: row; align-items: center; gap: 0;">
-                            <AuthorizeView Roles="admin,parent">
-                                <Authorized>
-                                    <MudChip Icon="fa-solid fa-ban"
-                                             IconColor="Color.Error"
-                                             Class="ma-2 px-3"
-                                             OnClose="() => RemoveHoldDay(child)"
-                                             T="string"/>
-                                    <MudText Color="Color.Error">x @child.HoldDaysRemaining</MudText>
-                                </Authorized>
-                                <NotAuthorized>
-                                    <MudChip Icon="fa-solid fa-ban fa-flip"
-                                             IconColor="Color.Error"
-                                             Variant="Variant.Outlined"
-                                             Class="ma-2 px-1"
-                                             T="string"/>
-                                    <MudText Color="Color.Error">x @child.HoldDaysRemaining</MudText>
-                                </NotAuthorized>
-                            </AuthorizeView>
-                            </div>
-                        }
-                        else
-                        {
-                            @for (int i = 0; i < child.HoldDaysRemaining; i++)
+<PageTitle>Allowance dashboard</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
+    <div class="page-heading">
+        <div>
+            <MudText Typo="Typo.overline" Class="page-kicker">Allowance dashboard</MudText>
+            <MudText Typo="Typo.h3" Class="page-title">Your money, your goals</MudText>
+            <MudText Color="Color.Secondary">See what you have saved and what is coming next.</MudText>
+        </div>
+        <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.AutoAwesome">
+            Small steps add up
+        </MudChip>
+    </div>
+
+    <MudGrid Spacing="3">
+        @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
+        {
+            <MudItem xs="12" sm="6" lg="4">
+                <MudCard Class="child-card" Elevation="0" Outlined="true">
+                    <MudCardHeader>
+                        <MudAvatar Class="child-avatar" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Primary)">
+                            @child.Name[0]
+                        </MudAvatar>
+                        <div class="child-card-heading">
+                            <MudText Typo="Typo.h6">@child.Name</MudText>
+                            @if (child.IsBirthday)
                             {
+                                <MudText Typo="Typo.caption" Color="Color.Success">Birthday bonus day 🎂</MudText>
+                            }
+                        </div>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Class="@($"balance-value {(child.Balance < 0 ? "balance-negative" : "balance-positive")}")">
+                            @child.Balance.ToString("C2")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Current balance</MudText>
+
+                        @if (child.HoldDaysRemaining > 0)
+                        {
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-4">
+                                Allowance paused for @child.HoldDaysRemaining day(s).
                                 <AuthorizeView Roles="admin,parent">
                                     <Authorized>
-                                        <MudChip Icon="fa-solid fa-ban"
-                                                 IconColor="Color.Error"
-                                                 Class="ma-2 px-3"
-                                                 OnClose="() => RemoveHoldDay(child)"
-                                                 T="string"/>
+                                        <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => RemoveHoldDay(child)">
+                                            Remove one day
+                                        </MudButton>
                                     </Authorized>
-                                    <NotAuthorized>
-                                        <MudChip Icon="fa-solid fa-ban fa-flip"
-                                                 IconColor="Color.Error"
-                                                 Variant="Variant.Outlined"
-                                                 Class="ma-2 px-1"
-                                                 T="string"/>
-                                    </NotAuthorized>
                                 </AuthorizeView>
-                            }
+                            </MudAlert>
                         }
-                    </MudChipSet>
-                }
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <MudIcon Icon="fa-solid fa-piggy-bank fa-fade" Style="@($"color:{Colors.Yellow.Darken2};")"></MudIcon>
-                    <MudText Typo="Typo.body1">+@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()</MudText>
+
+                        <div class="next-allowance">
+                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Success" />
+                            <div>
+                                <MudText Typo="Typo.body2">Next allowance</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                    <MudCardActions Class="child-card-actions">
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ReceiptLong"
+                                   OnClick="() => ShowTransactionsForChild(child)">
+                            History
+                        </MudButton>
+                        <AuthorizeView Roles="admin,parent">
+                            <Authorized>
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="() => ShowAddFundsForChild(child)">
+                                    Add
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Remove"
+                                           OnClick="() => ShowWithdrawFundsForChild(child)">
+                                    Take out
+                                </MudButton>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" aria-label="More actions">
+                                    <MudMenuItem OnClick="() => ApplyHold(child)" Icon="@Icons.Material.Filled.PauseCircle">
+                                        Pause allowance
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </Authorized>
+                        </AuthorizeView>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+
+        <MudItem xs="12">
+            <MudPaper Class="chart-card" Elevation="0">
+                <div class="chart-heading">
+                    <div>
+                        <MudText Typo="Typo.h5">Balance over time</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Follow each balance and spot progress at a glance.
+                        </MudText>
+                    </div>
+                    <MudTooltip Text="Lines show the balance after each recorded change. A flat section means no money moved.">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Primary" aria-label="Explain the chart" />
+                    </MudTooltip>
                 </div>
-            </MudCardContent>
-            <MudCardActions>
-                <MudTooltip Text="Transactions">
-                    <MudIconButton Icon="fa-solid fa-coins"
-                                   Style="@($"color:{Colors.Yellow.Darken2};")"
-                                   OnClick="() => ShowTransactionsForChild(child)" />
-                </MudTooltip>
-                <AuthorizeView Roles="admin,parent">
-                <Authorized>
-                    <MudTooltip Text="Add Funds">
-                        <MudIconButton Icon="@Icons.Material.Filled.AddCircle"
-                                       Color="Color.Success"
-                                       OnClick="() => ShowAddFundsForChild(child)">
-                            Add
-                        </MudIconButton>
-                    </MudTooltip>
-                    <MudTooltip Text="Withdraw">
-                        <MudIconButton Icon="@Icons.Material.Filled.RemoveCircle"
-                                       Color="Color.Warning"
-                                       OnClick="() => ShowWithdrawFundsForChild(child)">
-                            Withdraw
-                        </MudIconButton>
-                    </MudTooltip>
-                    <MudSpacer/>
-                    <MudTooltip Text="Suspend allowance">
-                        <MudIconButton Icon="fa-solid fa-ban"
-                                       Color="Color.Error"
-                                       OnClick="() => ApplyHold(child)"/>
-                    </MudTooltip>
-                </Authorized>
-                </AuthorizeView>
-            </MudCardActions>
-        </MudCard>
-    }
-    </MudItem>
-    <MudItem xs="12" sm="6" md="8">
-        <div class="pt-4" style="width: 100%; height: 100%; align-content: center;">
-            <PlotlyChart @bind-Config="_plotlyConfig"
-                         @bind-Layout="_plotlyLayout"
-                         @bind-Data="_plotlyData"
-                         @ref="_plotlyChart"/>
-        </div>
-    </MudItem>
-</MudGrid>
-</div>    
+                <div class="chart-frame">
+                    <PlotlyChart @bind-Config="_plotlyConfig"
+                                 @bind-Layout="_plotlyLayout"
+                                 @bind-Data="_plotlyData"
+                                 @ref="_plotlyChart" />
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>

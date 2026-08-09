@@ -1,9 +1,12 @@
-using Microsoft.Azure.CosmosRepository;
+using System.ComponentModel.DataAnnotations;
 
 namespace ChildAllowanceManager.Common.Models;
 
-public abstract class BaseItem : Item
+public abstract class BaseItem
 {
+    [Key]
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+
     public bool Deleted { get; set; } = false;
     
     public DateTimeOffset CreatedTimestamp { get; set; } = DateTimeOffset.UtcNow;

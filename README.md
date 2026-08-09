@@ -16,14 +16,24 @@ Allowance manager is an application for tracking child allowance and managing it
 ## Requirements
 
 - .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
-- Azure Cosmos DB account (free tier sufficient, to be configured with shared or serverless throughput)
+- PostgreSQL 14+ database (the app creates its fresh schema on first start)
 - Azure App Registration for OAuth2 authentication
 - Blazor-compatible hosting (Azure App Service, etc.)
 
 ## Configuration
 
-Configuration is done via `appsettings.json`. Main settings that need to be populated are 
-* **RepositoryOptions__CosmosConnectionString** - connection string to Cosmos DB account
+Configuration is done via `appsettings.json` or environment variables. Main settings that need to be populated are
+* **ConnectionStrings__Postgres** - PostgreSQL connection string
 * **AzureMonitor__ConnectionString** - connection string to Azure Monitor/Application Insights for logging
 
 When deployed to Azure App Service, these settings are configured as Environment Variables.
+
+## Tests
+
+Run the PostgreSQL-backed test suite with Docker:
+
+```bash
+bash scripts/test-postgres.sh
+```
+
+The script starts a fresh PostgreSQL 16 container, runs the full solution test suite, and removes the container and volume afterward.

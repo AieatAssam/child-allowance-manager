@@ -1,20 +1,191 @@
-/*
-	This CSS file matches the color scheme from MudBlazor to Bootstrap when utilized for authentication.
-	The file remains available at all times for demonstration purposes,
-	but it is exclusively employed in the 'App.razor' component when authentication is enabled.
-*/
-
-.btn-primary {
-    text-transform: uppercase;
-    --bs-btn-bg: var(--mud-palette-primary) !important;
-    --bs-btn-hover-bg: var(--mud-palette-primary-darken) !important;
+:root {
+    --app-bg: #f7f8fc;
+    --app-ink: #172033;
+    --app-muted: #5b657a;
+    --app-border: #e5e7ef;
+    --app-primary: #4f46e5;
+    --app-success: #0f766e;
+    --app-shadow: 0 14px 40px rgba(23, 32, 51, .08);
 }
 
-.nav-pills {
-    --bs-nav-pills-link-active-bg: var(--mud-palette-primary) !important;
+html, body {
+    min-width: 320px;
+    background: var(--app-bg);
+    color: var(--app-ink);
+    font-family: "DM Sans", system-ui, sans-serif;
 }
 
-.nav {
-    --bs-nav-link-color: var(--mud-palette-primary) !important;
-    --bs-nav-link-hover-color: var(--mud-palette-primary-darken) !important;
+body {
+    margin: 0;
+}
+
+.app-bar {
+    border-bottom: 1px solid var(--app-border);
+    background: rgba(255, 255, 255, .92) !important;
+    backdrop-filter: blur(14px);
+}
+
+.app-brand,
+.page-title,
+.child-card .mud-typography-h6,
+.chart-card .mud-typography-h5 {
+    font-family: "Nunito", system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+.app-drawer {
+    border-right: 1px solid var(--app-border);
+}
+
+.app-main {
+    min-height: calc(100vh - 64px);
+    padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.page-shell {
+    max-width: 1180px;
+}
+
+.page-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.page-kicker {
+    color: var(--app-primary);
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.page-title {
+    margin: .25rem 0 .5rem;
+}
+
+.child-card,
+.chart-card {
+    border: 1px solid var(--app-border);
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: var(--app-shadow);
+}
+
+.child-card {
+    height: 100%;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.child-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 45px rgba(23, 32, 51, .12);
+}
+
+.child-avatar {
+    font-family: "Nunito", system-ui, sans-serif;
+    font-weight: 800;
+}
+
+.child-card-heading {
+    min-width: 0;
+    margin-left: .75rem;
+}
+
+.balance-value {
+    margin-top: .75rem;
+    font-family: "Nunito", system-ui, sans-serif;
+    font-weight: 800;
+}
+
+.balance-positive {
+    color: var(--app-success);
+}
+
+.balance-negative {
+    color: #b42318;
+}
+
+.next-allowance {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.25rem;
+    padding: .85rem;
+    border-radius: .85rem;
+    background: #f0fdfa;
+}
+
+.child-card-actions {
+    flex-wrap: wrap;
+    gap: .25rem;
+    padding: 1rem;
+    border-top: 1px solid var(--app-border);
+}
+
+.chart-card {
+    padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.chart-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.chart-frame {
+    min-height: 320px;
+    margin-top: 1rem;
+}
+
+.chart-frame > div {
+    min-height: 320px;
+}
+
+@media (max-width: 640px) {
+    .page-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 1.25rem;
+    }
+
+    .page-title {
+        font-size: 2rem;
+    }
+
+    .child-card-actions .mud-button {
+        min-height: 44px;
+    }
+
+    .chart-frame,
+    .chart-frame > div {
+        min-height: 260px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+body.mud-theme-provider-dark {
+    --app-bg: #111827;
+    --app-ink: #f9fafb;
+    --app-muted: #cbd5e1;
+    --app-border: #374151;
+    --app-shadow: 0 14px 40px rgba(0, 0, 0, .2);
+}
+
+body.mud-theme-provider-dark .app-bar,
+body.mud-theme-provider-dark .child-card,
+body.mud-theme-provider-dark .chart-card {
+    background: #1f2937 !important;
+}
+
+body.mud-theme-provider-dark .next-allowance {
+    background: #134e4a;
 }

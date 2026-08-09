@@ -162,6 +162,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             await LocalStorage.SetAsync("current_tenant", _tenantId);
             CurrentContextService.SetCurrentTenant(_tenantId);
             Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
+            _contextUpdated = true;
         }
 
         await SyncChildBalanceHistorySeries();

@@ -10,6 +10,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
+using ChildAllowanceManager.Data;
 using ChildAllowanceManager.Middleware;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
@@ -19,9 +20,8 @@ using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
-using Microsoft.Azure.CosmosRepository.AspNetCore.Extensions;
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
-using Newtonsoft.Json.Linq;
 using Quartz;
 
 // Edit culture to match the desired one
@@ -43,10 +43,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
-builder.Services.AddHealthChecks().AddCosmosRepository();
 builder.Services.AddHttpContextAccessor();
 
 var configuration = builder.Configuration;
+var postgresConnection = configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required.");
+builder.Services.AddDbContext<AllowanceDbContext>(options =>
+    options.UseNpgsql(postgresConnection));
+builder.Services.AddHealthChecks().AddDbContextCheck<AllowanceDbContext>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
@@ -95,7 +99,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                     }
                     else
                     {
-                        identity.AddClaim(new Claim("current_tenant", user.Tenants[0]));
+                        if (user.Tenants.FirstOrDefault() is { } userTenant)
+                            identity.AddClaim(new Claim("current_tenant", userTenant));
                         
                         user.LastLoggedIn = DateTimeOffset.UtcNow;
                         
@@ -127,18 +132,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddHttpClient();
-builder.Services.AddCosmosRepository(options =>
-{
-    // serverless throughput will ensure that shared database throughput is used
-    options.ContainerBuilder.Configure<ChildConfiguration>(config =>
-        config.WithServerlessThroughput());
-    options.ContainerBuilder.Configure<TenantConfiguration>(config =>
-        config.WithServerlessThroughput());
-    options.ContainerBuilder.Configure<AllowanceTransaction>(config =>
-        config.WithServerlessThroughput());
-    options.ContainerBuilder.Configure<User>(config =>
-        config.WithServerlessThroughput());
-});
 
 // scheduling support
 builder.Services.AddTransient<DailyAllowanceJob>();
@@ -182,6 +175,12 @@ builder.Services.AddSingleton<ResponseHeaderMiddleware>();
 builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
 
 var app = builder.Build();
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<AllowanceDbContext>().Database.EnsureCreatedAsync();
+}
+
 app.UseResponseCompression();
 
 app.UseRequestLocalization();

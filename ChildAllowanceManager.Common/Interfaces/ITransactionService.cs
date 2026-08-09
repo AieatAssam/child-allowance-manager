@@ -1,5 +1,4 @@
 using ChildAllowanceManager.Common.Models;
-using Microsoft.Azure.CosmosRepository.Paging;
 
 namespace ChildAllowanceManager.Common.Interfaces;
 
@@ -9,7 +8,7 @@ public interface ITransactionService
         bool ignoreDailyAllowance = false,
         CancellationToken cancellationToken = default);
     
-    ValueTask<IPageQueryResult<AllowanceTransaction>> GetPagedTransactionsForChild(string childId, string tenantId,
+    ValueTask<PagedResult<AllowanceTransaction>> GetPagedTransactionsForChild(string childId, string tenantId,
         int page,
         int pageSize,
         bool ignoreDailyAllowance = false,
@@ -23,4 +22,3 @@ public interface ITransactionService
 
     ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken);
 }
-

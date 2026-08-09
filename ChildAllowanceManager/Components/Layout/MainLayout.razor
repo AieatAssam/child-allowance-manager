@@ -10,9 +10,9 @@
 <MudSnackbarProvider/>
 
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="0" Class="app-bar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())"/>
-        <MudText Typo="Typo.h5" Class="ml-3">Allowance Manager</MudText>
+        <MudText Typo="Typo.h5" Class="ml-3 app-brand">Allowance Manager</MudText>
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
@@ -34,10 +34,10 @@
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer">
         <NavMenu/>
     </MudDrawer>
-    <MudMainContent Class="mt-16 pa-4">
+    <MudMainContent Class="app-main">
         <CascadingValue Value="@_themeConfiguration">
         @Body
         </CascadingValue>

@@ -23,7 +23,7 @@ public partial class ChildConfigurationEditor : CancellableComponentBase
     
     private async Task OnChildChanged()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (_form.IsValid)
         {
             await ChildChanged.InvokeAsync(Child);

@@ -43,7 +43,7 @@ public partial class AddFundsDialogue : CancellableComponentBase
     
     private async Task AddFunds()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
         await TransactionService.AddTransaction(new AllowanceTransaction

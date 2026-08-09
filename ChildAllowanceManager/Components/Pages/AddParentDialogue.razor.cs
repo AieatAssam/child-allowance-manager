@@ -18,7 +18,7 @@ public partial class AddParentDialogue : CancellableComponentBase
 
     private async Task AddParentAsync()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
         var result = await UserService.AddUserToTenantAsync(NewParent.Email, NewParent.Name, TenantId,

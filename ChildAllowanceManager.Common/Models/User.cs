@@ -1,14 +1,11 @@
 using System.ComponentModel;
 using System.Security.Claims;
-using Microsoft.Azure.CosmosRepository;
-using Microsoft.Azure.CosmosRepository.Attributes;
 
 namespace ChildAllowanceManager.Common.Models;
 
-[PartitionKeyPath("/email")]
 public class User : BaseItem
 {
-    private string _email;
+    private string _email = string.Empty;
 
     public string Email
     {
@@ -26,8 +23,4 @@ public class User : BaseItem
 
     public DateTimeOffset? LastLoggedIn { get; set; } = default!;
 
-    protected override string GetPartitionKeyValue()
-    {
-        return _email;
-    }
 }

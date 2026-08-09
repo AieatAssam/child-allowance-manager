@@ -25,7 +25,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
     
     private async Task AddHold()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
         // update child

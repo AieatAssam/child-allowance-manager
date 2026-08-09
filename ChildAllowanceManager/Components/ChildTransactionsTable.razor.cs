@@ -45,12 +45,12 @@ public partial class ChildTransactionsTable : CancellableComponentBase
             var data = await TransactionService.GetPagedTransactionsForChild(
                 Child.Id, 
                 Child.TenantId, 
-                tableState.Page + 1, // ICosmosRepository uses 1-based page numbers and MudBlazor uses 0-based
+                tableState.Page + 1, // the service uses 1-based pages and MudBlazor uses 0-based pages
                 tableState.PageSize, HideRegularTransactions, token);
             return new TableData<AllowanceTransaction>
                 {
                     Items = data.Items,
-                    TotalItems = data.Total ?? data.TotalPages * tableState.PageSize ?? 0
+                    TotalItems = data.Total
                 };
         }
         
