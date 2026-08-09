@@ -11,6 +11,79 @@ namespace ChildAllowanceManager.Tests;
 public class PostgresEndToEndTests
 {
     [Fact]
+    public async Task DevelopmentSeederCreatesReusableDemoWorkspace()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var seeder = new DevelopmentDataSeeder(db);
+
+        await seeder.SeedAsync();
+        await seeder.SeedAsync();
+
+        var tenant = await db.Tenants.SingleAsync(x => x.Id == DevelopmentDataSeeder.TenantId);
+        var user = await db.Users.SingleAsync(x => x.Email == DevelopmentDataSeeder.UserEmail);
+
+        Assert.Equal("demo", tenant.UrlSuffix);
+        Assert.Equal([DevelopmentDataSeeder.TenantId], user.Tenants);
+        Assert.Contains(ValidRoles.Admin, user.Roles);
+        Assert.Contains(ValidRoles.Parent, user.Roles);
+        Assert.Equal(2, await db.Children.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId));
+        Assert.Equal(21, await db.Transactions.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId));
+        Assert.Equal(40m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-1")).Balance);
+        Assert.Equal(3m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-3")).Balance);
+    }
+
+    [Fact]
+    public async Task SeededDemoTenantSupportsParentActionsAndManualDailyWorkerRun()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var (tenants, _, children, transactions) = Services(db, notifications);
+        await new DevelopmentDataSeeder(db).SeedAsync();
+
+        var demo = await tenants.GetTenantBySuffix(DevelopmentDataSeeder.TenantSuffix);
+        Assert.NotNull(demo);
+        var seededChildren = (await children.GetChildrenWithBalance(demo!.Id, default)).ToArray();
+        var alex = seededChildren.Single(x => x.Id == "development-child-1");
+        var sam = seededChildren.Single(x => x.Id == "development-child-2");
+        Assert.Equal(40m, alex.Balance);
+        Assert.Equal(3m, sam.Balance);
+
+        await transactions.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = alex.Id,
+            TenantId = demo.Id,
+            TransactionType = TransactionType.Deposit,
+            TransactionAmount = 7m,
+            Description = "Saved gift"
+        });
+        await transactions.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = sam.Id,
+            TenantId = demo.Id,
+            TransactionType = TransactionType.Withdrawal,
+            TransactionAmount = -1m,
+            Description = "Small treat"
+        });
+        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id));
+        Assert.Equal(2m, await transactions.GetBalanceForChild(sam.Id, demo.Id));
+        Assert.Equal(6, (await transactions.GetPagedTransactionsForChild(
+            sam.Id, demo.Id, 1, 25, ignoreDailyAllowance: true)).Total);
+
+        var alexConfiguration = (await children.GetChild(alex.Id, demo.Id))!;
+        alexConfiguration.HoldDaysRemaining = 1;
+        await children.UpdateChild(alexConfiguration);
+
+        var job = new DailyAllowanceJob(
+            transactions, children, tenants, notifications,
+            NullLogger<DailyAllowanceJob>.Instance);
+        await job.Execute(new TestJobExecutionContext(DateTimeOffset.UtcNow));
+
+        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id));
+        Assert.Equal(5m, await transactions.GetBalanceForChild(sam.Id, demo.Id));
+        Assert.Equal(0, (await children.GetChild(alex.Id, demo.Id))!.HoldDaysRemaining);
+    }
+
+    [Fact]
     public async Task FullLifecycleKeepsServicesAndStoredDataConsistent()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
