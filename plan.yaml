@@ -565,10 +565,10 @@ tasks:
     depends_on: [P04-T2]
     files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
     mutex: transaction-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:36:00Z
+    result: "AddTransaction now recognizes RequestId retries before child validation and resolves concurrent unique-index races by returning the winning row; build and diff checks passed."
 
   - id: P04-T4
     phase: P04

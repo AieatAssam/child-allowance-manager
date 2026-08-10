@@ -4,6 +4,7 @@ using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Data;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ChildAllowanceManager.Services;
 
@@ -113,6 +114,15 @@ public class TransactionService(
             throw new ValidationException("A transaction description is required.");
         ValidateAmount(transaction);
 
+        if (!string.IsNullOrWhiteSpace(transaction.RequestId))
+        {
+            var duplicate = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+                x => x.TenantId == transaction.TenantId && x.RequestId == transaction.RequestId,
+                cancellationToken);
+            if (duplicate is not null)
+                return duplicate;
+        }
+
         var childExists = await db.Children.AnyAsync(
             x => x.Id == transaction.ChildId && x.TenantId == transaction.TenantId && !x.Deleted,
             cancellationToken) || db.Children.Local.Any(
@@ -139,7 +149,22 @@ public class TransactionService(
             + transaction.TransactionAmount;
 
         db.Transactions.Add(transaction);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsRequestIdConflict(ex, transaction.RequestId))
+        {
+            if (ownsTransaction && dbTransaction is not null)
+                await dbTransaction.RollbackAsync(cancellationToken);
+
+            var duplicate = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+                x => x.TenantId == transaction.TenantId && x.RequestId == transaction.RequestId,
+                cancellationToken);
+            if (duplicate is not null)
+                return duplicate;
+            throw;
+        }
         if (ownsTransaction && dbTransaction is not null)
             await dbTransaction.CommitAsync(cancellationToken);
 
@@ -152,6 +177,10 @@ public class TransactionService(
         globalNotificationService.OnChildStateChanged(transaction.ChildId, transaction.TenantId, message);
         return transaction;
     }
+
+    private static bool IsRequestIdConflict(DbUpdateException exception, string? requestId) =>
+        !string.IsNullOrWhiteSpace(requestId) &&
+        exception.InnerException is PostgresException { ConstraintName: "IX_Transactions_TenantId_RequestId" };
 
     private static void ValidateAmount(AllowanceTransaction transaction)
     {
