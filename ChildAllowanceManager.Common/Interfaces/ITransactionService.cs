@@ -25,4 +25,8 @@ public interface ITransactionService
     /// Corrects a past transaction by writing a new reversing transaction.
     ValueTask<AllowanceTransaction> ReverseTransactionAsync(string transactionId, string tenantId, string reason,
         string? requestId, CancellationToken cancellationToken = default);
+
+    /// Full transaction history for one child as RFC 4180 CSV, newest last.
+    ValueTask<string> ExportTransactionsCsvAsync(string childId, string tenantId,
+        CancellationToken cancellationToken = default);
 }

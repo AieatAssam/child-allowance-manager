@@ -179,6 +179,9 @@ internal sealed class RecordingTransactionService : ITransactionService
         string reason, string? requestId, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException();
 
+    public ValueTask<string> ExportTransactionsCsvAsync(string childId, string tenantId,
+        CancellationToken cancellationToken = default) => ValueTask.FromResult(string.Empty);
+
     public ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId,
         DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken) =>
         ValueTask.FromResult<IEnumerable<BalanceHistoryEntry>>([]);

@@ -652,10 +652,10 @@ tasks:
       - ChildAllowanceManager/Services/TransactionService.cs
       - ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
     mutex: transaction-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T23:10:00Z
+    result: "Added invariant, UTC RFC 4180 transaction CSV export with all fields quoted; no UI wiring was added, and diff check passed."
 
   - id: P04-T11
     phase: P04

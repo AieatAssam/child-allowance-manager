@@ -1,4 +1,6 @@
 using System.Data;
+using System.Globalization;
+using System.Text;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Data;
@@ -217,6 +219,35 @@ public class TransactionService(
             RequestId = requestId,
             AllowanceDate = null
         }, cancellationToken);
+    }
+
+    public async ValueTask<string> ExportTransactionsCsvAsync(
+        string childId, string tenantId, CancellationToken cancellationToken = default)
+    {
+        var transactions = await ForChild(childId, tenantId)
+            .OrderBy(x => x.TransactionTimestamp).ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+        var csv = new StringBuilder();
+        AppendRow(csv, "Date", "Type", "Description", "Amount", "Balance", "Actor", "CorrectionOf", "CorrectionReason");
+        foreach (var transaction in transactions)
+        {
+            AppendRow(csv,
+                $"{transaction.TransactionTimestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}Z",
+                transaction.TransactionType.ToString(),
+                transaction.Description,
+                transaction.TransactionAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                transaction.Balance.ToString("0.00", CultureInfo.InvariantCulture),
+                transaction.ActorName,
+                transaction.ReversesTransactionId ?? string.Empty,
+                transaction.CorrectionReason ?? string.Empty);
+        }
+        return csv.ToString();
+    }
+
+    private static void AppendRow(StringBuilder csv, params string[] fields)
+    {
+        csv.AppendJoin(',', fields.Select(field => $"\"{field.Replace("\"", "\"\"")}\""));
+        csv.Append("\r\n");
     }
 
     private static bool IsRequestIdConflict(DbUpdateException exception, string? requestId) =>
