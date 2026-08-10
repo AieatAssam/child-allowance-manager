@@ -428,10 +428,27 @@ button, a, input, select, textarea {
 }
 
 .transactions-dialog-title {
+    position: relative;
     padding: clamp(1.25rem, 4vw, 2.25rem) clamp(1rem, 4vw, 3rem) !important;
     border-bottom: 0 !important;
     background: linear-gradient(135deg, #172554 0%, #0f3d56 58%, #0d9488 100%);
     color: #f8fafc;
+}
+
+.transactions-dialog-close {
+    position: absolute;
+    z-index: 2;
+    top: clamp(.75rem, 2vw, 1.5rem);
+    right: clamp(.75rem, 3vw, 2.5rem);
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: .75rem;
+    color: #fff !important;
+}
+
+.transactions-dialog-close:hover {
+    background: rgba(255, 255, 255, .14);
 }
 
 .transactions-dialog-heading {
@@ -441,6 +458,7 @@ button, a, input, select, textarea {
     gap: 2rem;
     max-width: 1180px;
     margin: 0 auto;
+    padding-right: 3.5rem;
 }
 
 .transactions-dialog-intro {

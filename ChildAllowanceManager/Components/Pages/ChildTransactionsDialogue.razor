@@ -4,6 +4,12 @@
            ContentClass="transactions-dialog-content"
            ActionsClass="transactions-dialog-actions">
     <TitleContent>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       aria-label="Close transaction history"
+                       Class="transactions-dialog-close"
+                       Color="Color.Inherit"
+                       Size="Size.Medium"
+                       OnClick="MudDialog.Cancel" />
         <div class="transactions-dialog-heading">
             <div class="transactions-dialog-intro">
                 <MudText Typo="Typo.overline" Class="transactions-dialog-kicker">Money trail</MudText>
