@@ -10,7 +10,8 @@ namespace ChildAllowanceManager.Services;
 
 public class TransactionService(
     AllowanceDbContext db,
-    IGlobalNotificationService globalNotificationService) : ITransactionService
+    IGlobalNotificationService globalNotificationService,
+    ICurrentContextService? currentContextService = null) : ITransactionService
 {
     private IQueryable<AllowanceTransaction> ForChild(string childId, string tenantId, bool ignoreDailyAllowance = false)
     {
@@ -151,6 +152,9 @@ public class TransactionService(
             if (existing is not null)
                 return existing;
         }
+        transaction.ActorEmail ??= currentContextService?.GetCurrentUserEmail();
+        if (string.IsNullOrWhiteSpace(transaction.ActorName) || transaction.ActorName == "Allowance schedule")
+            transaction.ActorName = currentContextService?.GetCurrentUserName() ?? "Allowance schedule";
         transaction.TransactionTimestamp = DateTimeOffset.UtcNow;
         transaction.CreatedTimestamp = transaction.TransactionTimestamp;
         transaction.UpdatedTimestamp = transaction.TransactionTimestamp;

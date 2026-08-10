@@ -591,10 +591,10 @@ tasks:
       - ChildAllowanceManager.Common/Interfaces/ICurrentContextService.cs
       - ChildAllowanceManager/Program.cs
     mutex: [transaction-service, program-cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:46:00Z
+    result: "Cached authenticated email/name claims in CurrentContextService and attributed transactions, with schedule fallback; AddHttpContextAccessor was already registered, and build/diff checks passed."
 
   - id: P04-T6
     phase: P04

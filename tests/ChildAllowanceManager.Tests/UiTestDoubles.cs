@@ -240,6 +240,8 @@ internal sealed class RecordingCurrentContextService : ICurrentContextService
     public string? GetCurrentTenant() => TenantId;
     public void SetCurrentTenant(string tenantId) => TenantId = tenantId;
     public ValueTask<string?> GetCurrentTenantSuffix() => ValueTask.FromResult<string?>(null);
+    public string? GetCurrentUserEmail() => null;
+    public string GetCurrentUserName() => "Allowance schedule";
 }
 
 internal sealed class DelegatingScopeFactory(IServiceProvider provider) : IServiceScopeFactory
