@@ -120,8 +120,10 @@ public class TransactionService(
         if (!childExists)
             throw new KeyNotFoundException($"Child {transaction.ChildId} was not found in tenant {transaction.TenantId}.");
 
-        await using var dbTransaction = await db.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
+        var ownsTransaction = db.Database.CurrentTransaction is null;
+        await using var dbTransaction = ownsTransaction
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            : null;
         if (transaction.AllowanceDate is not null)
         {
             var existing = await ForChild(transaction.ChildId, transaction.TenantId)
@@ -138,8 +140,10 @@ public class TransactionService(
 
         db.Transactions.Add(transaction);
         await db.SaveChangesAsync(cancellationToken);
-        await dbTransaction.CommitAsync(cancellationToken);
+        if (ownsTransaction && dbTransaction is not null)
+            await dbTransaction.CommitAsync(cancellationToken);
 
+        // ponytail: notification can precede an outer commit; it only triggers a UI reload.
         var message = transaction.TransactionType is TransactionType.DailyAllowance or TransactionType.BirthdayAllowance
             ? $"Added {transaction.TransactionAmount:C} for {transaction.Description.ToLowerInvariant()}"
             : transaction.TransactionType == TransactionType.Hold

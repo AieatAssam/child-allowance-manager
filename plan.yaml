@@ -530,10 +530,10 @@ tasks:
     depends_on: [P03-T7]
     files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
     mutex: transaction-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:25:00Z
+    result: "AddTransaction now enlists in an ambient transaction and only commits transactions it owns; build and diff checks passed, Docker test was unavailable due to socket permissions."
 
   - id: P04-T1
     phase: P04
