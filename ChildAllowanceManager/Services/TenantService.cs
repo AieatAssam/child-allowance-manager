@@ -30,7 +30,7 @@ public class TenantService(
     {
         tenant.UrlSuffix = tenant.UrlSuffix.Trim().ToLowerInvariant();
         await ValidateAsync(tenant, cancellationToken);
-        if (await db.Tenants.AnyAsync(x => x.UrlSuffix == tenant.UrlSuffix, cancellationToken))
+        if (await db.Tenants.AnyAsync(x => x.UrlSuffix == tenant.UrlSuffix && !x.Deleted, cancellationToken))
             throw new InvalidOperationException($"Tenant with url suffix {tenant.UrlSuffix} already exists");
         tenant.CreatedTimestamp = DateTimeOffset.UtcNow;
         tenant.UpdatedTimestamp = tenant.CreatedTimestamp;
@@ -43,7 +43,7 @@ public class TenantService(
     {
         tenant.UrlSuffix = tenant.UrlSuffix.Trim().ToLowerInvariant();
         await ValidateAsync(tenant, cancellationToken);
-        if (await db.Tenants.AnyAsync(x => x.Id != tenant.Id && x.UrlSuffix == tenant.UrlSuffix, cancellationToken))
+        if (await db.Tenants.AnyAsync(x => x.Id != tenant.Id && x.UrlSuffix == tenant.UrlSuffix && !x.Deleted, cancellationToken))
             throw new InvalidOperationException($"Tenant with url suffix {tenant.UrlSuffix} already exists");
         var existing = await db.Tenants.FirstOrDefaultAsync(x => x.Id == tenant.Id && !x.Deleted, cancellationToken)
             ?? throw new KeyNotFoundException($"Tenant {tenant.Id} was not found.");

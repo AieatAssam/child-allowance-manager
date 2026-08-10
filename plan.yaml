@@ -639,10 +639,10 @@ tasks:
     title: Exclude deleted rows from tenant suffix uniqueness checks
     depends_on: [P04-T8]
     files_touched: [ChildAllowanceManager/Services/TenantService.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T23:05:00Z
+    result: "Tenant AddTenant/UpdateTenant uniqueness checks now exclude deleted families; UserService UpsertUserAsync already filters !Deleted, so no change was needed. Diff check passed."
 
   - id: P04-T10
     phase: P04
