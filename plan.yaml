@@ -804,10 +804,10 @@ tasks:
     depends_on: [P06-T5]
     files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
     mutex: children-list-page
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p06
+    updated: 2026-08-10T23:23:01Z
+    result: "Wrapped dashboard loads, history sync, tenant lookup, and hold removal; preserved gates and safe fire-and-forget refresh; diff check passed, dotnet unavailable."
 
   - id: P06-T7
     phase: P06

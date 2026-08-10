@@ -149,7 +149,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 Snackbar.Add($"{child.Name}\r\n{e.NotificationMessage}", Severity.Info);
             }
         }
-        this.InvokeAsync(async () => await ReloadChildren());
+        _ = InvokeAsync(async () => await ReloadChildren());
     }
 
     protected override async Task OnParametersSetAsync()
@@ -170,9 +170,15 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 await _dataGate.WaitAsync(CancellationToken);
                 try
                 {
-                    await using var scope = ServiceScopeFactory.CreateAsyncScope();
-                    var isolatedTenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
-                    tenant = await isolatedTenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+                    tenant = null;
+                    var tenantOutcome = await RunAsync(async () =>
+                    {
+                        await using var scope = ServiceScopeFactory.CreateAsyncScope();
+                        var isolatedTenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
+                        tenant = await isolatedTenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+                    });
+                    if (!tenantOutcome.Succeeded)
+                        return;
                 }
                 finally
                 {
@@ -275,7 +281,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             await using var scope = ServiceScopeFactory.CreateAsyncScope();
             var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
-            Children = (await isolatedChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
+            ChildWithBalance[]? loaded = null;
+            var outcome = await RunAsync(async () =>
+                loaded = (await isolatedChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray());
+            if (!outcome.Succeeded)
+                return;
+
+            Children = loaded!;
             _balanceHistoryNeedsSync = true;
             StateHasChanged();
         }
@@ -297,10 +309,14 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             await using var scope = ServiceScopeFactory.CreateAsyncScope();
             var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
-            var balanceHistory = await isolatedChildService.GetChildrenWithBalanceHistory(
-                _tenantId, null, null, CancellationToken);
+            ChildWithBalance[]? balanceHistory = null;
+            var outcome = await RunAsync(async () => balanceHistory = (await isolatedChildService.GetChildrenWithBalanceHistory(
+                _tenantId, null, null, CancellationToken)).ToArray());
+            if (!outcome.Succeeded)
+                return;
+
             var traces = new List<ITrace>();
-            foreach (var (child, index) in balanceHistory.Select((child, index) => (child, index)))
+            foreach (var (child, index) in balanceHistory!.Select((child, index) => (child, index)))
             {
                 string chartColor = ChartColors[index % ChartColors.Length];
                 traces.Add(new Plotly.Blazor.Traces.Scatter
@@ -380,18 +396,12 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task RemoveHoldDay(ChildWithBalance child)
     {
-        var childToUpdate = await ChildService.GetChild(child.Id, child.TenantId, CancellationToken);
-        if (childToUpdate is null)
-        {
-            await DialogService.ShowMessageBoxAsync(
-                title: "Error",
-                message: "Child not found",
-                yesText: "OK");
-            return;
-        }
-        childToUpdate.HoldDaysRemaining--;
-        await ChildService.UpdateChild(childToUpdate, CancellationToken);
-        await ReloadChildren();
+        var outcome = await RunAsync(
+            async () => await ChildService.RemoveHoldDayAsync(
+                child.Id, child.TenantId, requestId: null, CancellationToken),
+            successMessage: $"One held day removed for {child.Name}.");
+        if (outcome.Succeeded)
+            await ReloadChildren();
     }
 
     public override void Dispose()
