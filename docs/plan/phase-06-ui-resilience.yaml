@@ -1,0 +1,328 @@
+phase: P06
+title: Error containment, busy states, success confirmations, preserved input
+covers: [A-P1-6, A-P1-5 (UI half), A-A11Y-6, A-P2-DI-6, A-VD-4 (success + preserved values)]
+read_before_starting: [plan.yaml]
+context: >
+  Every page and dialog calls services directly with no try/catch. AddFundsDialogue,
+  WithdrawFundsDialogue and AddHoldDialogue call AddTransaction then MudDialog.Close() with no
+  busy state, no disabled submit and no confirmation. AdministrationPage and ChildManagementPage
+  call TenantService/ChildService straight from event handlers. A ValidationException, a duplicate
+  suffix, a database blip or a circuit reconnect escapes into the Blazor circuit and kills it.
+  MudBlazor's ISnackbar is already registered via AddMudServices and already used by
+  ChildrenListPage for notifications - reuse it, do not add a notification library.
+
+tasks:
+
+  - id: P06-T1
+    title: Shared operation wrapper for service calls
+    files_touched:
+      - ChildAllowanceManager/Components/OperationRunner.cs
+      - ChildAllowanceManager/Components/CancellableComponentBase.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    steps:
+      - file: ChildAllowanceManager/Components/OperationRunner.cs
+        create_with_api: |
+          namespace ChildAllowanceManager.Components;
+
+          public sealed record OperationOutcome(bool Succeeded, string? ErrorMessage)
+          {
+              public static readonly OperationOutcome Success = new(true, null);
+          }
+
+          /// Runs a service call with uniform error handling, so no page has to write its own
+          /// try/catch and no exception reaches the Blazor circuit.
+          public sealed class OperationRunner(ISnackbar snackbar, ILogger<OperationRunner> logger)
+          {
+              public Task<OperationOutcome> RunAsync(
+                  Func<Task> action,
+                  string? successMessage = null,
+                  string failureMessage = "Something went wrong. Nothing was changed.",
+                  CancellationToken cancellationToken = default);
+
+              public Task<(OperationOutcome Outcome, T? Value)> RunAsync<T>(
+                  Func<Task<T>> action,
+                  string? successMessage = null,
+                  string failureMessage = "Something went wrong. Nothing was changed.",
+                  CancellationToken cancellationToken = default);
+          }
+        behaviour: |
+          - On success: if successMessage is non-null, snackbar.Add(successMessage, Severity.Success).
+            Return OperationOutcome.Success.
+          - FluentValidation.ValidationException -> snackbar.Add(joined error messages, Severity.Warning),
+            logger.LogInformation. Return failure with the joined message. These are the user's
+            mistakes, not faults - never show the generic failureMessage for them.
+          - InvalidOperationException and KeyNotFoundException -> snackbar.Add(ex.Message, Severity.Warning),
+            logger.LogWarning. These already carry user-meaningful text ("Tenant with url suffix x
+            already exists", "Child ... was not found").
+          - OperationCanceledException when cancellationToken.IsCancellationRequested -> swallow
+            silently, return failure with a null message. The component is being disposed; a
+            snackbar on a dead circuit is noise.
+          - Any other Exception -> logger.LogError(ex, ...), snackbar.Add(failureMessage, Severity.Error).
+            Never surface the raw exception text - it can carry connection strings.
+        rules:
+          - "Never rethrow. The whole point is that the circuit survives."
+          - "Do not swallow the exception silently - the log call is mandatory."
+      - file: ChildAllowanceManager/Program.cs
+        add: 'builder.Services.AddScoped<OperationRunner>();'
+        placement: 'Alongside the other AddScoped registrations, after `builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();`'
+      - file: ChildAllowanceManager/Components/CancellableComponentBase.cs
+        add: |
+          [Inject] protected OperationRunner Operations { get; set; } = default!;
+
+          /// True while a user-initiated operation is running. Bind submit buttons to
+          /// Disabled="@IsBusy" so a double click cannot fire twice.
+          protected bool IsBusy { get; private set; }
+
+          protected async Task<OperationOutcome> RunAsync(
+              Func<Task> action, string? successMessage = null,
+              string failureMessage = "Something went wrong. Nothing was changed.")
+          {
+              if (IsBusy) return new OperationOutcome(false, null);
+              IsBusy = true;
+              StateHasChanged();
+              try
+              {
+                  return await Operations.RunAsync(action, successMessage, failureMessage, CancellationToken);
+              }
+              finally
+              {
+                  IsBusy = false;
+                  StateHasChanged();
+              }
+          }
+        rules:
+          - "`[Inject]` on a base class works for components that inherit it. Every page and dialog in this app already inherits CancellableComponentBase except MainLayout and NavMenu."
+          - "The IsBusy re-entrancy guard is the idempotency defence on the UI side. Do not remove it when P06-T3 adds request ids - they are complementary, not redundant."
+    check: 'Leave one runnable check - a bunit test in P06-T7 asserting that a service throwing InvalidOperationException produces a snackbar and does NOT propagate.'
+    acceptance:
+      - "`dotnet build` exits 0"
+    commit: "feat(ui): add a shared operation wrapper for service calls"
+
+  - id: P06-T2
+    title: Application-level error boundary
+    files_touched:
+      - ChildAllowanceManager/Components/Routes.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+      - ChildAllowanceManager/Components/Pages/Error.razor
+    steps:
+      - file: ChildAllowanceManager/Components/Layout/MainLayout.razor
+        anchor: |-
+              <MudMainContent id="main-content" tabindex="-1" Class="app-main">
+                  <CascadingValue Value="@_themeConfiguration">
+                  @Body
+                  </CascadingValue>
+              </MudMainContent>
+        replace_with: |
+              <MudMainContent id="main-content" tabindex="-1" Class="app-main">
+                  <CascadingValue Value="@_themeConfiguration">
+                      <ErrorBoundary @ref="_errorBoundary">
+                          <ChildContent>@Body</ChildContent>
+                          <ErrorContent>
+                              <div class="page-shell">
+                                  <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                                      <MudText Typo="Typo.h6" HtmlTag="h1">This page could not be shown</MudText>
+                                      <MudText Typo="Typo.body2" Class="mt-2">
+                                          Nothing was changed. Try again, or go back to your families.
+                                      </MudText>
+                                      <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary"
+                                                 OnClick="RecoverFromError">Try again</MudButton>
+                                      <MudButton Class="mt-4 ml-2" Href="/">Back to families</MudButton>
+                                  </MudAlert>
+                              </div>
+                          </ErrorContent>
+                      </ErrorBoundary>
+                  </CascadingValue>
+              </MudMainContent>
+      - file: ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+        add: |
+          private ErrorBoundary? _errorBoundary;
+
+          private void RecoverFromError() => _errorBoundary?.Recover();
+        note: 'MainLayout.razor.cs is in this task''s files_touched list. P12-T2 also edits it, ordered after this task by depends_on.'
+      - >
+        Reset the boundary on navigation, otherwise a caught error sticks across page changes.
+        Override OnParametersSet in MainLayout.razor.cs to call `_errorBoundary?.Recover()`.
+      - file: ChildAllowanceManager/Components/Pages/Error.razor
+        change: >
+          Read it first. It is the target of `app.UseExceptionHandler("/Error")` in Program.cs and
+          of the `Navigation.NavigateTo("/error/404")` calls in ChildrenListPage and
+          ChildManagementPage - but no route matches "/error/404" today. Add
+          `@page "/error"` and `@page "/error/{Code?}"` with a `[Parameter] public string? Code`,
+          rendering "That page does not exist." for Code == "404" and a generic message otherwise.
+          P11-T7 owns the final copy and styling; here just make the route resolve.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Navigating to /error/404 renders a page rather than a blank router miss."
+      - "A component that throws during render shows the boundary content instead of terminating the circuit."
+    commit: "feat(ui): contain render errors behind an application error boundary"
+
+  - id: P06-T3
+    title: Money dialogs — busy state, disabled submit, request id, success snackbar, preserved input
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor.cs
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+    pattern_apply_to_all_three: |
+      In the .razor.cs:
+        // One id per dialog instance. A retry of the same intent reuses it; a new dialog gets a new one.
+        private readonly string _requestId = Guid.NewGuid().ToString("N");
+
+      Rewrite the submit handler as:
+        private async Task AddFunds()   // WithdrawFunds / AddHold respectively
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
+
+            var outcome = await RunAsync(
+                async () => await TransactionService.AddTransaction(new AllowanceTransaction
+                {
+                    Description = Description,
+                    TransactionAmount = Amount,          // -Amount for withdraw
+                    TenantId = Child.TenantId,
+                    ChildId = Child.Id,
+                    TransactionType = TransactionType.Deposit,   // Withdrawal / handled by ApplyHoldAsync
+                    RequestId = _requestId
+                }, CancellationToken),
+                successMessage: $"Added {Amount:C2} to {Child.Name}.");
+
+            if (outcome.Succeeded)
+                MudDialog.Close();
+            // On failure the dialog STAYS OPEN with Amount and Description intact.
+            // That is the "preserve entered values" requirement - do not reset them.
+        }
+
+      AddHoldDialogue calls ChildService.ApplyHoldAsync(Child.Id, Child.TenantId, Days,
+      Description, _requestId, CancellationToken) instead, with
+      successMessage: $"Allowance paused for {Days} day(s)."
+
+      In the .razor, on the submit button only:
+        Disabled="@IsBusy"
+      and add a busy indicator:
+        @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
+    success_messages:
+      add_funds: '$"Added {Amount:C2} to {Child.Name}."'
+      withdraw: '$"Withdrew {Amount:C2} from {Child.Name}."'
+      hold: '$"Allowance paused for {Days} day(s)."'
+    rules:
+      - "Do NOT put the request id in a field the user can see or edit."
+      - "Do NOT regenerate _requestId on retry. Regenerating it defeats the whole mechanism."
+      - "Keep MudDialog.Cancel on the cancel button unchanged."
+      - "The Cancel button must also carry Disabled=\"@IsBusy\" so a user cannot dismiss mid-write and be left unsure whether it landed."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P06-T7."
+    commit: "fix(money): make deposit, withdrawal and hold safe to double-click"
+
+  - id: P06-T4
+    title: Overdraw confirmation in the withdraw dialog
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
+    implements: decisions.D1_negative_balances
+    steps:
+      - >
+        Add a computed `private decimal ResultingBalance => Child.Balance - Amount;` and
+        `private bool WillOverdraw => ResultingBalance < 0;`.
+      - >
+        In the .razor, always show the resulting balance below the amount field -
+        `<MudText Typo="Typo.body2">New balance: @ResultingBalance.ToString("C2")</MudText>`.
+        When WillOverdraw, render a MudAlert Severity="Severity.Warning" reading
+        "This takes @Child.Name below zero, to @ResultingBalance.ToString("C2")." plus a
+        MudCheckBox bound to `_overdrawAcknowledged` labelled "I know, continue anyway".
+      - "The submit button gains `Disabled=\"@(IsBusy || (WillOverdraw && !_overdrawAcknowledged))\"`."
+      - "`_overdrawAcknowledged` resets to false whenever Amount changes such that WillOverdraw becomes false, so a user cannot pre-tick it and then raise the amount. Implement by resetting it in the Amount setter."
+      - "No service-level block. A negative balance is a legitimate product state per D1."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P06-T7."
+    commit: "feat(money): confirm before a withdrawal takes a balance below zero"
+
+  - id: P06-T5
+    title: Management pages routed through the operation wrapper
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+    steps:
+      - >
+        Wrap every direct service call in RunAsync. Sites in AdministrationPage.razor.cs -
+        AddTenant, DeleteTenant, ReloadTenants, UpdateTenant. In ChildManagementPage.razor.cs -
+        AddChild, DeleteChild, ReloadChildren, UpdateChild, and the GetTenantBySuffix call in
+        OnParametersSetAsync. In AddParentDialogue.razor.cs - AddParentAsync.
+      - >
+        Success messages - "Family added.", "Family updated.", "Family removed. You can restore
+        it from the deleted list.", "Child added.", "Child updated.", "Child removed. A parent
+        can restore them.", "Parent added."
+      - >
+        Reload calls (ReloadTenants, ReloadChildren) get successMessage: null - a silent refresh
+        must not fire a snackbar.
+      - >
+        On a failed add or update, do NOT call the reload path that resets NewTenant/NewChild to
+        a fresh instance. The user's typed values must survive. Restructure so ReloadTenants is
+        only invoked after outcome.Succeeded.
+      - "Disable the Save/Delete/Add buttons in the corresponding .razor files with Disabled=\"@IsBusy\". Those .razor files belong to P10-T5 and P11-T5 for layout; adding a Disabled attribute here is a one-attribute change and does not conflict - the tasks are ordered by depends_on."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Adding a family with a duplicate URL suffix shows a warning snackbar carrying the service's message, leaves the form populated, and does not kill the circuit."
+    commit: "fix(ui): contain service errors on the management pages"
+
+  - id: P06-T6
+    title: Dashboard page routed through the operation wrapper
+    files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
+    mutex: children-list-page
+    steps:
+      - "Wrap ReloadChildren, SyncChildBalanceHistorySeries, RemoveHoldDay and the GetTenantBySuffix call in OnParametersSetAsync in RunAsync."
+      - >
+        RemoveHoldDay currently does GetChild -> decrement -> UpdateChild -> ReloadChildren.
+        Replace the whole body with a RunAsync around
+        ChildService.RemoveHoldDayAsync(child.Id, child.TenantId, requestId: null, CancellationToken)
+        followed by ReloadChildren() on success, successMessage
+        $"One held day removed for {child.Name}."
+      - >
+        ChildStateChangedNotification calls `this.InvokeAsync(async () => await ReloadChildren());`
+        as fire-and-forget. An exception there is unobserved. Change it to
+        `_ = InvokeAsync(async () => await ReloadChildren());` with ReloadChildren itself already
+        wrapped - the wrapper is what makes the fire-and-forget safe.
+      - >
+        The existing `_dataGate` and `_parametersGate` semaphores stay. Note the interaction -
+        RunAsync sets IsBusy and calls StateHasChanged; that is safe inside the gates because
+        StateHasChanged does not await. Do not move the gate acquisition inside RunAsync.
+      - "Do not touch ChildrenListPage.razor in this task. Copy and markup belong to P10 and P11."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P06-T7."
+    commit: "fix(ui): contain service errors on the dashboard"
+
+  - id: P06-T7
+    title: UI resilience tests
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/UiResilienceTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    create_file: tests/ChildAllowanceManager.Tests/UiResilienceTests.cs
+    setup_note: >
+      Use BunitTestContext.Create(). The context must also register the OperationRunner and an
+      ISnackbar - AddMudServices supplies ISnackbar already. Register
+      `context.Services.AddScoped<OperationRunner>()`. Extend UiTestDoubles.cs with a
+      `ThrowingTransactionService` and a `ThrowingTenantService` that raise a configurable
+      exception, following the existing RecordingTenantService style in that file.
+    required_tests:
+      - Service_exception_shows_a_snackbar_and_does_not_propagate
+      - Validation_exception_shows_its_own_message_not_the_generic_one
+      - Failed_deposit_keeps_the_dialog_open_with_the_typed_amount_and_description
+      - Successful_deposit_closes_the_dialog_and_shows_a_success_snackbar
+      - Submit_button_is_disabled_while_the_operation_runs
+      - Two_rapid_submits_produce_one_service_call — assert the recording double saw exactly one AddTransaction.
+      - Both_submits_carry_the_same_request_id — assert the RequestId on the recorded transaction is non-empty and stable across a retry after a failure.
+      - Withdraw_below_zero_requires_the_acknowledgement_checkbox
+      - Withdraw_shows_the_resulting_balance_before_submitting
+      - Duplicate_family_suffix_leaves_the_administration_form_populated
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p06t7 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All ten tests exist and pass."
+    commit: "test(ui): cover error containment, busy states and idempotent submits"

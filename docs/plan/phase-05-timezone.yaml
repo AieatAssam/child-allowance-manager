@@ -1,0 +1,216 @@
+phase: P05
+title: Tenant timezone scheduling and display
+covers: [A-P1-8, A-FO-configurable-schedule-and-timezone, A-VD-4 (exact dates)]
+read_before_starting: [plan.yaml]
+context: >
+  Today the Quartz trigger fires once per day at 00:01 UTC
+  (`CronScheduleBuilder.DailyAtHourAndMinute(0, 1).InTimeZone(TimeZoneInfo.Utc)`), the job dates
+  every payment by `context.ScheduledFireTimeUtc.UtcDateTime.Date`, ChildService computes
+  `nextDate = now.Date.AddDays(1 + HoldDaysRemaining)` in UTC, and the dashboard renders
+  `child.NextRegularChangeDate.ToLocalTime().Humanize()` - the SERVER's local zone. There is no
+  per-family timezone. P03-T2 added TenantConfiguration.TimeZoneId.
+known_defect_to_fix_here: >
+  The next-allowance date always starts from tomorrow even when today's allowance has not yet
+  been paid, and the birthday-amount branch can show a birthday amount against a non-birthday
+  date. Both are fixed in P05-T3.
+
+tasks:
+
+  - id: P05-T1
+    title: Hourly Quartz trigger replacing the fixed UTC-midnight trigger
+    files_touched: [ChildAllowanceManager/Program.cs]
+    mutex: program-cs
+    steps:
+      - file: ChildAllowanceManager/Program.cs
+        anchor: |-
+              q.AddTrigger(opts => opts
+                  .ForJob(jobKey)
+                  .WithIdentity($"{nameof(DailyAllowanceJob)}-trigger")
+                  .WithDescription("Minute past midnight")
+                  .WithCronSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 1).InTimeZone(TimeZoneInfo.Utc)
+                      .WithMisfireHandlingInstructionFireAndProceed()));
+        replace_with: |
+              // Families choose their own time zone, so the job wakes every hour and pays only
+              // the families whose local day has just started. The job is idempotent per
+              // (child, allowance date), so extra wake-ups are harmless.
+              q.AddTrigger(opts => opts
+                  .ForJob(jobKey)
+                  .WithIdentity($"{nameof(DailyAllowanceJob)}-trigger")
+                  .WithDescription("Hourly; pays each family at its own local 00:01")
+                  .WithCronSchedule("0 1 * * * ?", x => x
+                      .InTimeZone(TimeZoneInfo.Utc)
+                      .WithMisfireHandlingInstructionFireAndProceed()));
+    rules:
+      - "Quartz cron is 6 or 7 fields (seconds first). `0 1 * * * ?` means second 0, minute 1, every hour."
+      - "[DisallowConcurrentExecution] on DailyAllowanceJob already prevents overlap. Keep it."
+      - "Do NOT remove WithMisfireHandlingInstructionFireAndProceed - a restart must not skip a day."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "The app starts and Quartz logs the trigger with a next-fire time within the next hour."
+    commit: "feat(schedule): wake the allowance job hourly for per-family time zones"
+
+  - id: P05-T2
+    title: Tenant-local allowance date resolution in DailyAllowanceJob
+    files_touched: [ChildAllowanceManager/Workers/DailyAllowanceJob.cs]
+    steps:
+      - file: ChildAllowanceManager/Workers/DailyAllowanceJob.cs
+        anchor: 'var scheduledDate = (context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow).UtcDateTime.Date;'
+        change: |
+          Move the date computation OUT of the per-child loop and up into the per-tenant loop,
+          because it now depends on the tenant:
+
+            var fireTimeUtc = context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow;
+            var zone = ResolveZone(tenant.TimeZoneId);
+            var tenantLocalNow = TimeZoneInfo.ConvertTime(fireTimeUtc, zone);
+            // Pay only in the hour that starts the family's local day.
+            if (tenantLocalNow.Hour != 0)
+                continue;
+            var scheduledDate = tenantLocalNow.Date;
+
+          Add a private static helper:
+
+            private static TimeZoneInfo ResolveZone(string? id)
+            {
+                if (!string.IsNullOrWhiteSpace(id) &&
+                    TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone))
+                    return zone;
+                return TimeZoneInfo.Utc;
+            }
+
+          Log a warning once per tenant when the id fails to resolve - an unknown zone must not
+          stop every other family from being paid.
+      - >
+        The `continue` skips the hold processing too. That is correct - holds must decrement once
+        per local day, not once per hour. ProcessHoldForTenantAsync stays inside the same guarded
+        block, at the end of the tenant iteration, exactly where it is now.
+      - >
+        Replace the `latestRegular?.TransactionTimestamp.UtcDateTime.Date >= scheduledDate` check
+        with a comparison on AllowanceDate, which is the field that actually represents the day
+        being paid for. TransactionTimestamp is a wall-clock UTC instant, and comparing it to a
+        tenant-local date is the bug that produces double or missed payments near a zone boundary.
+        Write the replacement as `(latestRegular?.AllowanceDate >= scheduledDate) == true` -
+        AllowanceDate is `DateTime?` so the null-conditional makes the expression `bool?`, which
+        does not compile in a boolean context, and `== true` gives null the right meaning
+        ("not yet paid"). Keep the `HoldDaysRemaining > 0` half of the condition unchanged.
+      - >
+        ProcessHoldForTenantAsync currently calls childService.UpdateChild, which runs the full
+        FluentValidation validator and emits a notification per child. Switch it to
+        childService.RemoveHoldDayAsync (added in P04-T1) so the decrement and its audit row are
+        atomic. Pass requestId - `$"hold-decrement:{child.Id}:{scheduledDate:yyyy-MM-dd}"` - so a
+        retried job run cannot double-decrement.
+      - "Change the two logger calls from interpolated-string overloads to structured templates - `logger.LogWarning(\"Skipping daily allowance for {Child}; held or already paid for {Date:yyyy-MM-dd}\", child.Name, scheduledDate)`. Interpolation defeats structured logging."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P05-T5."
+    commit: "fix(schedule): pay each family on its own local day"
+
+  - id: P05-T3
+    title: Tenant-local next-allowance calculation in ChildService
+    files_touched:
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Models/ChildWithBalance.cs
+    steps:
+      - file: ChildAllowanceManager/Services/ChildService.cs
+        anchor: |-
+                      var now = DateTimeOffset.UtcNow;
+                      var balance = latest?.Balance ?? 0m;
+                      var nextDate = new DateTimeOffset(
+                          now.Date.AddDays(1 + child.HoldDaysRemaining), TimeSpan.Zero);
+        change: |
+          GetChildrenWithBalance must resolve the tenant's zone ONCE before the child loop
+          (inject ITenantService or query db.Tenants directly - ChildService already has `db`,
+          so `await db.Tenants.AsNoTracking().Where(x => x.Id == tenantId)
+              .Select(x => x.TimeZoneId).FirstOrDefaultAsync(ct)` avoids a new dependency).
+
+          Then, per child:
+            var zone   = ResolveZone(tenantTimeZoneId);          // same helper shape as P05-T2
+            var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+            var today  = localNow.Date;
+
+            // Today still counts if today's allowance has not been paid yet.
+            var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
+                child.Id, tenantId, cancellationToken);
+            var paidToday = (latestRegular?.AllowanceDate >= today) == true;  // bool?, same as P05-T2
+            var firstEligible = paidToday ? today.AddDays(1) : today;
+            var nextLocalDate = firstEligible.AddDays(child.HoldDaysRemaining);
+
+            var nextIsBirthday = child.BirthDate is not null &&
+                                 SameDayInYear(nextLocalDate, child.BirthDate.Value.Date);
+            var isBirthday = child.BirthDate is not null && SameDayInYear(today, child.BirthDate.Value.Date);
+
+            NextRegularChange = nextIsBirthday && child.BirthdayAllowance is not null
+                ? child.BirthdayAllowance.Value
+                : child.RegularAllowance;
+            NextRegularChangeDate = new DateTimeOffset(nextLocalDate, zone.GetUtcOffset(nextLocalDate));
+        fixes:
+          - "The old `nextIsBirthday` ORed in `(HoldDaysRemaining == 0 && isBirthday)`, which could pair a birthday AMOUNT with a non-birthday DATE. The new form derives both from nextLocalDate alone. That is the audit's 'birthday amount with a tomorrow date' defect."
+          - "The old calculation always started at tomorrow. It now starts at today when today is unpaid."
+      - file: ChildAllowanceManager.Common/Models/ChildWithBalance.cs
+        add: |
+          /// IANA zone id of the family, so the UI can render an exact local date without
+          /// guessing the server's zone.
+          public string TimeZoneId { get; set; } = "Europe/London";
+
+          /// The family's local calendar date of the next allowance. Render this, not a
+          /// server-local conversion.
+          public DateOnly NextRegularChangeLocalDate { get; set; }
+        note: 'Read ChildWithBalance.cs first - if it is a record rather than a class with settable properties, extend it in whichever form it already uses.'
+      - >
+        The dashboard currently renders
+        `@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()`.
+        Do NOT change ChildrenListPage.razor here - it is under the children-list-page mutex and
+        P10-T3 owns its copy. Instead leave the new fields populated and correct; P10-T3 renders
+        `£5 on Tuesday, 15 July` from NextRegularChangeLocalDate with the Humanized form as a
+        secondary label.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P05-T5."
+    commit: "fix(allowance): compute the next allowance in the family's time zone"
+
+  - id: P05-T4
+    title: Timezone editor in the tenant configuration form
+    files_touched:
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor.cs
+    steps:
+      - "Read TenantConfigurationEditor.razor first and match its existing field markup (MudTextField usage, ReadOnly parameter handling, label style)."
+      - >
+        Add a MudSelect<string> bound to Tenant.TimeZoneId, labelled "Time zone", with helper text
+        "Allowances are paid just after midnight in this zone." It must respect the component's
+        existing ReadOnly parameter exactly as the other fields do.
+      - >
+        Populate options from `TimeZoneInfo.GetSystemTimeZones()` ordered by BaseUtcOffset then
+        DisplayName, using `Id` as the value and `DisplayName` as the label. Compute the list once
+        in a `private static readonly` field - it does not change at runtime.
+      - "The default for a new family is \"Europe/London\" (set by the model default and the column default). Do not add a second source of that default in the component."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "A bunit render of TenantConfigurationEditor shows a Time zone control, and with ReadOnly=true it is not editable. Add that assertion to tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs."
+    commit: "feat(settings): let a family choose its time zone"
+
+  - id: P05-T5
+    title: Timezone tests
+    files_touched: [tests/ChildAllowanceManager.Tests/TimezoneTests.cs]
+    create_file: tests/ChildAllowanceManager.Tests/TimezoneTests.cs
+    exclusive_resources: [postgres-test-db]
+    required_tests:
+      - name: Job_pays_a_Pacific_family_at_its_own_local_midnight_not_utc
+        does: "Tenant with TimeZoneId \"America/Los_Angeles\". Drive DailyAllowanceJob with a fake IJobExecutionContext whose ScheduledFireTimeUtc is 08:01 UTC (00:01 local in PST) and assert one DailyAllowance transaction exists with AllowanceDate equal to the local date. Then drive it at 00:01 UTC and assert no new transaction."
+      - name: Job_skips_families_outside_their_local_first_hour
+      - name: Unknown_timezone_id_falls_back_to_utc_and_does_not_stop_other_tenants
+        does: Two tenants, one with TimeZoneId "Not/AZone"; assert the valid tenant is still paid.
+      - name: Next_allowance_is_today_when_today_is_unpaid
+      - name: Next_allowance_is_tomorrow_when_today_is_already_paid
+      - name: Next_allowance_skips_held_days
+      - name: Birthday_amount_only_appears_when_the_next_date_is_the_birthday
+        does: Child whose birthday is today but with HoldDaysRemaining = 3; assert NextRegularChange equals RegularAllowance, not BirthdayAllowance.
+      - name: Hold_decrement_is_idempotent_across_two_job_runs_in_the_same_local_day
+    fake_job_context_note: >
+      Quartz's IJobExecutionContext is an interface. Write a minimal test double in this file
+      implementing only ScheduledFireTimeUtc and CancellationToken and throwing
+      NotSupportedException from everything else, rather than adding a mocking library. The test
+      project has no mocking package and must not gain one.
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p05t5 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All eight tests exist and pass."
+    commit: "test(schedule): cover per-family time zone scheduling and next-allowance dates"

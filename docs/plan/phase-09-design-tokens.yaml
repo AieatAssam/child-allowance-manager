@@ -1,0 +1,290 @@
+phase: P09
+title: Brand source of truth — tokens, palette, typography, assets
+covers: [A-BR-1, A-BR-3, A-BR-4, A-VD-1, A-VD-2, A-A11Y-10]
+read_before_starting: [plan.yaml]
+context: >
+  There is no brand source of truth. Colour lives in four unrelated places -
+  ThemeConfiguration.cs (indigo #4F46E5 / orange #F97316 / teal #0F766E), app.css
+  (navy app bar #172554, pink #ff71ce, yellow #ffce5c, coral #c24132, teal #0d9488),
+  ChildrenListPage.razor.cs ChartColors (#8B5CF6, #F59E0B, #14B8A6, #EC4899), and the
+  transaction dialog's own dark gradient. Typography is DM Sans + Nunito loaded from
+  fonts.googleapis.com and repeated by hand in five CSS rules.
+  This phase creates the single source. Phase 10 consumes it. Do not restyle components here.
+
+# ===========================================================================
+# THE PALETTE. These values are FINAL. Do not substitute, tune or extend.
+# ===========================================================================
+palette:
+  light:
+    --al-paper: "#FCFAF5"      # page background
+    --al-surface: "#FFFFFF"    # cards, dialogs, drawers
+    --al-surface-sunken: "#F5F2EA"  # table headers, toolbars, inset panels
+    --al-ink: "#20242D"        # primary text
+    --al-ink-muted: "#5C5F6B"  # secondary text; 5.9:1 on paper
+    --al-primary: "#675184"    # plum; 6.3:1 on paper
+    --al-primary-strong: "#54406E"  # hover/active
+    --al-positive: "#32735F"   # moss; 5.4:1 on paper
+    --al-negative: "#B95E4D"   # clay; 4.3:1 on paper - FILLS AND LARGE TEXT ONLY
+    --al-negative-text: "#A34F40"  # 5.4:1 on paper - use for any normal-size text
+    --al-accent: "#E9A36A"     # warm accent; NEVER text on paper, fills and rules only
+    --al-border: "#E4E0D8"
+    --al-focus: "#54406E"
+  dark:
+    --al-paper: "#1B1A20"
+    --al-surface: "#24232B"
+    --al-surface-sunken: "#2C2A34"
+    --al-ink: "#F2EFE9"
+    --al-ink-muted: "#A8A5B2"
+    --al-primary: "#B7A3D0"
+    --al-primary-strong: "#CDBCE2"
+    --al-positive: "#6FBFA2"
+    --al-negative: "#E08D7B"
+    --al-negative-text: "#E08D7B"
+    --al-accent: "#E9A36A"
+    --al-border: "#3A3844"
+    --al-focus: "#CDBCE2"
+contrast_rules:
+  - "--al-negative (#B95E4D) is 4.26:1 on --al-paper. It FAILS WCAG AA for normal-size text. Use it only for fills, borders, icons and text at 24px+ or 18.66px+ bold. Every other case uses --al-negative-text."
+  - "--al-accent (#E9A36A) fails AA against paper at any size. It is a fill and rule colour only. Never set it as a text colour on a light surface."
+  - "Every other light token pairing (--al-ink, --al-ink-muted, --al-primary, --al-positive on --al-paper or --al-surface) meets AA for normal text. P09-T6 proves it."
+  - "MudBlazor's Warning and Secondary defaults are what the audit flagged. P09-T4 replaces both."
+
+# ===========================================================================
+# THE SCALES. Also final.
+# ===========================================================================
+scales:
+  spacing: "4px base, 8px rhythm: --al-space-1:4px, -2:8px, -3:12px, -4:16px, -5:24px, -6:32px, -7:48px, -8:64px"
+  radius: "--al-radius-sm:8px, --al-radius:10px, --al-radius-lg:12px. Nothing rounder. The audit's complaint is that everything is heavily rounded."
+  elevation: >
+    --al-shadow-none: none (cards, panels, the app bar - all flat with a 1px --al-border);
+    --al-shadow-raised: 0 6px 24px rgba(32,36,45,.10) (dialogs, menus, popovers ONLY).
+    There is no third level. If a surface is not a dialog, a menu or a popover, it gets no shadow.
+  typography:
+    - "--al-font-ui: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    - "--al-font-display: 'Fraunces', Georgia, serif  — page titles and headline balances ONLY"
+    - "--al-text-xs:0.75rem, -sm:0.875rem, -base:1rem, -lg:1.125rem, -xl:1.375rem, -2xl:1.75rem, -3xl:2.25rem"
+    - "--al-weight-regular:400, --al-weight-medium:500, --al-weight-semibold:600, --al-weight-bold:700"
+    - "--al-leading-tight:1.2, --al-leading:1.5"
+  chart_series:
+    order: ["#675184", "#32735F", "#B95E4D", "#E9A36A"]
+    dash: ["solid", "dash", "dot", "dashdot"]
+    marker: ["circle", "square", "diamond", "triangle-up"]
+    note: "Colour is never the only encoding. P11-T2 applies the dash and marker arrays."
+
+tasks:
+
+  - id: P09-T1
+    title: Brand guidelines document
+    files_touched: [docs/brand/brand-guidelines.md]
+    create_file: docs/brand/brand-guidelines.md
+    required_sections:
+      - "Identity — the calm family ledger. Traits: warm not childish, practical not corporate, encouraging not sugary, clear not clever."
+      - "Palette — the full table above, light and dark, with the role of each token and the two contrast prohibitions stated as rules, not suggestions."
+      - "Typography — Fraunces 600 for page titles and headline balances only; DM Sans everywhere else; the size and weight scale; the rule that hierarchy comes from size, weight and space, not from a third typeface."
+      - "Spacing and shape — the 8px rhythm, the 8/10/12px radius set, the two-level elevation rule."
+      - "Voice — calm, clear, encouraging, trustworthy. Say what happened and what happens next. No metaphors, no kicker labels, no exclamation marks. Sentence case for everything except proper nouns. Never say 'tenant' in family-facing UI - say 'family'."
+      - "Copy patterns — a table of the exact replacements P10-T3 applies, copied verbatim from phase-10.yaml's copy_map so the document and the code agree."
+      - "Visual language — ledger rule lines instead of animated shapes; a quiet background so balances dominate; one outlined icon set at one stroke weight; shadows only on dialogs, menus and popovers."
+      - "Assets — where the mark, favicon and social preview live, and the rule that no new colour may be introduced outside tokens.css."
+    rules:
+      - "This document is the human-readable mirror of tokens.css. If they ever disagree, tokens.css wins and this document is wrong - say so explicitly in the file."
+      - "No images required. Describe; do not embed."
+    acceptance:
+      - "The file exists with all eight sections."
+      - "Every hex value in the file appears in the palette table above. No others."
+    commit: "docs(brand): add brand guidelines"
+
+  - id: P09-T2
+    title: Design token stylesheet
+    files_touched:
+      - ChildAllowanceManager/wwwroot/tokens.css
+      - ChildAllowanceManager/Components/App.razor
+    steps:
+      - file: ChildAllowanceManager/wwwroot/tokens.css
+        create: |
+          :root { ...every light token from `palette.light` and every entry from `scales`... }
+
+          /* MudBlazor writes its palette into --mud-palette-* custom properties at runtime and
+             toggles a dark class on the body. Bind our tokens to theirs in ONE place so a single
+             theme switch moves everything. */
+          [data-theme="dark"], .mud-theme-dark { ...every dark token override... }
+
+          @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ...same dark overrides... } }
+        rules:
+          - "Tokens only. No selectors targeting application classes. tokens.css must contain zero rules that style a component - that is app.css's job in P10-T2."
+          - "Do NOT delete or edit app.css in this task. P10 owns it. The two stylesheets coexist for one phase."
+          - "Include a header comment naming docs/brand/brand-guidelines.md as the prose companion and stating that no colour may be defined outside this file."
+      - file: ChildAllowanceManager/Components/App.razor
+        anchor: '<link href="app.css?v=4" rel="stylesheet"/>'
+        add_before_it: '<link href="tokens.css?v=1" rel="stylesheet"/>'
+        why: 'Tokens must load before app.css so app.css can consume them and MudBlazor''s own stylesheet cannot win on specificity later.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "The app renders unchanged - tokens.css defines variables and nothing consumes them yet. A visual regression here means a stray selector leaked into tokens.css."
+      - "grep for a hex literal in tokens.css returns only values from the palette table."
+    commit: "feat(brand): add the design token stylesheet"
+
+  - id: P09-T3
+    title: Self-hosted typography
+    files_touched:
+      - ChildAllowanceManager/Components/App.razor
+      - ChildAllowanceManager/wwwroot/fonts/
+      - ChildAllowanceManager/wwwroot/tokens.css
+    implements: decisions.D9_fonts
+    steps:
+      - file: ChildAllowanceManager/Components/App.razor
+        anchor: '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet"/>'
+        action: DELETE this line entirely.
+      - >
+        Fetch the woff2 files into ChildAllowanceManager/wwwroot/fonts/ - DM Sans at weights
+        400, 500, 600, 700 (latin subset) and Fraunces at weight 600 (latin subset). Both are
+        SIL Open Font License, so redistribution in the repository is permitted; include the
+        upstream OFL.txt for each family alongside the files.
+      - file: ChildAllowanceManager/wwwroot/tokens.css
+        add: >
+          One @font-face block per file, each with `font-display: swap;` and an explicit
+          `unicode-range` for the latin subset. Reference them as `/fonts/<name>.woff2`.
+      - "Add `<link rel=\"preload\" as=\"font\" type=\"font/woff2\" crossorigin href=\"/fonts/dm-sans-400.woff2\">` for the 400 weight only. Preloading five files costs more than it saves."
+    network_unavailable_fallback: >
+      If the sandbox has no network and the font files cannot be fetched, do NOT restore the
+      Google Fonts link and do NOT block the phase. Instead - set --al-font-ui to
+      `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` and --al-font-display to
+      `Georgia, "Times New Roman", serif`, create ChildAllowanceManager/wwwroot/fonts/README.md
+      naming the exact files still needed and this task id, and set status=done with `result`
+      recording that the system-stack fallback shipped. Hierarchy through size, weight and
+      spacing is the audit's own stated acceptable alternative.
+    also:
+      - >
+        Do NOT edit app.css in this task. Five of its rules still name Nunito; P10-T2 rewrites
+        the whole stylesheet onto tokens and removes them there. Editing app.css here would be
+        thrown away, and app.css is under the app-css mutex which this task does not hold.
+        The `grep -rn Nunito` gate lives in P10-T2's acceptance, not here.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "No request to fonts.googleapis.com is made by the rendered page."
+      - "`grep -rn 'fonts.googleapis.com' ChildAllowanceManager` returns nothing."
+      - "`grep -n 'Nunito' ChildAllowanceManager/Components/App.razor` returns nothing (the CDN link carried it)."
+    commit: "feat(brand): self-host typography and drop the Google Fonts dependency"
+
+  - id: P09-T4
+    title: MudBlazor theme bound to the token palette
+    files_touched: [ChildAllowanceManager/ThemeConfiguration.cs]
+    steps:
+      - file: ChildAllowanceManager/ThemeConfiguration.cs
+        replace_palette_values_with: |
+          PaletteLight:
+            Primary            = "#675184"
+            PrimaryContrastText= "#FFFFFF"
+            Secondary          = "#5C5F6B"   // neutral. Secondary is NOT an accent - the audit
+                                             // flagged its use for Cancel and adjacent actions.
+            Tertiary           = "#E9A36A"
+            Background         = "#FCFAF5"
+            Surface            = "#FFFFFF"
+            TextPrimary        = "#20242D"
+            TextSecondary      = "#5C5F6B"
+            AppbarBackground   = "#FCFAF5"
+            AppbarText         = "#20242D"
+            DrawerBackground   = "#FFFFFF"
+            DrawerText         = "#20242D"
+            LinesDefault       = "#E4E0D8"
+            Success            = "#32735F"
+            Warning            = "#8A5A20"   // darkened from #D97706 to reach 4.5:1 on paper
+            Error              = "#A34F40"
+            Info               = "#54406E"
+          PaletteDark:
+            Primary            = "#B7A3D0"
+            PrimaryContrastText= "#1B1A20"
+            Secondary          = "#A8A5B2"
+            Tertiary           = "#E9A36A"
+            Background         = "#1B1A20"
+            Surface            = "#24232B"
+            TextPrimary        = "#F2EFE9"
+            TextSecondary      = "#A8A5B2"
+            AppbarBackground   = "#1B1A20"
+            AppbarText         = "#F2EFE9"
+            DrawerBackground   = "#24232B"
+            DrawerText         = "#F2EFE9"
+            LinesDefault       = "#3A3844"
+            Success            = "#6FBFA2"
+            Warning            = "#E9A36A"
+            Error              = "#E08D7B"
+            Info               = "#CDBCE2"
+      - >
+        Add a Typography block to the MudTheme setting Default.FontFamily to
+        ["DM Sans", "system-ui", "sans-serif"] and H1-H4 FontFamily to
+        ["Fraunces", "Georgia", "serif"]. This is what stops components from hand-repeating
+        font-family declarations.
+      - "Every hex written here must already exist in the palette table above, except the two derived values (#8A5A20 warning-light, #FFFFFF contrast text) which are declared here as the canonical MudBlazor bindings. Add both to tokens.css as --al-warning and --al-on-primary so tokens.css stays the single source."
+    why_appbar_is_paper: >
+      The navy #172554 app bar in app.css is one of the unrelated visual systems the audit names.
+      A paper-coloured app bar separated by a 1px border is the calm-ledger direction. P10-T2
+      removes the `.app-bar { background: #172554 !important; }` rule.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Light and dark mode both render with the new palette. Verified by eye is not enough - P09-T6 asserts the contrast ratios."
+    commit: "feat(brand): bind the MudBlazor theme to the token palette"
+
+  - id: P09-T5
+    title: Brand mark, favicon and social preview assets
+    files_touched:
+      - ChildAllowanceManager/wwwroot/brand/
+      - ChildAllowanceManager/Components/App.razor
+    mark_specification: >
+      An allowance envelope drawn as a ledger tab. A 32x32 viewBox. A rounded rectangle
+      (rx=3) in --al-primary occupying x=3..29, y=8..26. A single triangular flap from
+      (3,8) to (16,17) to (29,8), stroked in --al-surface at 2px. One horizontal ledger rule
+      in --al-accent at y=22 from x=8 to x=24. No gradients. No shadows. Currentcolor is not
+      used - the mark is fixed-colour so it survives on any background.
+    steps:
+      - "Author ChildAllowanceManager/wwwroot/brand/mark.svg by hand to that specification. It is nine lines of SVG - do not reach for a generator."
+      - "Author ChildAllowanceManager/wwwroot/brand/favicon.svg as the same mark on a --al-paper rounded-square background, 32x32."
+      - >
+        Author ChildAllowanceManager/wwwroot/brand/social-preview.svg at 1200x630 - the mark at
+        160px on --al-paper, the wordmark "Allowance Manager" in Fraunces 600 beneath it, and a
+        single --al-accent ledger rule. No photography, no gradient mesh.
+      - file: ChildAllowanceManager/Components/App.razor
+        add_to_head: |
+          <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml"/>
+          <meta name="theme-color" content="#FCFAF5" media="(prefers-color-scheme: light)"/>
+          <meta name="theme-color" content="#1B1A20" media="(prefers-color-scheme: dark)"/>
+          <meta property="og:title" content="Allowance Manager"/>
+          <meta property="og:description" content="Track pocket money for your family."/>
+          <meta property="og:image" content="/brand/social-preview.svg"/>
+      - >
+        PNG derivatives (apple-touch-icon.png, a raster og:image) need a rasteriser. If one is
+        available, emit apple-touch-icon.png at 180x180 and social-preview.png at 1200x630 and
+        reference the PNG for og:image. If not, ship the SVGs only, note the gap in
+        ChildAllowanceManager/wwwroot/brand/README.md, and record it in `result`. Do not add a
+        rasteriser dependency to the project to close this gap.
+      - "The MainLayout app-bar brand text stays as text. Adding the mark beside it is P10-T2's call, not this task's."
+    acceptance:
+      - "The four asset files (or three plus a documented gap) exist under wwwroot/brand/."
+      - "The rendered page requests /brand/favicon.svg and returns 200."
+      - "No asset uses a colour outside the palette table."
+    commit: "feat(brand): add the mark, favicon and social preview"
+
+  - id: P09-T6
+    title: Token contrast test
+    files_touched: [tests/ChildAllowanceManager.Tests/DesignTokenTests.cs]
+    create_file: tests/ChildAllowanceManager.Tests/DesignTokenTests.cs
+    approach: >
+      Parse ChildAllowanceManager/wwwroot/tokens.css from disk, extract every `--al-*` hex value,
+      and compute WCAG relative luminance and contrast ratios in the test. No new package -
+      the formula is ten lines. Locate the file relative to the test assembly via
+      AppContext.BaseDirectory and walk up to the repository root; assert the file was found so
+      a path mistake fails loudly rather than silently passing on zero tokens.
+    required_tests:
+      - name: Every_light_text_token_meets_AA_on_paper_and_surface
+        asserts: "--al-ink, --al-ink-muted, --al-primary, --al-positive, --al-negative-text each reach 4.5:1 against both --al-paper and --al-surface."
+      - name: Every_dark_text_token_meets_AA_on_dark_paper_and_surface
+      - name: Accent_is_never_declared_as_a_text_colour
+        asserts: "grep tokens.css and app.css for a `color:` declaration whose value resolves to var(--al-accent); assert none."
+      - name: Negative_fill_token_is_documented_as_large_text_only
+        asserts: "--al-negative is below 4.5:1 on paper (proving the rule is needed) AND --al-negative-text is at or above 4.5:1 (proving the escape hatch works)."
+      - name: Mud_theme_palette_matches_the_tokens
+        asserts: "Construct ThemeConfiguration and compare Primary, Success, Error, Warning, Background, Surface, TextPrimary, TextSecondary against the parsed token values for both light and dark."
+      - name: No_hex_outside_the_approved_palette_appears_in_tokens_css
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p09t6 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All six tests exist and pass."
+    commit: "test(brand): assert token contrast and theme binding"

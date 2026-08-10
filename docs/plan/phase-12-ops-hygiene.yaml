@@ -1,0 +1,217 @@
+phase: P12
+title: Dev seeder, resource leaks, cancellation, deploy verification, docs
+covers: [A-P2-DD-1, A-P2-DD-3, A-P2-DD-4, A-P2-DD-5, A-P2-DI-6 (documented rule), A-P1-3 (deploy half)]
+read_before_starting: [plan.yaml]
+
+tasks:
+
+  - id: P12-T1
+    title: Idempotent, non-destructive development seeder
+    files_touched: [ChildAllowanceManager/Services/DevelopmentDataSeeder.cs]
+    problems:
+      - "`tenant.Deleted = false;` and `user.Deleted = false;` run on EVERY startup, resurrecting demo data a developer deliberately deleted while testing the delete flow."
+      - "SeedTransactionAsync rewrites TransactionTimestamp, TransactionAmount, Balance and Description on existing rows on every startup - so timestamps march forward each boot and no historical state is stable. After P04-T6's immutability guard, these writes THROW."
+    steps:
+      - >
+        Change the whole seeder to insert-if-absent only. Every `AddChildIfMissingAsync`-style
+        guard already exists for children - apply the same shape to the tenant, the user and every
+        transaction. Concretely, in SeedTransactionAsync - if the row exists, RETURN immediately;
+        only populate fields on a newly constructed row.
+      - "Delete the two `Deleted = false;` resurrection lines. If a developer deleted the demo family, leave it deleted - the restore path from P10-T6 is how they get it back."
+      - >
+        Make the transaction timestamps stable across restarts. They currently derive from
+        `now.AddDays(offset)` where `now` is DateTimeOffset.UtcNow at boot. Anchor them to
+        `DateTimeOffset.UtcNow.Date` instead so a same-day restart produces identical values, and
+        because rows are now never updated, they stop drifting at all.
+      - >
+        Gate the whole seed on emptiness - `if (await db.Tenants.AnyAsync(x => x.Id == TenantId, ct)) return;`
+        at the top, after which the per-item guards are belt and braces. A seeder that has run
+        should be a no-op, not a reconciliation loop.
+      - "The seeder is constructed directly in Program.cs as `new DevelopmentDataSeeder(db)`. Do not change that wiring - it is only reached in Development."
+      - "The seeded transactions carry no ActorEmail. That is correct - they read as schedule-created, which is what they represent."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Starting the app twice in Development produces identical rows - compare UpdatedTimestamp on a seeded transaction across two boots."
+      - "Deleting the demo family in the UI and restarting leaves it deleted."
+      - "No DbUpdateException or immutability InvalidOperationException on the second boot."
+    commit: "fix(dev): make the development seeder idempotent and non-destructive"
+
+  - id: P12-T2
+    title: Dispose the MainLayout JS module and use it for the cookie call
+    files_touched:
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+      - ChildAllowanceManager/wwwroot/Components/Layout/MainLayout.razor.js
+    problem: |
+      MainLayout.OnAfterRenderAsync does:
+        var module = await JSRuntime.InvokeAsync<IJSObjectReference>(
+            "import", "./Components/Layout/MainLayout.razor.js");
+        await JSRuntime.InvokeVoidAsync("MainLayout.createCookie", ...);
+      The module reference is imported into a local, never used, and never disposed. The cookie
+      call goes through a global `MainLayout` object instead - so the import is pure leak, and the
+      code depends on a global that the module may or may not create.
+    steps:
+      - "Locate the JS file. It is referenced as ./Components/Layout/MainLayout.razor.js relative to the base href, which resolves under wwwroot. If it does not exist, the current global call is failing silently under JSRuntimeMode.Loose in tests and at runtime it throws - report which in `result` and create the file."
+      - file: ChildAllowanceManager/wwwroot/Components/Layout/MainLayout.razor.js
+        ensure_exports: |
+          export function createCookie(name, value, days) {
+              const expires = new Date(Date.now() + days * 864e5).toUTCString();
+              document.cookie =
+                  `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+          }
+        note: >
+          The cookie is read server-side in Program.cs's OnTicketReceived as "current_tenant".
+          SameSite=Lax is required for it to survive the OAuth redirect back from Microsoft.
+          Do not set Secure unconditionally - it would break http://localhost development.
+      - file: ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+        change: |
+          - Store the module in a field: `private IJSObjectReference? _jsModule;`
+          - Import once, then call through it: `await _jsModule.InvokeVoidAsync("createCookie", ...)`.
+            Delete the global `JSRuntime.InvokeVoidAsync("MainLayout.createCookie", ...)` call.
+          - Implement IAsyncDisposable on MainLayout and dispose the module:
+              public async ValueTask DisposeAsync()
+              {
+                  if (_jsModule is not null)
+                  {
+                      try { await _jsModule.DisposeAsync(); }
+                      catch (JSDisconnectedException) { /* circuit already gone */ }
+                  }
+              }
+            The JSDisconnectedException catch is mandatory - disposing a module on a closed circuit
+            is the single most common Blazor Server unhandled exception.
+      - "MainLayout inherits LayoutComponentBase, which does not implement IDisposable, so adding IAsyncDisposable is safe and requires no base call."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -rn 'MainLayout.createCookie' ChildAllowanceManager` returns nothing (the global form is gone)."
+      - "Navigating away from and back to the app does not accumulate module references - verified by the module being imported at most once per circuit."
+    commit: "fix(ui): dispose the layout JS module and call it directly"
+
+  - id: P12-T3
+    title: Eliminate CancellationToken.None on component and auth paths
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+      - ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    steps:
+      - >
+        `grep -rn 'CancellationToken.None' ChildAllowanceManager` and fix every hit. The known
+        sites at the audit snapshot are - AddHoldDialogue's `ChildService.GetChild(Child.Id,
+        Child.TenantId)` call (relies on the default parameter, which is None); the two
+        `_userService` calls in ClaimEnrichmentTransformer.TransformAsync; and four calls inside
+        Program.cs's OnCreatingTicket handler.
+      - "Components use the inherited `CancellationToken` from CancellableComponentBase. AddHoldDialogue's GetChild call may already be gone (P04-T1 replaced the body) - verify, and fix whatever remains."
+      - >
+        ClaimEnrichmentTransformer.TransformAsync has no CancellationToken parameter -
+        IClaimsTransformation does not supply one. Inject IHttpContextAccessor and pass
+        `httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None`. When there is
+        genuinely no ambient token, leave `CancellationToken.None` with a one-line comment saying
+        why - an unexplained None is the defect, a justified one is not.
+      - >
+        Program.cs's OnCreatingTicket already has `context.HttpContext.RequestAborted` available
+        and uses it for the Graph call. Use the same token for the userService and invitationService
+        calls in that handler.
+      - "Do NOT pass a component's CancellationToken into a fire-and-forget continuation that outlives the component - that is what the token is for, and P06-T6 already wraps those paths."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Every remaining `CancellationToken.None` in ChildAllowanceManager carries a comment explaining why no ambient token exists."
+    commit: "fix(async): flow cancellation tokens through component and auth paths"
+
+  - id: P12-T4
+    title: Health check that reports migration state
+    files_touched:
+      - ChildAllowanceManager/HealthChecks/MigrationHealthCheck.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    why: >
+      Migrations no longer run on boot (D8). A deploy that skipped the migration step now starts
+      successfully against an out-of-date schema and fails at the first query. The health endpoint
+      must catch that.
+    steps:
+      - file: ChildAllowanceManager/HealthChecks/MigrationHealthCheck.cs
+        implement: |
+          An IHealthCheck that calls `await db.Database.GetPendingMigrationsAsync(ct)` and returns:
+            - Healthy when the list is empty;
+            - Unhealthy("Database schema is out of date. Pending: <names>") otherwise;
+            - Unhealthy with the exception when the database is unreachable.
+          Register it with tag "ready".
+      - file: ChildAllowanceManager/Program.cs
+        change: |
+          builder.Services.AddHealthChecks()
+              .AddDbContextCheck<AllowanceDbContext>(tags: ["ready"])
+              .AddCheck<MigrationHealthCheck>("migrations", tags: ["ready"]);
+          ...
+          app.MapHealthChecks("/health");                                   // liveness - unchanged
+          app.MapHealthChecks("/health/ready", new HealthCheckOptions
+          {
+              Predicate = check => check.Tags.Contains("ready")
+          });
+        note: 'Needs `using Microsoft.AspNetCore.Diagnostics.HealthChecks;`. The Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore package is already referenced.'
+      - "/health must stay a cheap liveness probe that does NOT hit the database, or Azure will recycle the app during a database blip. Move the existing AddDbContextCheck behind the ready tag as shown."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "/health returns 200 with the database stopped."
+      - "/health/ready returns 503 when a migration is pending, and 200 after `--migrate` runs."
+    commit: "feat(ops): report pending migrations through a readiness check"
+
+  - id: P12-T5
+    title: Deploy workflow migration step and post-deploy health gate
+    files_touched: [.github/workflows/main_allowance-manager.yml]
+    steps:
+      - >
+        In the `build` job, after `dotnet test`, add a step that proves the migration command
+        works against the CI Postgres service -
+        `dotnet run --project ChildAllowanceManager --configuration Release -- --migrate`
+        with the existing `ConnectionStrings__Postgres` job env var. A migration that cannot run
+        must fail the build, not the deploy.
+      - >
+        In the `deploy` job, add a step BEFORE the azure/webapps-deploy step that applies
+        migrations against the production database from the runner -
+        `dotnet run --project ChildAllowanceManager -- --migrate` with
+        `ConnectionStrings__Postgres: ${{ secrets.PRODUCTION_POSTGRES_CONNECTION }}`.
+        The deploy job currently downloads only the published artifact and has no source checkout -
+        add `actions/checkout@v4` and `actions/setup-dotnet@v4` steps to that job so the project
+        is available. Name the required new secret in the workflow comments so an operator knows
+        to create it - `PRODUCTION_POSTGRES_CONNECTION`.
+      - >
+        After azure/webapps-deploy, add a health gate -
+        curl `${{ steps.deploy-to-webapp.outputs.webapp-url }}/health/ready` with
+        `--retry 10 --retry-delay 6 --retry-all-errors --fail --silent --show-error`,
+        and fail the job on a non-200. That is the audit's missing post-deploy verification.
+      - "Do not change the trigger, the app-name, the slot or the publish-profile secret reference."
+      - "If the required production secret is absent the deploy step will fail loudly. That is correct - a silent skip would deploy code against an unmigrated schema."
+    acceptance:
+      - "The workflow is valid YAML and `gh workflow view` (or a YAML parse) accepts it."
+      - "The build job's migration step uses the existing service container, not a new one."
+      - "The health gate runs after the deploy step and fails the job on a non-200."
+    commit: "ci: migrate as a deploy step and gate on a readiness check"
+
+  - id: P12-T6
+    title: README and configuration documentation refresh
+    files_touched: [README.md]
+    required_changes:
+      - "Requirements - remove 'the app applies EF Core migrations on start'. Replace with 'migrations are applied by a deploy step - see Database'."
+      - >
+        New "Database" section - how to run `dotnet run --project ChildAllowanceManager -- --migrate`,
+        that Development auto-migrates and seeds, and that /health/ready reports a pending-migration
+        state.
+      - "Configuration - AzureMonitor__ConnectionString is now OPTIONAL outside Production and REQUIRED in Production. Document the new FrameAncestors array and the AllowedHosts change."
+      - >
+        Replace "Allowance scheduling and birthday checks use UTC; keep the deployment and
+        household expectations aligned with that boundary." with a description of the per-family
+        time zone - where it is set (family settings), that the job wakes hourly, and that each
+        family is paid just after midnight in its own zone.
+      - >
+        New "Product rules" section stating the decisions a user can observe -
+        (1) a withdrawal may take a balance below zero, and the app shows the resulting balance
+        and asks for confirmation before it does;
+        (2) delete is reversible - families and children are hidden, not destroyed, and can be
+        restored;
+        (3) transactions are never edited - a correction writes a reversing entry;
+        (4) every money action records who did it.
+      - "Tests - document the new per-agent form `CAM_TEST_DB=<name> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` alongside the existing plain invocation."
+      - "Features list - add the family switcher, invitations, per-family time zone, transaction export and correction, and restore."
+      - "Add a Brand section pointing at docs/brand/brand-guidelines.md and stating that no colour may be introduced outside wwwroot/tokens.css."
+    acceptance:
+      - "Every statement in the README is true of the code as it stands after P12-T5."
+      - "No reference to migrating on start survives. `grep -n 'on start' README.md` returns nothing about migrations."
+    commit: "docs: refresh the README for the new configuration and product rules"

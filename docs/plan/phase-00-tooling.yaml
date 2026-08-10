@@ -1,0 +1,101 @@
+phase: P00
+title: Toolchain and swarm-safe verification
+rationale: >
+  Nothing else can be verified reliably until the EF tooling exists and the Postgres
+  test harness stops destroying itself under concurrency.
+read_before_starting: [plan.yaml]
+
+tasks:
+
+  - id: P00-T1
+    title: Add dotnet-ef local tool manifest
+    files_touched: [.config/dotnet-tools.json]
+    preconditions:
+      - "`.config/dotnet-tools.json` does not exist (verified 2026-08-10). If it already exists, add only the missing dotnet-ef entry."
+    steps:
+      - Run `dotnet new tool-manifest` in repo_root. This creates `.config/dotnet-tools.json`.
+      - Run `dotnet tool install dotnet-ef --version 10.0.3`.
+      - >
+        Confirm the version in the manifest matches the Npgsql.EntityFrameworkCore.PostgreSQL
+        major version referenced in ChildAllowanceManager.csproj (10.0.3). If `dotnet tool install`
+        resolves a different 10.x patch, accept it but record the resolved version in `result`.
+      - Verify `.gitignore` does not exclude `.config/`. If it does, add a negation `!.config/dotnet-tools.json`.
+    acceptance:
+      - "`dotnet tool restore` exits 0"
+      - "`dotnet ef --version` prints a 10.x version"
+      - "`git status --porcelain` shows only .config/dotnet-tools.json (and .gitignore if edited)"
+    commit: "chore(tooling): pin dotnet-ef as a local tool"
+
+  - id: P00-T2
+    title: Make the Postgres test harness safe for concurrent agents
+    files_touched:
+      - scripts/test-postgres.sh
+      - docker-compose.test.yml
+      - tests/ChildAllowanceManager.Tests/PostgresTestDatabase.cs
+    exclusive_resources: [postgres-test-db]
+    problem: >
+      scripts/test-postgres.sh runs `docker compose up -d --wait` then, via an EXIT trap,
+      `docker compose down --volumes --remove-orphans`. PostgresTestDatabase.CreateCleanContextAsync
+      and CreateMigratedContextAsync both call EnsureDeletedAsync() on the single database named in
+      ConnectionStrings__Postgres. Two agents running the suite at once drop each other's schema and
+      the first to finish tears down the container under the second.
+    design:
+      - The container stays a shared singleton on host port 55432. Only the DATABASE NAME varies per agent.
+      - "`CAM_TEST_DB` env var (default `child_allowance_manager_test`) selects the database name."
+      - "`CAM_TEST_KEEP=1` suppresses the teardown trap so concurrent agents do not kill the shared container."
+      - The script creates the per-agent database if it does not exist, via `docker compose exec`.
+    steps:
+      - file: scripts/test-postgres.sh
+        replace_whole_file_with: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          compose=(docker compose -f docker-compose.test.yml)
+          db="${CAM_TEST_DB:-child_allowance_manager_test}"
+          connection="Host=localhost;Port=55432;Database=${db};Username=postgres;Password=postgres"
+          dotnet_bin="${DOTNET_BIN:-dotnet}"
+
+          cleanup() {
+            if [[ "${CAM_TEST_KEEP:-0}" == "1" ]]; then
+              # Concurrent agents share the container. Drop only this agent's database.
+              "${compose[@]}" exec -T postgres \
+                psql -U postgres -d postgres \
+                -c "DROP DATABASE IF EXISTS \"${db}\" WITH (FORCE);" >/dev/null 2>&1 || true
+              return
+            fi
+            "${compose[@]}" down --volumes --remove-orphans
+          }
+          trap cleanup EXIT
+
+          "${compose[@]}" up -d --wait
+
+          # The compose file only creates the default database. Create this agent's, if needed.
+          "${compose[@]}" exec -T postgres \
+            psql -U postgres -d postgres \
+            -c "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1 || \
+          "${compose[@]}" exec -T postgres \
+            psql -U postgres -d postgres -c "CREATE DATABASE \"${db}\";"
+
+          ConnectionStrings__Postgres="$connection" "$dotnet_bin" test ChildAllowanceManager.sln "$@"
+      - file: docker-compose.test.yml
+        change: >
+          No structural change required. Add a top-level `name: cam-test` key so concurrent
+          `docker compose` invocations from the same directory resolve to the same project and
+          reuse one container rather than racing to create it.
+      - file: tests/ChildAllowanceManager.Tests/PostgresTestDatabase.cs
+        change: >
+          Leave CreateCleanContextAsync and CreateMigratedContextAsync behaviourally as they are
+          (EnsureDeleted then EnsureCreated / Migrate) - correct once each agent owns its own
+          database. Extend the thrown message on a missing connection string to name the new
+          harness - append " Run: CAM_TEST_DB=<name> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh".
+        anchor: '"ConnectionStrings__Postgres must point at the Docker PostgreSQL test database."'
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p00 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0 and the full existing suite passes."
+      - "Running two invocations concurrently with different CAM_TEST_DB values both exit 0."
+      - "`docker compose -f docker-compose.test.yml ps` still shows a running container after a CAM_TEST_KEEP=1 run."
+      - "A run WITHOUT CAM_TEST_KEEP still tears the container down (backwards compatible for CI)."
+    commit: "test(tooling): isolate the Postgres test database per agent"
+    downstream_note: >
+      After this task is done, every later task uses
+      `CAM_TEST_DB=cam_test_<task_id> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh`
+      and no longer needs the postgres-test-db exclusive resource unless its phase file says so.

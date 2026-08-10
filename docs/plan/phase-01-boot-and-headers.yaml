@@ -1,0 +1,199 @@
+phase: P01
+title: Startup configuration, telemetry, framing policy, host allowlist
+covers: [A-P0-1, A-P0-2, A-P2-DD-2]
+read_before_starting: [plan.yaml]
+context: >
+  Program.cs currently calls `builder.Services.AddOpenTelemetry().UseAzureMonitor();`
+  unconditionally, while appsettings.json ships the literal placeholder
+  "<ApplicationInsights-ConnectionString>". The app throws before serving a request.
+  Separately, Program.cs sets ContentSecurityFrameAncestorsPolicy = "'self' *" and
+  ResponseHeaderMiddleware strips X-Frame-Options, so any origin can frame the app.
+
+tasks:
+
+  - id: P01-T1
+    title: Make Azure Monitor telemetry opt-in and validate production config
+    files_touched:
+      - ChildAllowanceManager/Program.cs
+      - ChildAllowanceManager/appsettings.json
+      - ChildAllowanceManager/appsettings.Development.json
+    mutex: program-cs
+    steps:
+      - file: ChildAllowanceManager/Program.cs
+        anchor: 'builder.Services.AddOpenTelemetry().UseAzureMonitor();'
+        replace_with: |
+          var azureMonitorConnection = builder.Configuration["AzureMonitor:ConnectionString"];
+          var azureMonitorConfigured =
+              !string.IsNullOrWhiteSpace(azureMonitorConnection) &&
+              !azureMonitorConnection.StartsWith('<');
+          if (azureMonitorConfigured)
+          {
+              builder.Services.AddOpenTelemetry().UseAzureMonitor();
+          }
+          else if (!builder.Environment.IsDevelopment())
+          {
+              throw new InvalidOperationException(
+                  "AzureMonitor:ConnectionString is required outside Development. " +
+                  "Set the AzureMonitor__ConnectionString environment variable to the " +
+                  "Application Insights connection string, or run with " +
+                  "ASPNETCORE_ENVIRONMENT=Development for local work.");
+          }
+        rules:
+          - The placeholder test is the leading '<' character. Do not use a substring match on the placeholder text.
+          - Keep this block in its current position, immediately after `var builder = WebApplication.CreateBuilder(args);`.
+      - file: ChildAllowanceManager/Program.cs
+        anchor: |-
+          var postgresConnection = configuration.GetConnectionString("Postgres")
+              ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required.");
+        replace_with: |
+          var postgresConnection = configuration.GetConnectionString("Postgres");
+          if (string.IsNullOrWhiteSpace(postgresConnection) || postgresConnection.StartsWith('<'))
+          {
+              throw new InvalidOperationException(
+                  "ConnectionStrings:Postgres is required and must not be the placeholder value. " +
+                  "Set ConnectionStrings__Postgres to a PostgreSQL connection string, for example " +
+                  "Host=localhost;Port=5432;Database=child_allowance_manager;Username=postgres;Password=postgres");
+          }
+        note: >
+          Apply the same placeholder guard to Authentication:Microsoft:ClientId and
+          Authentication:Microsoft:ClientSecret at their existing
+          `?? throw new InvalidOperationException(...)` sites, but ONLY when
+          builder.Environment.IsDevelopment() is false - development uses the local
+          fake sign-in path in `app.Map("/login", ...)` and needs no Microsoft credentials.
+          Concretely, wrap the whole `.AddMicrosoftAccount("Microsoft", "Microsoft", ...)`
+          registration in `if (!builder.Environment.IsDevelopment())`. Keep
+          `builder.Services.AddAuthentication(...).AddCookie(...)` unconditional, since the
+          development /login path signs in with the cookie scheme.
+      - file: ChildAllowanceManager/appsettings.json
+        change: >
+          Remove the "AzureMonitor" section entirely, and set ConnectionStrings.Postgres to
+          empty string "". Placeholders that look like values are the defect - absence is
+          clearer and now produces the actionable message above.
+      - file: ChildAllowanceManager/appsettings.Development.json
+        create_with: |
+          {
+            "Logging": {
+              "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+              }
+            },
+            "AllowedHosts": "*",
+            "ConnectionStrings": {
+              "Postgres": "Host=localhost;Port=55432;Database=child_allowance_manager_dev;Username=postgres;Password=postgres"
+            },
+            "FrameAncestors": []
+          }
+        note: >
+          Port 55432 matches docker-compose.test.yml so a developer already running the test
+          container gets a working local database with no extra setup. Confirm the file is
+          picked up by the web project - the Microsoft.NET.Sdk.Web default globs appsettings.*.json
+          as content, so no csproj change is needed.
+    acceptance:
+      - "`dotnet build ChildAllowanceManager.sln -c Release` exits 0"
+      - "With ASPNETCORE_ENVIRONMENT=Development and no AzureMonitor config, the host builds without throwing."
+      - "With ASPNETCORE_ENVIRONMENT=Production and no AzureMonitor config, startup throws InvalidOperationException whose message contains 'AzureMonitor__ConnectionString'."
+    commit: "fix(config): make telemetry optional outside production and validate required settings"
+
+  - id: P01-T2
+    title: Default frame-ancestors to 'self' with an explicit allowlist
+    files_touched:
+      - ChildAllowanceManager/Program.cs
+      - ChildAllowanceManager/Middleware/ResponseHeaderMiddleware.cs
+      - ChildAllowanceManager/appsettings.json
+    mutex: program-cs
+    steps:
+      - file: ChildAllowanceManager/Program.cs
+        anchor: |-
+          app.MapRazorComponents<App>()
+              // set headers to allow iframe embedding - disable this (use parametersless overload) if you want to block embedding
+              .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'self' *");
+        replace_with: |
+          var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
+          var frameAncestorsPolicy = frameAncestors.Length == 0
+              ? "'self'"
+              : string.Join(' ', new[] { "'self'" }.Concat(frameAncestors));
+          app.MapRazorComponents<App>()
+              // Embedding is denied by default. Add explicit origins to the FrameAncestors
+              // configuration array to allow trusted embedders.
+              .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = frameAncestorsPolicy);
+        rules:
+          - "`builder` is still in scope at this point in Program.cs - it is a top-level statements file. If the compiler disagrees, use `app.Configuration` instead."
+          - Reject an entry containing '*' - throw InvalidOperationException naming the offending entry. A wildcard defeats the fix.
+      - file: ChildAllowanceManager/Middleware/ResponseHeaderMiddleware.cs
+        anchor: |-
+                  // allow embedding from anywhere
+                  context.Response.Headers.Remove("x-frame-options");
+        replace_with: |
+                  // X-Frame-Options is a coarse legacy header that cannot express an allowlist.
+                  // CSP frame-ancestors, configured in Program.cs, is authoritative. Keep the
+                  // legacy header aligned with the deny-by-default stance for old browsers.
+                  context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+      - file: ChildAllowanceManager/appsettings.json
+        change: 'Add a top-level `"FrameAncestors": []` key documenting the extension point.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "A request to any page returns `X-Frame-Options: SAMEORIGIN`."
+      - "With no FrameAncestors configured, the Blazor CSP frame-ancestors value is exactly `'self'`."
+      - "With `FrameAncestors: [\"https://portal.example.com\"]`, the value is `'self' https://portal.example.com`."
+    commit: "fix(security): deny cross-origin framing by default"
+
+  - id: P01-T3
+    title: Replace AllowedHosts wildcard with an explicit production allowlist
+    files_touched:
+      - ChildAllowanceManager/appsettings.json
+      - ChildAllowanceManager/appsettings.Development.json
+    steps:
+      - file: ChildAllowanceManager/appsettings.json
+        anchor: '"AllowedHosts": "*",'
+        replace_with: '"AllowedHosts": "allowance-manager.azurewebsites.net",'
+        note: >
+          The Azure Web App name is `allowance-manager` per
+          .github/workflows/main_allowance-manager.yml, so the default host is
+          allowance-manager.azurewebsites.net. Operators override with the
+          AllowedHosts environment variable for a custom domain.
+      - file: ChildAllowanceManager/appsettings.Development.json
+        change: 'Keep `"AllowedHosts": "*"` there - local hostnames vary.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "appsettings.json contains no `\"*\"` value for AllowedHosts."
+    commit: "fix(config): restrict production AllowedHosts"
+
+  - id: P01-T4
+    title: Startup-configuration tests
+    files_touched: [tests/ChildAllowanceManager.Tests/StartupConfigurationTests.cs]
+    create_file: tests/ChildAllowanceManager.Tests/StartupConfigurationTests.cs
+    test_approach: >
+      Program.cs uses top-level statements, so it cannot be invoked as a library without a
+      WebApplicationFactory and the test project has no Microsoft.AspNetCore.Mvc.Testing
+      reference. Do NOT add one. Instead test the two pure decisions by extracting them:
+      add a static class `ChildAllowanceManager.StartupPolicy` in
+      ChildAllowanceManager/StartupPolicy.cs with two methods, and have Program.cs call them
+      in place of the inline expressions written in P01-T1 and P01-T2.
+    extract:
+      file: ChildAllowanceManager/StartupPolicy.cs
+      api: |
+        namespace ChildAllowanceManager;
+
+        public static class StartupPolicy
+        {
+            /// Returns true when the value is a usable setting rather than absent or an
+            /// angle-bracket placeholder such as "&lt;ApplicationInsights-ConnectionString&gt;".
+            public static bool IsConfigured(string? value);
+
+            /// Builds the CSP frame-ancestors value. Always includes 'self'.
+            /// Throws InvalidOperationException if any origin contains '*'.
+            public static string BuildFrameAncestorsPolicy(IEnumerable&lt;string&gt; allowedOrigins);
+        }
+      note: This file is created by P01-T4 and Program.cs is edited to call it. Program.cs is under the program-cs mutex - hold it.
+    required_tests:
+      - "IsConfigured returns false for null, empty, whitespace, and \"<ApplicationInsights-ConnectionString>\""
+      - "IsConfigured returns true for \"InstrumentationKey=abc;IngestionEndpoint=https://x/\""
+      - "BuildFrameAncestorsPolicy([]) == \"'self'\""
+      - "BuildFrameAncestorsPolicy([\"https://a.example\", \"https://b.example\"]) == \"'self' https://a.example https://b.example\""
+      - "BuildFrameAncestorsPolicy([\"*\"]) throws InvalidOperationException"
+      - "BuildFrameAncestorsPolicy([\"https://*.example\"]) throws InvalidOperationException"
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p01t4 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All six required tests exist and pass."
+    commit: "test(config): cover startup configuration policy"

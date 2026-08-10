@@ -1,0 +1,79 @@
+phase: P13
+title: Rename Dialogue -> Dialog across components, call sites and tests
+covers: [A-P2-DD-6]
+read_before_starting: [plan.yaml]
+exclusive: true
+scheduling_rule: >
+  P13-T1 runs ALONE. No other task in this plan may be in_progress while it runs. It touches
+  file names, type names, and every reference across the web project and the test project - it
+  conflicts with essentially everything. This is why it is last.
+
+tasks:
+
+  - id: P13-T1
+    title: Rename Dialogue to Dialog across components, call sites and tests
+    files_touched: ["*"]
+    exclusive: true
+    renames:
+      # Each pair renames BOTH the .razor and the .razor.cs, and the partial class inside.
+      - from: ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+        to: ChildAllowanceManager/Components/Pages/AddFundsDialog.razor
+      - from: ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor.cs
+        to: ChildAllowanceManager/Components/Pages/AddFundsDialog.razor.cs
+      - from: ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+        to: ChildAllowanceManager/Components/Pages/WithdrawFundsDialog.razor
+      - from: ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
+        to: ChildAllowanceManager/Components/Pages/WithdrawFundsDialog.razor.cs
+      - from: ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+        to: ChildAllowanceManager/Components/Pages/AddHoldDialog.razor
+      - from: ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+        to: ChildAllowanceManager/Components/Pages/AddHoldDialog.razor.cs
+      - from: ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+        to: ChildAllowanceManager/Components/Pages/AddParentDialog.razor
+      - from: ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+        to: ChildAllowanceManager/Components/Pages/AddParentDialog.razor.cs
+      - from: ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+        to: ChildAllowanceManager/Components/Pages/ChildTransactionsDialog.razor
+      - from: ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor.cs
+        to: ChildAllowanceManager/Components/Pages/ChildTransactionsDialog.razor.cs
+    type_renames:
+      - AddFundsDialogue -> AddFundsDialog
+      - WithdrawFundsDialogue -> WithdrawFundsDialog
+      - AddHoldDialogue -> AddHoldDialog
+      - AddParentDialogue -> AddParentDialog
+      - ChildTransactionsDialogue -> ChildTransactionsDialog
+    known_reference_sites:
+      - "ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs — DialogParameters<T> and DialogService.ShowAsync<T> for AddFunds, WithdrawFunds, AddHold and ChildTransactions."
+      - "ChildAllowanceManager/Components/Pages/AdministrationPage.razor(.cs) and/or the PeoplePage added in P08-T5 — AddParentDialogue."
+      - "tests/ChildAllowanceManager.Tests/UiFlowTests.cs and ComponentRenderingTests.cs — render these components by type."
+      - "Any test file added by phases 06-11 that renders a dialog. Search, do not assume the list is complete."
+    procedure:
+      - "Use `git mv` for every file so history follows the rename. Do not delete-and-create."
+      - >
+        Rename the types with a whole-word, case-sensitive replacement of each `*Dialogue`
+        identifier. `grep -rn 'Dialogue' --include='*.cs' --include='*.razor' .` must return
+        nothing when you are finished, across BOTH projects and the tests.
+      - >
+        Do NOT rename anything else that merely contains the substring. In particular MudBlazor's
+        own `IMudDialogInstance`, `MudDialog`, `DialogService`, `DialogOptions`,
+        `DialogParameters` and `IDialogService` are already spelled "Dialog" and must be left
+        alone. The AppDialog and ConfirmDialog components created in P10-T4 and P11-T5 are also
+        already correct.
+      - "Check ChildAllowanceManager/Components/_Imports.razor and any .razor.css scoped stylesheet for a name that must move with the component. A `ChildTransactionsDialogue.razor.css` would need renaming too - check for one."
+      - "Check CSS class names for the string 'dialogue'. At the audit snapshot the classes were spelled `transactions-dialog-*` (already correct) and most were deleted by P10-T4, but verify."
+    do_not:
+      - "Do not change any user-facing copy in this task. The word 'dialogue' should not appear in any string; if it does, that is a P10-T3 miss - fix it and note it in `result`."
+      - "Do not combine this rename with any other change. The diff must be mechanical so it is reviewable."
+    acceptance:
+      - "`dotnet build ChildAllowanceManager.sln -c Release` exits 0 with no new warnings."
+      - "`CAM_TEST_DB=cam_test_p13 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0 with the full suite passing."
+      - "`grep -rn 'Dialogue' . --include='*.cs' --include='*.razor' --include='*.css' --include='*.json'` returns nothing."
+      - "`git log --follow ChildAllowanceManager/Components/Pages/AddFundsDialog.razor` shows history before the rename."
+    commit: "refactor(ui): rename Dialogue components to Dialog"
+
+completion:
+  after_this_task: >
+    Every task in plan.yaml should be status=done. Verify the audit_coverage map in plan.yaml -
+    every key must point at task ids that are all done, except the two entries marked
+    DEFERRED under decisions.D10_out_of_scope. If any key points at a task that is not done,
+    the plan is not complete regardless of what this phase's status says.

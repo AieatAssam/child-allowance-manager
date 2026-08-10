@@ -1,0 +1,318 @@
+phase: P11
+title: Accessibility and interaction correctness
+covers: [A-A11Y-1, A-A11Y-2, A-A11Y-3, A-A11Y-4, A-A11Y-7, A-A11Y-8, A-A11Y-9, A-P1-6 (error route)]
+read_before_starting: [plan.yaml]
+note: >
+  A-A11Y-5 (ambiguous money labels) is done by P10-T3. A-A11Y-6 (success confirmations) is done
+  by P06-T3. A-A11Y-10 (contrast) is done by P09-T2/T4/T6. This phase covers the remainder.
+
+tasks:
+
+  - id: P11-T1
+    title: Accessible data-table alternative for the balance chart
+    files_touched:
+      - ChildAllowanceManager/Components/BalanceHistoryTable.razor
+      - ChildAllowanceManager/Components/BalanceHistoryTable.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    problem: >
+      The chart container carries role="img" with aria-label="Balance over time chart". It is not
+      an image - it is an interactive Plotly canvas - and a screen reader user gets a label with
+      no data behind it. role="img" on interactive content also hides the interactive children
+      from assistive technology entirely.
+    steps:
+      - file: ChildAllowanceManager/Components/BalanceHistoryTable.razor
+        create: |
+          A MudTable (or a plain <table> if MudTable's chrome fights the layout) rendering one row
+          per date and one column per child, showing the balance. Parameters:
+            [Parameter] public IEnumerable<ChildWithBalanceHistory> History { get; set; }
+          Requirements:
+            - a <caption> reading "Balance for each child, by date";
+            - <th scope="col"> on every column header and <th scope="row"> on the date cell;
+            - dates rendered exactly ("d MMMM yyyy"), not relative;
+            - amounts rendered with ToString("C2");
+            - an empty state row when History is empty.
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        anchor: '<div class="chart-frame" role="img" aria-label="Balance over time chart" aria-describedby="balance-chart-description">'
+        replace_with: '<div class="chart-frame" aria-hidden="true">'
+        why: >
+          The chart becomes decorative-with-a-real-alternative. Hiding the canvas and exposing an
+          honest table is the standard pattern and is what the audit asks for. Do not leave
+          role="img" in place alongside the table - that produces two competing announcements.
+      - >
+        Immediately after the chart-frame div, render the table inside a MudExpansionPanel
+        titled "View the data as a table", expanded=false, so sighted users can reach it too.
+        The panel header must be a real button (MudExpansionPanel renders one) - do not build a
+        custom disclosure.
+      - >
+        ChildrenListPage.razor.cs already fetches ChildWithBalanceHistory in
+        SyncChildBalanceHistorySeries but discards it after building the Plotly traces. Retain it
+        in a field and pass it to the table so the data is fetched once, not twice.
+      - "Keep the existing #balance-chart-description note element. Point the expansion panel's aria-describedby at it."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "No element in the dashboard markup carries role=\"img\"."
+      - "The table exposes one row per date with a scoped row header."
+    commit: "fix(a11y): give the balance chart a real data-table alternative"
+
+  - id: P11-T2
+    title: Non-color encoding for chart series
+    files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
+    mutex: children-list-page
+    steps:
+      - anchor: 'private static readonly string[] ChartColors = ["#8B5CF6", "#F59E0B", "#14B8A6", "#EC4899"];'
+        replace_with: |
+          // Series are distinguished by dash pattern and marker shape as well as colour, so the
+          // chart is readable without colour vision. Values come from docs/brand/brand-guidelines.md.
+          private static readonly string[] ChartColors = ["#675184", "#32735F", "#B95E4D", "#E9A36A"];
+          private static readonly string[] ChartDashes = ["solid", "dash", "dot", "dashdot"];
+          private static readonly string[] ChartMarkers = ["circle", "square", "diamond", "triangle-up"];
+      - >
+        In SyncChildBalanceHistorySeries, set `Line.Dash` from ChartDashes[index % 4] and
+        `Marker.Symbol` from ChartMarkers[index % 4] alongside the existing colour assignment.
+        Plotly.Blazor exposes Dash as a string on ScatterLib.Line and Symbol on ScatterLib.Marker -
+        check the exact property names against the installed Plotly.Blazor 7.2.0 assembly before
+        writing; if Symbol is an enum, map the four names to the matching enum members.
+      - >
+        Delete the hard-coded fill colours
+        `FillColor = index == 0 ? "rgba(139, 92, 246, .12)" : "rgba(245, 158, 11, 0)"`.
+        Replace with a fill derived from the series colour at 12% for index 0 and no fill
+        otherwise, using the new palette value.
+      - "Reduce Line.Width from 4 to 2. A 4px line is decoration; the audit wants the chart quieter."
+      - "The audit's other chart colours (#8B5CF6 etc.) must not survive anywhere. grep after."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -rn '8B5CF6\\|F59E0B\\|14B8A6\\|EC4899' ChildAllowanceManager` returns nothing."
+      - "Each series carries a distinct dash pattern and marker symbol."
+    commit: "fix(a11y): distinguish chart series without relying on colour"
+
+  - id: P11-T3
+    title: aria-hidden on every decorative icon
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/Components/ChildTransactionsTable.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+    mutex: children-list-page
+    rule: |
+      An icon is DECORATIVE when adjacent text already conveys its meaning -> aria-hidden="true".
+      An icon is MEANINGFUL when it is the only content of an interactive control -> it needs an
+      accessible name via aria-label on the control (not on the icon), and no aria-hidden.
+    steps:
+      - >
+        Audit every MudIcon, and every StartIcon/EndIcon/Icon on MudButton, MudNavLink,
+        MudMenuItem, MudChip and MudAlert. Icons paired with a visible label - which is nearly all
+        of them after P10-T3 - get aria-hidden="true".
+      - >
+        Icon-only controls needing an aria-label - the MudAppBar menu MudIconButton (already has
+        "Toggle navigation"), the account MudMenu (already has "Account menu"), the MudMenu with
+        MoreVert on each child card (already has "More actions"), the add MudIconButton on both
+        settings pages (already have "Add tenant"/"Add child" - retitle to "Add family"/"Add child"
+        to match the new vocabulary), and any copy-link button added by P10-T3.
+      - "MudAvatar rendering `@child.Name[0]` is decorative - the name is beside it. Add aria-hidden=\"true\"."
+      - "Do NOT add aria-hidden to MudProgressCircular or MudProgressLinear used as busy indicators - those carry an aria-label and are meaningful."
+      - "The MudIcon inside `<MudIcon Icon=\"@Icons.Material.Filled.Login\">Login</MudIcon>` in MainLayout is malformed - MudIcon has no child content slot for a label. Replace with a MudButton carrying the text \"Sign in\" and StartIcon with aria-hidden."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Every icon in the rendered markup either carries aria-hidden=\"true\" or sits inside a control with an aria-label."
+      - "Verified by P11-T8."
+    commit: "fix(a11y): mark decorative icons as hidden from assistive technology"
+
+  - id: P11-T4
+    title: Distinguish signed-in-without-access from signed-out
+    files_touched: [ChildAllowanceManager/Components/Routes.razor]
+    problem: >
+      The NotAuthorized fragment shows "You do not have access to this page. Sign in" to everyone,
+      including users who are already signed in. Telling a signed-in user to sign in is a dead end.
+    steps:
+      - file: ChildAllowanceManager/Components/Routes.razor
+        anchor: |-
+                      <NotAuthorized>
+                          <LayoutView Layout="@typeof(Layout.MainLayout)">
+                              <div class="page-shell">
+                                  <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                      You do not have access to this page. <MudLink Href="/login">Sign in</MudLink>
+                                  </MudAlert>
+                              </div>
+                          </LayoutView>
+                      </NotAuthorized>
+        replace_with: |
+                      <NotAuthorized Context="authState">
+                          <LayoutView Layout="@typeof(Layout.MainLayout)">
+                              <div class="page-shell">
+                                  @if (authState.User.Identity?.IsAuthenticated == true)
+                                  {
+                                      <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                          <MudText Typo="Typo.h6" HtmlTag="h1">You do not have access to this page</MudText>
+                                          <MudText Typo="Typo.body2" Class="mt-2">
+                                              You are signed in as @authState.User.Identity.Name.
+                                              Ask a parent in that family to invite you, or choose a family you can open.
+                                          </MudText>
+                                          <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary" Href="/">
+                                              Choose a family
+                                          </MudButton>
+                                      </MudAlert>
+                                  }
+                                  else
+                                  {
+                                      <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                          <MudText Typo="Typo.h6" HtmlTag="h1">Sign in to continue</MudText>
+                                          <MudText Typo="Typo.body2" Class="mt-2">This page is for signed-in parents.</MudText>
+                                          <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary" Href="/login">
+                                              Sign in
+                                          </MudButton>
+                                      </MudAlert>
+                                  }
+                              </div>
+                          </LayoutView>
+                      </NotAuthorized>
+        note: >
+          AuthorizeRouteView's NotAuthorized fragment receives the AuthenticationState as its
+          context. Verify the parameter name against the installed ASP.NET Core 10 API before
+          committing - if the fragment is not typed that way, obtain the state via a
+          [CascadingParameter] on a small wrapper component instead. Do not guess.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "A signed-in user without access sees the 'Choose a family' path, not a sign-in prompt."
+      - "Verified by P11-T8."
+    commit: "fix(a11y): tell signed-in users why they cannot see a page"
+
+  - id: P11-T5
+    title: Consistent confirmation behaviour for destructive and money actions
+    files_touched:
+      - ChildAllowanceManager/Components/ConfirmDialog.razor
+      - ChildAllowanceManager/Components/ConfirmDialog.razor.cs
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    problem: >
+      Delete uses MudMessageBox with a Title of "Warning". Remove-hold-day and the money actions
+      use nothing. AddHoldDialogue uses DialogService.ShowMessageBoxAsync for its error path.
+      Four different confirmation behaviours for actions of similar weight.
+    policy:
+      confirm_required:
+        - Delete a family
+        - Delete a child
+        - Remove a person's access
+        - Withdraw money that takes the balance below zero (already handled inline by P06-T4 - do NOT add a second dialog on top)
+      confirm_not_required:
+        - Add money, withdraw money within balance, apply a hold, remove one held day, restore a family or child
+        - "Rationale - each of these is reversible, produces a success confirmation and leaves an audit row. A confirmation on a reversible action trains people to click through confirmations."
+    steps:
+      - file: ChildAllowanceManager/Components/ConfirmDialog.razor
+        create: |
+          Built on AppDialog (P10-T4). Parameters:
+            [Parameter] string Title
+            [Parameter] string Message
+            [Parameter] string ConfirmText = "Delete"
+            [Parameter] bool Destructive = true
+          The confirm button is Variant.Filled Color.Error when Destructive, Color.Primary
+          otherwise. Cancel is Variant.Text Color.Default and holds INITIAL FOCUS - the safe
+          option is focused by default on a destructive dialog.
+          Expose `public static Task<bool> ShowAsync(IDialogService dialogService, string title,
+          string message, string confirmText = "Delete", bool destructive = true)` so call sites
+          are one line.
+      - "Replace both MudMessageBox usages (DeleteTenantMessageBox, DeleteChildMessageBox) and their @ref fields with ConfirmDialog.ShowAsync, passing the D3 copy already applied in P10-T3."
+      - "Remove the confirmation-free inconsistency by NOT adding confirmations to the reversible actions listed above. Record that decision in `result` - it is a deliberate choice, not an omission."
+      - "AddHoldDialogue's DialogService.ShowMessageBoxAsync error path is already gone (P04-T1 replaced it with a thrown exception handled by the operation wrapper). Verify it is gone; if not, remove it."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -rn 'MudMessageBox\\|ShowMessageBoxAsync' ChildAllowanceManager` returns nothing."
+      - "Every destructive action opens ConfirmDialog with Cancel focused."
+    commit: "fix(a11y): one confirmation pattern for every destructive action"
+
+  - id: P11-T6
+    title: Validate forms on blur and submit instead of every keystroke
+    files_touched:
+      - ChildAllowanceManager/Components/ChildConfigurationEditor.razor
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+    problem: >
+      MudTextField defaults to Immediate="false" but MudForm re-validates on every value change,
+      so a partially typed email or amount shows an error mid-typing and re-renders the form on
+      each keystroke.
+    steps:
+      - "Set `Immediate=\"false\"` explicitly on every MudTextField and MudNumericField in these files (explicit beats relying on a default that a MudBlazor upgrade could change)."
+      - "Add `@bind-Value:event=\"onchange\"` where a field currently binds on input."
+      - "Keep the existing `await _form.ValidateAsync(); if (!_form.IsValid) return;` submit gate in every dialog - validation on submit is the backstop and must not be removed."
+      - "Do NOT set MudForm's Validation to null or disable it. The goal is later validation, not less validation."
+      - "The amount fields keep their currency formatting. Verify that switching to onchange does not break the RoundUp button in AddFundsDialogue, which reads and writes Amount - test it."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Typing a partial email in the invite dialog shows no error until the field loses focus."
+      - "Submitting an empty required field still blocks and shows the error."
+      - "The Round up button in the add-funds dialog still updates the amount."
+    commit: "fix(ui): validate forms on blur and submit, not on every keystroke"
+
+  - id: P11-T7
+    title: Mobile transaction table readability and the missing error route
+    files_touched:
+      - ChildAllowanceManager/Components/ChildTransactionsTable.razor
+      - ChildAllowanceManager/Components/Pages/Error.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    steps:
+      - file: ChildAllowanceManager/Components/ChildTransactionsTable.razor
+        change: |
+          The component already switches MudTable.Dense on the Sm/Xs breakpoint via
+          IBrowserViewportObserver. Extend that for the description column:
+            - clamp the description to two lines with
+              `.transaction-description { display: -webkit-box; -webkit-line-clamp: 2;
+               -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }`
+              in app.css, applied only inside the small-breakpoint media query;
+            - give the description cell a `title` attribute with the full text so it is reachable
+              on hover and by assistive technology;
+            - on Xs, drop the Balance column entirely - amount and running balance in a 375px
+              viewport is the specific unreadability the audit names. Bind the column's rendering
+              to the existing IsSmallSize field.
+      - >
+        Add a caption to the table - "Transactions for @Child.Name, newest first" - and scope
+        attributes on the header cells. A paged financial table with no caption is a screen
+        reader dead end.
+      - file: ChildAllowanceManager/Components/Pages/Error.razor
+        change: >
+          P06-T2 added the @page directives. Finish the content here - a page-shell wrapper, an h1,
+          the message text, and a "Back to families" button to "/". For Code == "404" say
+          "That page does not exist." Otherwise "Something went wrong. Nothing was changed."
+          Never render exception details - the page is reachable via UseExceptionHandler in
+          production.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "At a 375px viewport the transaction table shows date, description and amount, with the description clamped to two lines."
+      - "/error/404 and /error render styled pages."
+    commit: "fix(a11y): make the transaction table readable on mobile and finish the error page"
+
+  - id: P11-T8
+    title: Accessibility tests
+    files_touched: [tests/ChildAllowanceManager.Tests/AccessibilityTests.cs]
+    create_file: tests/ChildAllowanceManager.Tests/AccessibilityTests.cs
+    approach: >
+      bunit renders real markup, so assert on it with AngleSharp queries (bunit's Find/FindAll,
+      which already wrap AngleSharp). No new package. Do not attempt to run axe-core - there is
+      no browser in this suite.
+    required_tests:
+      - Dashboard_exposes_no_role_img
+      - Balance_history_table_has_a_caption_and_scoped_headers
+      - Balance_history_table_has_one_row_per_date
+      - Every_icon_is_hidden_or_inside_a_labelled_control — walk every element with a mud-icon class and assert aria-hidden or an ancestor with aria-label.
+      - Every_icon_only_button_has_an_accessible_name
+      - Signed_in_user_without_access_is_not_told_to_sign_in
+      - Signed_out_user_is_told_to_sign_in
+      - Destructive_confirmation_focuses_cancel
+      - Chart_series_carry_distinct_dash_patterns
+      - Page_has_exactly_one_h1 — parameterised over Home, ChildrenListPage, ChildManagementPage, AdministrationPage, PeoplePage.
+      - Skip_link_is_the_first_focusable_element
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p11t8 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All eleven tests exist and pass."
+    commit: "test(a11y): cover chart alternatives, icon labelling, focus and headings"

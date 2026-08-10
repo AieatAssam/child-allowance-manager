@@ -1,0 +1,273 @@
+phase: P03
+title: Schema integrity — foreign keys, timezone, actor, idempotency, membership
+covers: [A-P2-DI-1, A-P2-DI-3, A-P2-UA-4, A-P1-8 (storage), A-P1-5 (storage), A-P1-10 (storage)]
+read_before_starting: [plan.yaml]
+context: >
+  All model changes land BEFORE the migration is scaffolded. P03-T1..T5 edit entities and
+  AllowanceDbContext only. P03-T6 scaffolds one migration covering all of them. Do not scaffold
+  a migration per task - that produces five migrations where one belongs.
+global_rules:
+  - Every entity derives from BaseItem and gets its key/timestamps from AllowanceDbContext.ConfigureItem.
+  - Ids are `string` GUID N-format, generated client-side, ValueGeneratedNever. Keep that convention.
+  - Do NOT run `dotnet ef migrations add` in T1..T5. Only T6 does.
+
+tasks:
+
+  - id: P03-T1
+    title: Foreign keys for child->tenant and transaction->child/tenant
+    files_touched:
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager.Common/Models/ChildConfiguration.cs
+      - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+    steps:
+      - file: ChildAllowanceManager.Common/Models/ChildConfiguration.cs
+        add: 'public TenantConfiguration? Tenant { get; set; }'
+        note: Nullable navigation so existing object construction in tests and seeders keeps compiling.
+      - file: ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+        add: |
+          public ChildConfiguration? Child { get; set; }
+          public TenantConfiguration? Tenant { get; set; }
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: 'entity.HasIndex(x => new { x.TenantId, x.Deleted });'
+        add_after_within_same_block: |
+          entity.HasOne(x => x.Tenant)
+              .WithMany()
+              .HasForeignKey(x => x.TenantId)
+              .OnDelete(DeleteBehavior.Restrict);
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: |-
+          entity.HasIndex(x => new { x.TenantId, x.ChildId, x.AllowanceDate })
+              .IsUnique()
+              .HasFilter("\"AllowanceDate\" IS NOT NULL");
+        add_after_within_same_block: |
+          entity.HasOne(x => x.Child)
+              .WithMany()
+              .HasForeignKey(x => x.ChildId)
+              .OnDelete(DeleteBehavior.Restrict);
+          entity.HasOne(x => x.Tenant)
+              .WithMany()
+              .HasForeignKey(x => x.TenantId)
+              .OnDelete(DeleteBehavior.Restrict);
+    rules:
+      - "DeleteBehavior.Restrict, not Cascade. Deletion in this product is SOFT (BaseItem.Deleted). A cascade would silently destroy financial history if a hard delete ever ran."
+      - "Do NOT add `.WithMany(t => t.Children)` collection navigations. Nothing reads them and they change query shapes."
+    known_data_risk: >
+      DevelopmentDataSeeder and existing test fixtures create transactions referencing
+      TenantId "development-tenant". The FK will now require that tenant row to exist first.
+      The seeder already inserts the tenant before the transactions in the same SaveChanges,
+      which PostgreSQL accepts. If any test constructs a transaction with an unknown TenantId,
+      that test must be fixed here, not worked around by dropping the FK.
+    acceptance:
+      - "`dotnet build ChildAllowanceManager.sln -c Release` exits 0"
+      - "No behavioural test changes yet - constraints are verified in P03-T7."
+    commit: "fix(data): add foreign keys for child and transaction ownership"
+
+  - id: P03-T2
+    title: TenantConfiguration.TimeZoneId column
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantConfiguration.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager.Common/Validators/TenantConfigurationValidator.cs
+    steps:
+      - file: ChildAllowanceManager.Common/Models/TenantConfiguration.cs
+        add: |
+          /// IANA time zone id, for example "Europe/London". Allowance scheduling and all
+          /// date display for this family happen in this zone. See decisions.D6_timezone_storage.
+          public string TimeZoneId { get; set; } = "Europe/London";
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: 'modelBuilder.Entity<TenantConfiguration>(entity => entity.HasIndex(x => x.UrlSuffix).IsUnique());'
+        replace_with: |
+          modelBuilder.Entity<TenantConfiguration>(entity =>
+          {
+              entity.HasIndex(x => x.UrlSuffix).IsUnique();
+              entity.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64).HasDefaultValue("Europe/London");
+          });
+        note: >
+          P03-T3 edits this same block to add the .HasFilter. Whichever task runs second must
+          preserve the other's change - they are sequenced by depends_on so this is deterministic.
+      - file: ChildAllowanceManager.Common/Validators/TenantConfigurationValidator.cs
+        add_rule: >
+          A rule on TimeZoneId - NotEmpty, and Must(id => TimeZoneInfo.TryFindSystemTimeZoneById(id, out _))
+          with message "Choose a valid time zone." Match the existing validator's style - read the
+          file first and follow whatever RuleFor chain formatting is already there.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "A ValidatorTests case asserting an invalid timezone id fails validation and 'Europe/London' passes. Add it to tests/ChildAllowanceManager.Tests/ValidatorTests.cs."
+    commit: "feat(data): store a time zone per family"
+
+  - id: P03-T3
+    title: Filter unique indexes on NOT Deleted so suffixes and emails are reusable
+    files_touched: [ChildAllowanceManager/Data/AllowanceDbContext.cs]
+    implements: decisions.D4_deleted_suffix_reuse
+    steps:
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        change: |
+          In the TenantConfiguration block, the UrlSuffix index becomes:
+            entity.HasIndex(x => x.UrlSuffix).IsUnique().HasFilter("NOT \"Deleted\"");
+          In the User block, the Email index becomes:
+            entity.HasIndex(x => x.Email).IsUnique().HasFilter("NOT \"Deleted\"");
+        anchor_tenant: 'entity.HasIndex(x => x.UrlSuffix).IsUnique();'
+        anchor_user: 'modelBuilder.Entity<User>(entity => entity.HasIndex(x => x.Email).IsUnique());'
+    note: >
+      The service-layer duplicate checks in TenantService.AddTenant and UpdateTenant currently
+      query without `&& !x.Deleted`, so they will still reject a reused suffix at the application
+      layer. P04-T9 fixes that. Do not fix it here - it is a different file with different tests.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P03-T7."
+    commit: "fix(data): scope unique indexes to non-deleted rows"
+
+  - id: P03-T4
+    title: TenantMembership entity
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantMembership.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+    implements: decisions.D5_tenant_roles
+    steps:
+      - file: ChildAllowanceManager.Common/Models/TenantMembership.cs
+        create_with: |
+          namespace ChildAllowanceManager.Common.Models;
+
+          /// A user's access to one family, with the role they hold there.
+          /// Replaces User.Tenants[] as the authority for tenant access.
+          public class TenantMembership : BaseItem
+          {
+              public string UserId { get; set; } = string.Empty;
+              public string TenantId { get; set; } = string.Empty;
+
+              /// One of ValidRoles.Parent. Global roles (ValidRoles.Admin) stay on User.Roles.
+              public string Role { get; set; } = ValidRoles.Parent;
+
+              public User? User { get; set; }
+              public TenantConfiguration? Tenant { get; set; }
+          }
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        add_dbset: 'public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();'
+        add_to_OnModelCreating: |
+          ConfigureItem(modelBuilder.Entity<TenantMembership>());
+          modelBuilder.Entity<TenantMembership>(entity =>
+          {
+              entity.Property(x => x.Role).IsRequired().HasMaxLength(32);
+              entity.HasIndex(x => new { x.UserId, x.TenantId }).IsUnique().HasFilter("NOT \"Deleted\"");
+              entity.HasIndex(x => x.TenantId);
+              entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+              entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+          });
+        note: 'The ConfigureItem call must sit alongside the four existing ones at the top of OnModelCreating.'
+    acceptance:
+      - "`dotnet build` exits 0"
+    commit: "feat(data): add tenant membership entity"
+
+  - id: P03-T5
+    title: Transaction actor metadata, RequestId and reversal linkage
+    files_touched:
+      - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+    implements: [decisions.D7_idempotency, A-P1-10]
+    steps:
+      - file: ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+        add: |
+          /// Email of the person who performed this action, lowercased. Null for
+          /// transactions created by the scheduled allowance job.
+          public string? ActorEmail { get; set; }
+
+          /// Display name of the actor at the time of the action, or "Allowance schedule"
+          /// for job-created rows. Denormalised on purpose - the audit trail must not
+          /// change when a user later renames themselves.
+          public string ActorName { get; set; } = "Allowance schedule";
+
+          /// Caller-supplied de-duplication key. When set, a second AddTransaction with the
+          /// same (TenantId, RequestId) returns the existing row instead of creating another.
+          public string? RequestId { get; set; }
+
+          /// When this row is a correction, the Id of the transaction it reverses.
+          /// Corrections are additive - history is never edited. See P04-T6.
+          public string? ReversesTransactionId { get; set; }
+
+          /// Why a correction was made. Required when ReversesTransactionId is set.
+          public string? CorrectionReason { get; set; }
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        add_to_AllowanceTransaction_block: |
+          entity.Property(x => x.ActorEmail).HasMaxLength(320);
+          entity.Property(x => x.ActorName).IsRequired().HasMaxLength(200).HasDefaultValue("Allowance schedule");
+          entity.Property(x => x.RequestId).HasMaxLength(64);
+          entity.Property(x => x.ReversesTransactionId).HasMaxLength(32);
+          entity.Property(x => x.CorrectionReason).HasMaxLength(500);
+          entity.HasIndex(x => new { x.TenantId, x.RequestId })
+              .IsUnique()
+              .HasFilter("\"RequestId\" IS NOT NULL");
+          entity.HasIndex(x => x.ReversesTransactionId);
+    rules:
+      - Do NOT add a self-referencing FK on ReversesTransactionId. EF's default cascade analysis on a self-reference with Restrict is noisy and the index is enough for the queries this plan needs.
+      - "320 is the maximum email length per RFC 5321. 32 matches the GUID N-format id length."
+    acceptance:
+      - "`dotnet build` exits 0"
+    commit: "feat(data): record actor, request id and correction linkage on transactions"
+
+  - id: P03-T6
+    title: Scaffold the schema migration and backfill script
+    files_touched: [ChildAllowanceManager/Migrations/]
+    exclusive_resources: [postgres-test-db]
+    steps:
+      - >
+        `dotnet ef migrations add SchemaIntegrity --project ChildAllowanceManager
+        --context AllowanceDbContext --output-dir Migrations`
+      - >
+        Read the generated Up method and confirm it contains, at minimum - AddColumn TimeZoneId
+        on Tenants; AddColumn ActorEmail, ActorName, RequestId, ReversesTransactionId,
+        CorrectionReason on Transactions; CreateTable TenantMemberships; four AddForeignKey
+        calls; DropIndex + CreateIndex for IX_Tenants_UrlSuffix and IX_Users_Email now carrying
+        `filter: "NOT \"Deleted\""`; new indexes for RequestId and ReversesTransactionId.
+        If any is missing, a model edit from T1-T5 did not land - set status=blocked and name it.
+      - >
+        HAND-EDIT ONLY THIS - the FK creation will fail on any existing database that holds
+        orphan rows. Prepend to the Up method, before the AddForeignKey calls -
+        `migrationBuilder.Sql("DELETE FROM \"Transactions\" t WHERE NOT EXISTS (SELECT 1 FROM \"Children\" c WHERE c.\"Id\" = t.\"ChildId\");");`
+        and the equivalent for orphan Tenants references on both Children and Transactions.
+        This is a deliberate, documented data deletion of rows that already point at nothing.
+        Add a comment above it saying exactly that.
+      - >
+        Also prepend a backfill that seeds TenantMemberships from the existing User.Tenants array
+        so no one loses access at deploy -
+        `migrationBuilder.Sql(@"INSERT INTO ""TenantMemberships"" (""Id"", ""UserId"", ""TenantId"", ""Role"", ""Deleted"", ""CreatedTimestamp"", ""UpdatedTimestamp"") SELECT replace(gen_random_uuid()::text, '-', ''), u.""Id"", t.tenant_id, 'parent', false, now(), now() FROM ""Users"" u CROSS JOIN LATERAL unnest(u.""Tenants"") AS t(tenant_id) WHERE NOT u.""Deleted"" AND EXISTS (SELECT 1 FROM ""Tenants"" x WHERE x.""Id"" = t.tenant_id) ON CONFLICT DO NOTHING;");`
+        Place it AFTER the CreateTable for TenantMemberships and BEFORE its unique index creation,
+        or after both if EF ordered them that way - order the Sql call so the table exists.
+        gen_random_uuid() is built into PostgreSQL 13+; the test image is postgres:16.
+      - Do NOT edit the Designer file or the ModelSnapshot.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`dotnet ef migrations add __Probe --project ChildAllowanceManager` yields an EMPTY Up body; then `dotnet ef migrations remove`. The probe is not committed."
+      - "`CAM_TEST_DB=cam_test_p03t6 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "Applying the migration to a database that already contains a user with a populated Tenants array produces one TenantMemberships row per tenant."
+    commit: "feat(migrations): schema integrity migration with membership backfill"
+
+  - id: P03-T7
+    title: Schema constraint tests
+    files_touched: [tests/ChildAllowanceManager.Tests/SchemaConstraintTests.cs]
+    create_file: tests/ChildAllowanceManager.Tests/SchemaConstraintTests.cs
+    exclusive_resources: [postgres-test-db]
+    required_tests:
+      - name: Transaction_with_unknown_child_is_rejected_by_the_database
+        does: "Insert an AllowanceTransaction with ChildId = \"does-not-exist\" via the context and assert SaveChangesAsync throws DbUpdateException."
+      - name: Child_with_unknown_tenant_is_rejected_by_the_database
+        does: Same shape for ChildConfiguration.TenantId.
+      - name: Deleted_tenant_suffix_can_be_reused
+        does: "Insert tenant A with UrlSuffix \"demo\", set A.Deleted = true, save; insert tenant B with UrlSuffix \"demo\"; assert SaveChangesAsync succeeds."
+      - name: Two_live_tenants_cannot_share_a_suffix
+        does: Assert DbUpdateException when both are non-deleted.
+      - name: Deleted_user_email_can_be_reused
+        does: Same shape as the tenant suffix pair, on User.Email.
+      - name: Duplicate_request_id_within_a_tenant_is_rejected
+        does: "Insert two transactions with the same TenantId and RequestId; assert the second SaveChangesAsync throws."
+      - name: Null_request_ids_do_not_collide
+        does: Insert three transactions with RequestId null; assert all three persist.
+      - name: Membership_is_unique_per_user_and_tenant_while_live
+        does: Insert two live TenantMembership rows for the same (UserId, TenantId); assert the second throws. Then soft-delete the first and assert a third insert succeeds.
+    fixture_note: >
+      Use PostgresTestDatabase.CreateMigratedContextAsync() - these tests assert on migration-created
+      constraints, so EnsureCreated would not be an honest check. Each test must insert its own tenant
+      and child parents first, because the new foreign keys reject dangling references.
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p03t7 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All eight tests exist and pass."
+    commit: "test(data): cover foreign keys, filtered uniques and idempotency keys"

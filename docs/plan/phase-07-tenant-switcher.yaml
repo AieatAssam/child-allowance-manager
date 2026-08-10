@@ -1,0 +1,173 @@
+phase: P07
+title: Family switcher and choose-a-family state
+covers: [A-P1-7, A-FO-tenant-switcher, A-VD-4 (visible switcher)]
+read_before_starting: [plan.yaml]
+context: >
+  The current family is inferred from ProtectedLocalStorage key "current_tenant_suffix" (read in
+  Home.OnAfterRenderAsync) and a "current_tenant" cookie set by MainLayout via JS interop. NavMenu
+  derives TenantSuffix from the URL - it shows nothing when the path is not /{suffix}/children or
+  /{suffix}/configuration. A user in two households has no way to switch, and a renamed or deleted
+  family strands them on "/" with no recovery.
+vocabulary_rule: >
+  User-facing text says "family" and "families", never "tenant". "Tenant" stays in code
+  identifiers and in the admin page only. See the copy map in phase-10.
+
+tasks:
+
+  - id: P07-T1
+    title: Tenant list for the signed-in user
+    files_touched:
+      - ChildAllowanceManager/Services/TenantService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+        add: |
+          /// Families this principal may open, ordered by name. An admin sees every live family;
+          /// anyone else sees the families they hold a membership in.
+          ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
+              ClaimsPrincipal principal, CancellationToken cancellationToken = default);
+        note: 'Requires `using System.Security.Claims;` in the interface file.'
+      - file: ChildAllowanceManager/Services/TenantService.cs
+        implement: |
+          if (principal.IsInRole(ValidRoles.Admin))
+              return await GetTenants(cancellationToken);
+
+          var tenantIds = principal.FindAll(CustomClaimTypes.Tenant).Select(c => c.Value).ToArray();
+          if (tenantIds.Length == 0)
+              return [];
+
+          return await db.Tenants.AsNoTracking()
+              .Where(x => !x.Deleted && tenantIds.Contains(x.Id))
+              .OrderBy(x => x.TenantName)
+              .ToListAsync(cancellationToken);
+        rules:
+          - "Read access from CLAIMS, not from the database User row. The claims are already the enforcement surface used by ChildrenListPage.HasTenantAccessAsync and ChildManagementPage. Two sources of truth would drift."
+          - "Never return deleted families here. Deleted families are reachable only through the admin restore list (P10-T6)."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P07-T4."
+    commit: "feat(tenant): list the families a signed-in user can open"
+
+  - id: P07-T2
+    title: Family switcher in the app bar account menu
+    files_touched:
+      - ChildAllowanceManager/Components/Layout/FamilySwitcher.razor
+      - ChildAllowanceManager/Components/Layout/FamilySwitcher.razor.cs
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+    steps:
+      - file: ChildAllowanceManager/Components/Layout/FamilySwitcher.razor
+        create: |
+          A MudMenu whose activator shows the CURRENT family's name (or "Choose a family" when
+          none is active), with Icon="@Icons.Material.Filled.Home" and
+          aria-label="Switch family". Its items are one MudMenuItem per family from
+          GetTenantsForUser, each navigating to $"/{tenant.UrlSuffix}/children". The active
+          family's item carries a check icon and aria-current="true".
+
+          When the user can open only one family, render the family NAME as plain text with no
+          menu - a menu with one item is noise.
+
+          When the user can open none, render nothing (the Home page handles that state).
+        rules:
+          - "Do not render a MudSelect. This lives in the app bar; a menu is the MudBlazor-native pattern there and matches the existing account MudMenu."
+      - file: ChildAllowanceManager/Components/Layout/FamilySwitcher.razor.cs
+        implement: |
+          - Inherit CancellableComponentBase so it gets Operations/RunAsync/CancellationToken.
+          - [CascadingParameter] Task<AuthenticationState>? AuthenticationState.
+          - [Inject] ITenantService, NavigationManager, ICurrentContextService, ProtectedLocalStorage.
+          - Load the family list in OnInitializedAsync via RunAsync (successMessage: null).
+          - Track the active family by matching the first URL segment against UrlSuffix, using the
+            same parsing NavMenu.UpdateTenantSuffix already does. Subscribe to
+            NavigationManager.LocationChanged and unsubscribe in Dispose, exactly as NavMenu does.
+          - On selection: write ProtectedLocalStorage "current_tenant" (tenant.Id) and
+            "current_tenant_suffix" (tenant.UrlSuffix), call CurrentContextService.SetCurrentTenant,
+            then NavigateTo($"/{tenant.UrlSuffix}/children").
+        rules:
+          - >
+            ChildrenListPage.OnAfterRenderAsync ALSO writes those two local-storage keys. Both
+            writers must use the same key names and the same values (Id for "current_tenant",
+            UrlSuffix for "current_tenant_suffix"). Do not invent a third key.
+          - "Do not duplicate the JS cookie write - MainLayout owns that and P12-T2 reworks it."
+      - file: ChildAllowanceManager/Components/Layout/MainLayout.razor
+        anchor: |-
+                  <MudText Typo="Typo.h5" Class="ml-3 app-brand">Allowance Manager</MudText>
+                  <MudSpacer/>
+        change: 'Insert `<AuthorizeView><Authorized><FamilySwitcher/></Authorized></AuthorizeView>` between the brand text and the MudSpacer.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P07-T4."
+    commit: "feat(nav): add a visible family switcher to the app bar"
+
+  - id: P07-T3
+    title: Choose-a-family home state with stale-tenant recovery
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/Home.razor
+      - ChildAllowanceManager/Components/Pages/Home.razor.cs
+    current_behaviour_to_replace: >
+      Home.OnAfterRenderAsync reads "current_tenant_suffix", checks access, and redirects. If the
+      stored suffix is stale (family renamed or deleted) HasTenantAccessBySuffixAsync returns false
+      and the user is left staring at a generic "Sign in to manage pocket money" alert even though
+      they are signed in and have other families.
+    required_states:
+      - id: loading
+        when: '!_initialised'
+        renders: The existing MudProgressCircular. Unchanged.
+      - id: signed-out
+        when: 'the principal is not authenticated'
+        renders: 'The existing sign-in alert. Keep the local-demo button gated on Environment.IsDevelopment().'
+      - id: single-family
+        when: 'authenticated and GetTenantsForUser returns exactly one'
+        renders: 'Nothing - redirect straight to /{suffix}/children.'
+      - id: choose-a-family
+        when: 'authenticated and GetTenantsForUser returns two or more'
+        renders: >
+          A heading "Choose a family" and one card or list item per family showing TenantName,
+          each linking to /{suffix}/children. If a stored suffix was stale, precede the list with
+          a MudAlert Severity="Severity.Info" reading "The family you last opened is no longer
+          available. Choose another."
+      - id: no-families
+        when: 'authenticated and GetTenantsForUser returns none'
+        renders: >
+          A MudAlert Severity="Severity.Info" - heading "You are signed in, but not part of a
+          family yet", body "Ask a parent in your household to invite you, or contact an
+          administrator." This is also the fix referenced by A-A11Y-4 on the home surface;
+          Routes.razor is handled separately in P11-T4.
+    redirect_rule: >
+      Only auto-redirect when the stored suffix is BOTH still resolvable AND still accessible.
+      Otherwise clear the two local-storage keys and fall through to choose-a-family or no-families.
+      Never redirect away from an explicit navigation to "/" when the user has more than one family
+      and no stored preference.
+    steps:
+      - "Keep the redirect in OnAfterRenderAsync(firstRender) - ProtectedLocalStorage requires JS interop, which is unavailable during prerender."
+      - "Wrap every service call in RunAsync (successMessage: null)."
+      - "Add `[Inject] ProtectedLocalStorage` deletions via `LocalStorage.DeleteAsync(key)` when clearing a stale preference."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P07-T4."
+    commit: "feat(home): add a choose-a-family state with stale-family recovery"
+
+  - id: P07-T4
+    title: Family switcher tests
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/FamilySwitcherTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    create_file: tests/ChildAllowanceManager.Tests/FamilySwitcherTests.cs
+    setup_note: >
+      bunit supplies a FakeNavigationManager and a fake AuthorizationContext via
+      context.AddAuthorization(). ProtectedLocalStorage needs JSInterop - BunitTestContext.Create()
+      already sets JSRuntimeMode.Loose, which makes its calls no-ops returning default. If a test
+      needs a stored value back, register a stub ProtectedLocalStorage-shaped wrapper instead of
+      fighting the interop; note the approach in a comment.
+    required_tests:
+      - Admin_sees_every_live_family
+      - Parent_sees_only_families_they_hold_a_tenant_claim_for
+      - Deleted_families_never_appear_in_the_switcher
+      - Switcher_renders_plain_text_and_no_menu_for_a_single_family
+      - Selecting_a_family_navigates_to_its_children_route
+      - Active_family_is_marked_aria_current
+      - Home_redirects_when_the_stored_family_is_still_valid
+      - Home_shows_choose_a_family_when_the_stored_family_is_stale
+      - Home_shows_the_no_families_state_for_a_signed_in_user_with_no_memberships
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p07t4 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All nine tests exist and pass."
+    commit: "test(nav): cover the family switcher and choose-a-family states"

@@ -1,0 +1,380 @@
+phase: P10
+title: Calm ledger redesign — remove decoration, unify copy, standardize patterns
+covers: [A-BR-2, A-BR-3, A-BR-5, A-BR-6, A-VD-3, A-VD-4, A-A11Y-5, A-P2-DI-4 (copy + restore UI)]
+read_before_starting: [plan.yaml, docs/brand/brand-guidelines.md]
+context: >
+  P09 created tokens.css, the token-bound MudBlazor theme and the brand mark. app.css is still
+  819 lines of the old system - animated blobs, ribbons, orbs, sparks, a navy app bar, a
+  dark-gradient transaction dialog, hard-coded pinks and yellows, Nunito-flavoured headings.
+  The audit's own conclusion is that the biggest improvement is DELETION.
+guiding_rule: >
+  Prefer removing a rule to rewriting it. If a selector exists only to decorate, delete it and
+  let MudBlazor's token-bound defaults render the component. Every rule you keep must justify
+  itself against the brand guidelines.
+
+tasks:
+
+  - id: P10-T1
+    title: Delete the animated dashboard decoration
+    files_touched:
+      - ChildAllowanceManager/wwwroot/app.css
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+    mutex: [app-css, children-list-page]
+    steps:
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        anchor: |-
+              <div class="dashboard-backdrop" aria-hidden="true">
+                  <span class="dashboard-ribbon dashboard-ribbon-one"></span>
+                  <span class="dashboard-ribbon dashboard-ribbon-two"></span>
+                  <span class="dashboard-ribbon dashboard-ribbon-three"></span>
+                  <span class="dashboard-orb dashboard-orb-one"></span>
+                  <span class="dashboard-orb dashboard-orb-two"></span>
+                  <span class="dashboard-spark dashboard-spark-one"></span>
+                  <span class="dashboard-spark dashboard-spark-two"></span>
+              </div>
+        action: DELETE the entire element.
+      - file: ChildAllowanceManager/wwwroot/app.css
+        delete_selectors:
+          - .dashboard-backdrop
+          - .dashboard-backdrop::before
+          - .dashboard-backdrop::after
+          - .dashboard-ribbon
+          - .dashboard-ribbon-one
+          - .dashboard-ribbon-two
+          - .dashboard-ribbon-three
+          - .dashboard-orb
+          - .dashboard-orb-one
+          - .dashboard-orb-two
+          - .dashboard-spark
+          - .dashboard-spark-one
+          - .dashboard-spark-two
+          - "@keyframes dashboard-wash"
+          - "@keyframes dashboard-sweep"
+          - "@keyframes dashboard-drift"
+          - "@keyframes dashboard-orbit"
+          - "@keyframes dashboard-sparkle"
+        also: >
+          Delete any rule for these selectors inside the @media (max-width: 640px),
+          @media (min-width: 641px) and @media (prefers-reduced-motion: reduce) blocks at the
+          bottom of the file. The reduced-motion block exists mainly to disable these animations;
+          if it becomes empty, delete it too.
+      - "`.dashboard-view` stays as the page wrapper but loses `position: relative` if nothing else needs it. Check before removing."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -rn 'dashboard-ribbon\\|dashboard-orb\\|dashboard-spark\\|dashboard-backdrop\\|dashboard-wash\\|dashboard-sweep\\|dashboard-drift\\|dashboard-orbit\\|dashboard-sparkle' ChildAllowanceManager` returns nothing."
+      - "The dashboard renders with a plain background and no animation."
+    commit: "style(dashboard): remove the animated background decoration"
+
+  - id: P10-T2
+    title: Rewrite app.css onto tokens with the ledger motif
+    files_touched:
+      - ChildAllowanceManager/wwwroot/app.css
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.css
+    mutex: app-css
+    steps:
+      - >
+        Replace every hard-coded colour in app.css with the matching var(--al-*). The full list of
+        literals to eliminate, from the audit snapshot - #f7f8fc, #172033, #5b657a, #e5e7ef,
+        #4f46e5, #0f766e, #fff/#ffffff, #172554, #f8fafc, #b42318, #ffce5c, #ff71ce, #0d9488,
+        #0f3d56, #f97360, #c24132. After this task, `grep -nE '#[0-9A-Fa-f]{3,8}' app.css`
+        must return nothing.
+      - >
+        Delete `.app-bar { background: #172554 !important; color: #f8fafc !important; }`. The app
+        bar now takes AppbarBackground from the theme. Keep only a
+        `border-bottom: 1px solid var(--al-border);`.
+      - >
+        Replace the transaction dialog's separate identity. Delete the
+        `linear-gradient(135deg, #172554 0%, #0f3d56 58%, #0d9488 100%)` title background and every
+        `color: #fff !important` that depended on it. The dialog uses --al-surface and --al-ink
+        like every other dialog. `.transactions-dialog-kicker` disappears entirely (its copy is
+        removed in P10-T3).
+      - >
+        Add the ledger motif as ONE rule on the page background, replacing the deleted decoration -
+        a repeating-linear-gradient of 1px rules in --al-border at the 32px rhythm, at low opacity,
+        on .page-shell or body. One rule, no pseudo-elements, no animation. Example shape:
+        `background-image: repeating-linear-gradient(to bottom, transparent 0 31px, color-mix(in srgb, var(--al-border) 60%, transparent) 31px 32px);`
+      - "Replace every border-radius with var(--al-radius-sm|--al-radius|--al-radius-lg). Nothing above 12px survives."
+      - "Replace every box-shadow. Cards, panels, tables, toolbars and the app bar get none plus a 1px --al-border. Only dialog, menu and popover selectors may use --al-shadow-raised."
+      - "Replace every hard-coded px margin and padding with the --al-space-* scale. Values not on the scale get rounded to the nearest scale step."
+      - "Replace every `font-family` declaration with var(--al-font-ui) or var(--al-font-display). Page titles and .balance-value use display; everything else uses ui. This removes the last five references to Nunito, which P09-T3 deliberately left in place rather than editing this file twice."
+      - "Merge ChildrenListPage.razor.css into app.css if it holds fewer than ten rules, and delete the file. Read it first. If it is substantial, leave it in place but token-convert it identically."
+      - "Keep the .skip-link rule and its :focus behaviour exactly as-is except for token substitution - it is an accessibility affordance, not decoration."
+    invariants:
+      - "No rule may introduce a colour not defined in tokens.css."
+      - "No !important survives unless a MudBlazor internal genuinely requires it. Each surviving one gets a one-line comment naming the MudBlazor selector it is fighting."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -nE '#[0-9A-Fa-f]{3,8}' ChildAllowanceManager/wwwroot/app.css` returns nothing."
+      - "`grep -rn 'Nunito' ChildAllowanceManager` returns nothing."
+      - "Light and dark mode are both coherent - no light-only colour survives to make dark mode wrong. This is the audit's specific dark-mode complaint."
+      - "The P09-T6 test Accent_is_never_declared_as_a_text_colour still passes."
+    commit: "style(brand): rebuild the stylesheet on design tokens"
+
+  - id: P10-T3
+    title: Apply the copy map across every user-facing string
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/Home.razor
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
+      - tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+    mutex: children-list-page
+    copy_map:
+      # file : exact current string -> exact replacement. Apply verbatim.
+      - file: ChildrenListPage.razor
+        find: '<MudText Typo="Typo.overline" Class="page-kicker">Pocket money</MudText>'
+        replace: DELETE the element. Kicker labels are removed everywhere.
+      - file: ChildrenListPage.razor
+        find: 'See the money move'
+        replace: 'Balances'
+      - file: ChildrenListPage.razor
+        find: 'Balances, allowances, and spending for this family.'
+        replace: 'What each child has, and what is coming next.'
+      - file: ChildrenListPage.razor
+        find: 'Today at a glance'
+        replace: >
+          Render the actual date instead of a slogan - `@DateTime.Now.ToString("dddd, d MMMM")`
+          computed in the FAMILY's time zone. Use the TimeZoneId now carried on ChildWithBalance
+          (P05-T3); fall back to the first child's value, or omit the chip entirely when there are
+          no children.
+      - file: ChildrenListPage.razor
+        find: 'Birthday bonus day'
+        replace: 'Birthday allowance today'
+      - file: ChildrenListPage.razor
+        find: '>Add<'
+        replace: '>Add money<'
+      - file: ChildrenListPage.razor
+        find: '>Take out<'
+        replace: '>Withdraw<'
+      - file: ChildrenListPage.razor
+        find: '<MudChip T="string" Color="Color.Tertiary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Insights">'
+        replace: DELETE the whole chip including its "Compare balances" text.
+      - file: ChildrenListPage.razor
+        find: 'A simple view of each child’s balance across recent days.'
+        replace: 'Balance for each child over recent days.'
+      - file: ChildrenListPage.razor
+        find: 'Allowance paused for @child.HoldDaysRemaining day(s).'
+        replace: 'Allowance paused for @child.HoldDaysRemaining more day(s).'
+      - file: ChildrenListPage.razor
+        find: '@child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()'
+        replace: >
+          `@child.NextRegularChange.ToString("C2") on @child.NextRegularChangeLocalDate.ToString("dddd, d MMMM")`
+          with the Humanized relative form as a smaller secondary line beneath it. Exact date first,
+          relative second - that is the audit's requirement, and it is why P05-T3 added
+          NextRegularChangeLocalDate.
+      - file: ChildTransactionsDialogue.razor
+        find: '<MudText Typo="Typo.overline" Class="transactions-dialog-kicker">Money trail</MudText>'
+        replace: DELETE the element.
+      - file: ChildTransactionsDialogue.razor
+        find: "@Child.Name's transactions"
+        replace: "@Child.Name’s activity"
+      - file: AdministrationPage.razor
+        find: '<MudText Typo="Typo.overline" Class="page-kicker">System access</MudText>'
+        replace: DELETE the element.
+      - file: AdministrationPage.razor
+        find: 'Keep families, links, and access details organised.'
+        replace: 'Create, rename and remove families.'
+      - file: AdministrationPage.razor
+        find: '<MudText Typo="Typo.subtitle1">Tenant Management</MudText>'
+        replace: '<MudText Typo="Typo.subtitle1">Families</MudText>'
+      - file: AdministrationPage.razor
+        find: 'Delete this family? This cannot be undone.'
+        replace: 'Delete this family? This hides the family and its children. An administrator can restore it.'
+      - file: AdministrationPage.razor
+        find: '<MudNavLink Href="@($"/{Tenants[idxLocal].UrlSuffix}/children")">@(Navigation.ToAbsoluteUri($"/{Tenants[idxLocal].UrlSuffix}/children"))</MudNavLink>'
+        replace: >
+          Show readable link text, not a raw absolute URL -
+          `<MudNavLink Href="@($"/{Tenants[idxLocal].UrlSuffix}/children")">Open this family</MudNavLink>`
+          with the full URL available via a copy-to-clipboard MudIconButton whose aria-label is
+          "Copy the link to this family". That is the audit's "full absolute URL as visible link
+          text" finding.
+      - file: ChildManagementPage.razor
+        find: '<MudText Typo="Typo.overline" Class="page-kicker">Family setup</MudText>'
+        replace: DELETE the element.
+      - file: ChildManagementPage.razor
+        find: 'Manage children'
+        replace: 'Family settings'
+      - file: ChildManagementPage.razor
+        find: '<PageTitle>Parent Configuration</PageTitle>'
+        replace: '<PageTitle>Family settings</PageTitle>'
+      - file: ChildManagementPage.razor
+        find: '<MudText Typo="Typo.subtitle1">Child Management</MudText>'
+        replace: '<MudText Typo="Typo.subtitle1">Children</MudText>'
+      - file: ChildManagementPage.razor
+        find: 'Delete this child? This cannot be undone.'
+        replace: 'Delete this child? This hides the child and their history. A parent can restore them.'
+      - file: ChildManagementPage.razor
+        find: 'No children yet. Add one to start managing pocket money.'
+        replace: 'No children yet. Add one to start tracking allowance.'
+      - file: Home.razor
+        find: 'Sign in to manage pocket money'
+        replace: 'Sign in to see your family’s balances'
+      - file: MainLayout.razor
+        find: '<MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">Log Out</MudMenuItem>'
+        replace: '<MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">Sign out</MudMenuItem>'
+      - file: NavMenu.razor
+        find: '>Manage Children<'
+        replace: '>Family settings<'
+      - file: NavMenu.razor
+        find: '>Administration<'
+        replace: 'Unchanged. This link is admin-only and "Administration" is accurate there.'
+    global_rules:
+      - "Sentence case for every heading, button and label. No Title Case."
+      - "No exclamation marks. No metaphors. No kicker labels anywhere - `.page-kicker` and `.transactions-dialog-kicker` should have no remaining users; delete their CSS rules too (hold the app-css mutex)."
+      - "The word 'tenant' must not appear in any family-facing string. It may remain in /admin, in code identifiers and in log messages."
+      - "Every money button says what it does to the money - 'Add money', 'Withdraw'. Never 'Add'/'Take out'."
+    test_updates:
+      - "tests/ComponentRenderingTests.cs line asserting `Assert.Contains(\"Pocket money\", cut.Markup)` must become an assertion on the new heading 'Balances'. Do not delete the test."
+      - "The second 'Pocket money' occurrence in that file is a transaction Description in test data - leave it alone."
+      - "tests/UiFlowTests.cs `Assert.Contains(\"Take out\", cut.Markup)` becomes `Assert.Contains(\"Withdraw\", cut.Markup)`."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`CAM_TEST_DB=cam_test_p10t3 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "`grep -rniE 'tenant' ChildAllowanceManager/Components --include=*.razor` returns hits only in AdministrationPage.razor and in C# identifiers, never in family-facing display text."
+    commit: "style(copy): apply the calm ledger voice across the interface"
+
+  - id: P10-T4
+    title: Standardize dialog chrome
+    files_touched:
+      - ChildAllowanceManager/Components/AppDialog.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    problem: >
+      Five dialogs, five different shapes. ChildTransactionsDialogue is FullScreen with a
+      gradient header and its own close button; the money dialogs have no close button and no
+      standard footer; AddParentDialogue has yet another arrangement. The audit calls out
+      non-standardized sizing, headers, padding and footer behaviour.
+    steps:
+      - file: ChildAllowanceManager/Components/AppDialog.razor
+        create: |
+          A wrapper component around MudDialog exposing:
+            [Parameter] string Title
+            [Parameter] string? Subtitle
+            [Parameter] RenderFragment ChildContent
+            [Parameter] RenderFragment? Actions      // defaults to Cancel + a primary action
+            [Parameter] string PrimaryActionText = "Save"
+            [Parameter] EventCallback OnPrimary
+            [Parameter] bool IsBusy
+            [Parameter] bool PrimaryDisabled
+          It renders - a header with the title as an <h2>, an optional subtitle, and a close
+          MudIconButton with aria-label $"Close {Title}"; the content; and a footer with the
+          cancel button on the left as Variant.Text Color.Default and the primary action on the
+          right as Variant.Filled Color.Primary.
+        rules:
+          - "Cancel is NEVER Color.Secondary. That is the audit's specific complaint - Secondary was being used for cancellation. Cancel is a neutral text button."
+          - "A destructive primary action uses Color.Error, not Color.Secondary or Color.Warning."
+          - "Every dialog gets a close control. ChildTransactionsDialogue already has one - it becomes the standard one."
+          - "The primary action carries Disabled=\"@(IsBusy || PrimaryDisabled)\", preserving what P06-T3 and P06-T4 established."
+      - "Convert all five dialogs to AppDialog. ChildTransactionsDialogue keeps FullScreen sizing (it hosts a table) but loses its bespoke header markup, gradient classes and separate close button - it uses AppDialog's."
+      - >
+        Standardize sizing in the DialogOptions at the CALL SITES in ChildrenListPage.razor.cs and
+        wherever else DialogService.ShowAsync is invoked - MaxWidth.Small for the money and hold
+        dialogs, MaxWidth.ExtraSmall for AddParentDialogue, FullScreen retained only for the
+        transactions dialog. Set CloseOnEscapeKey = true and BackdropClick = true uniformly.
+        ChildrenListPage.razor.cs is under the children-list-page mutex - hold it.
+      - >
+        Delete the now-unused CSS - `.transactions-dialog-title`, `.transactions-dialog-close`,
+        `.transactions-dialog-heading`, `.transactions-dialog-intro`, `.transactions-dialog-kicker`,
+        `.transactions-dialog-name`, `.transactions-balance-*`, `.transactions-dialog-background`,
+        and the `BackgroundClass = "transactions-dialog-background"` option that references it.
+        Keep `.transactions-toolbar`, `.transactions-table*` and `.transaction-*` row styling -
+        those are table layout, not dialog chrome, and P11-T7 needs them.
+      - "If P04-T10's CSV export has no surface yet, add a 'Download CSV' MudButton to the transactions dialog footer here, calling ITransactionService.ExportTransactionsCsvAsync and delivering the file via a small JS download helper. If that requires new JS interop you judge out of proportion, skip it and record the decision in `result`."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "All five dialogs have a title, a close control with an aria-label, and a footer with cancel on the left and the primary action on the right."
+      - "`grep -rn 'Color.Secondary' ChildAllowanceManager/Components` returns no hit on a cancel or clear button."
+    commit: "style(dialogs): standardize dialog chrome and action hierarchy"
+
+  - id: P10-T5
+    title: Consistent action hierarchy on settings pages
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    rules:
+      - "Primary action (Save, Add): Variant.Filled, Color.Primary."
+      - "Secondary action (Edit, Cancel, Clear): Variant.Text, Color.Default."
+      - "Destructive action (Delete): Variant.Outlined, Color.Error."
+      - "Never Color.Secondary on any of them. Both pages currently use Color.Secondary for Delete, Cancel AND Clear - three different meanings, one colour."
+    steps:
+      - "Apply the three rules to every MudButton on both pages. The affected buttons are Save/Clear in the add card, and Edit/Delete/Save/Cancel in each expansion panel, on both pages."
+      - >
+        Replace `<MudExpansionPanel Class="ma-5">` with `Class="settings-panel"` on both pages and
+        define `.settings-panel { margin-block: var(--al-space-2); }` in app.css. `ma-5` is 20px
+        on all four sides and produces the uneven density the audit names.
+      - "Order the buttons consistently - destructive last, separated by a MudSpacer, on every panel."
+      - "Give both pages the same heading structure now that the kickers are gone - h1 title, one supporting sentence, no chip."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -rn 'ma-5' ChildAllowanceManager/Components` returns nothing."
+      - "`grep -rn 'Color.Secondary' ChildAllowanceManager/Components/Pages` returns nothing."
+    commit: "style(settings): give save, edit, delete and cancel one consistent hierarchy"
+
+  - id: P10-T6
+    title: Restore UI for soft-deleted families and children
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+    implements: decisions.D3_delete_semantics
+    steps:
+      - >
+        AdministrationPage gains a second MudTabPanel, "Deleted", badged with the count, listing
+        soft-deleted families from ITenantService.GetDeletedTenants with a "Restore" action per row
+        (Variant.Text, Color.Primary) calling RestoreTenant through RunAsync with successMessage
+        $"{tenant.TenantName} restored."
+      - >
+        ChildManagementPage gains the same for children via GetDeletedChildren / RestoreChild.
+      - "Both lists show the deletion date (UpdatedTimestamp, exact date) so a restore decision is informed."
+      - "Empty state - \"Nothing deleted.\" Do not render an empty table."
+      - "Restoring a family whose suffix has since been taken surfaces the service's InvalidOperationException through the wrapper. Do not duplicate that rule in the page."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Deleting then restoring a family through the UI returns it to the live list with its children."
+    commit: "feat(settings): restore deleted families and children from the UI"
+
+  - id: P10-T7
+    title: Demote the chart below balances and upcoming actions
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: [app-css, children-list-page]
+    steps:
+      - "The chart MudItem already renders after the child cards. Keep that order and make the visual weight match - the chart card gets no fill, a 1px --al-border, --al-space-5 padding, and a max-height of 320px."
+      - "Its heading drops from Typo.h5 to Typo.subtitle1 so it no longer competes with the page title or the balances."
+      - ".balance-value uses var(--al-font-display) at --al-text-3xl. It is the loudest thing on the page. That is the intent - balances dominate."
+      - "The chart's supporting line and the 'Tap or hover a point' note both drop to --al-text-sm and --al-ink-muted."
+      - "Do not delete the chart. The audit asks for it to be secondary, not absent."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "On a 1280px viewport, the balances occupy the first screen and the chart begins below them."
+    commit: "style(dashboard): make balances dominate and the chart secondary"
+
+  - id: P10-T8
+    title: Redesign rendering tests
+    files_touched: [tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs]
+    required_tests:
+      - Dashboard_renders_no_decorative_backdrop_elements — assert the markup contains none of the deleted class names.
+      - Dashboard_heading_is_balances
+      - Dashboard_shows_an_exact_date_not_a_slogan — assert the rendered chip text parses as a date.
+      - Money_buttons_read_add_money_and_withdraw
+      - Next_allowance_shows_an_exact_date
+      - Every_dialog_renders_a_close_control_with_an_aria_label — parameterised over the five dialog components.
+      - Cancel_buttons_are_never_secondary_coloured — assert on the rendered class list.
+      - Deleted_family_list_offers_restore
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p10t8 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All eight tests exist and pass, and the pre-existing bunit tests still pass."
+    commit: "test(ui): cover the redesigned dashboard, dialogs and settings"

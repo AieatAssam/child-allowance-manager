@@ -1,0 +1,1405 @@
+﻿# plan.yaml — machine-consumable implementation index
+# Source of findings: docs/codebase-audit.md (10 August 2026)
+# Audience: coding agents. Not written for humans.
+#
+# READ THIS FILE FIRST. Then read EXACTLY ONE phase file (the one owning your task).
+# Never read docs/codebase-audit.md. Never read a sibling phase file. Everything you
+# need is in this index + your phase file + the repository source.
+
+schema_version: 1
+plan_id: allowance-manager-audit-remediation
+repo_root: /Users/aieat/Documents/git/child-allowance-manager
+generated: 2026-08-10
+phase_dir: docs/plan
+
+# ---------------------------------------------------------------------------
+# 1. ORCHESTRATOR PROTOCOL
+# ---------------------------------------------------------------------------
+orchestration:
+  fan_out: true
+  eligibility_rule: >
+    A task is eligible when status == pending AND every id in depends_on has
+    status == done AND no currently in_progress task shares a value in
+    files_touched or mutex or exclusive_resources with it.
+  conflict_rule: >
+    Two tasks MUST NOT run concurrently if their files_touched lists intersect,
+    or if they name the same mutex, or the same exclusive_resources entry.
+    This is the hard scheduling constraint. depends_on already serializes most
+    such pairs; mutex covers the rest.
+  claim_protocol:
+    - Re-read plan.yaml immediately before writing any status change. The index is a
+      shared write target; stale-read overwrites lose other agents' claims.
+    - To claim - set status=in_progress, owner=<agent-id>, updated=<ISO8601 UTC>.
+    - Write the claim back, then re-read and confirm owner is still you. If not, abandon
+      and pick another task.
+    - On success - status=done, updated=<ts>, and append a one-line note to `result`.
+    - On failure - status=failed, populate `result` with the shortest decisive error line,
+      and do NOT modify any other task's status.
+    - If a precondition in your phase file is false - status=blocked, `result` = which
+      precondition failed. Do not improvise around it.
+  branch_policy:
+    mode: single-branch
+    branch: main
+    rule: >
+      All agents commit to the working tree of repo_root. One task = one commit.
+      Commit message format - `<type>(<phase-slug>): <task title>` using conventional
+      commit types (fix, feat, refactor, test, chore, docs, style). Do not push.
+      Do not open PRs. Do not rebase or amend another agent's commit.
+  on_conflict_detected: >
+    If `git status` shows uncommitted changes in a file that is NOT in your
+    files_touched list, stop, set status=blocked, and report. Do not commit
+    another agent's work.
+
+# ---------------------------------------------------------------------------
+# 2. SHARED FACTS ABOUT THIS REPOSITORY (do not re-derive)
+# ---------------------------------------------------------------------------
+repo_facts:
+  solution: ChildAllowanceManager.sln
+  projects:
+    web: ChildAllowanceManager/ChildAllowanceManager.csproj          # net10.0, Blazor Server (InteractiveServer)
+    common: ChildAllowanceManager.Common/ChildAllowanceManager.Common.csproj
+    tests: tests/ChildAllowanceManager.Tests/ChildAllowanceManager.Tests.csproj
+  sdk: .NET 10, pinned by global.json to 10.0.301 rollForward=latestFeature
+  ui_stack: MudBlazor 9.8.0, Plotly.Blazor 7.2.0, Humanizer 3.0.10
+  scheduler: Quartz.AspNetCore 3.19.1
+  db: PostgreSQL via Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3
+  test_stack: xunit.v3 3.2.2, bunit 2.8.6; parallelization DISABLED via tests/ChildAllowanceManager.Tests/AssemblyInfo.cs
+  culture: en-GB with CurrencySymbol "£" set in Program.cs (top of file)
+  entities:
+    BaseItem: { Id: "string GUID N-format", Deleted: bool, CreatedTimestamp: DateTimeOffset, UpdatedTimestamp: DateTimeOffset }
+    ChildConfiguration: "FirstName, LastName, BirthDate?, RegularAllowance, HoldDaysRemaining, BirthdayAllowance?, TenantId"
+    TenantConfiguration: "TenantName, UrlSuffix"
+    AllowanceTransaction: "Balance, TransactionAmount, Description, ChildId, TenantId, TransactionTimestamp, TransactionType, AllowanceDate?"
+    User: "Email (lowercased on set), Name, Roles string[], Tenants string[], LastLoggedIn?"
+  services_are_scoped: [IChildService, ITenantService, ITransactionService, IUserService, ICurrentContextService, ITenantNotificationService]
+  services_are_singleton: [IGlobalNotificationService, ResponseHeaderMiddleware]
+  routes:
+    - { path: "/", component: Components/Pages/Home.razor }
+    - { path: "/{tenantSuffix}/children", component: Components/Pages/ChildrenListPage.razor, auth: "[Authorize]" }
+    - { path: "/{tenantSuffix}/configuration", component: Components/Pages/ChildManagementPage.razor, auth: "[Authorize(Roles = \"admin,parent\")]" }
+    - { path: "/admin", component: Components/Pages/AdministrationPage.razor, auth: "[Authorize(Roles = \"admin\")]" }
+    - { path: "/login", handler: "app.Map in Program.cs" }
+    - { path: "/logout", handler: "app.Map in Program.cs" }
+    - { path: "/health", handler: "app.MapHealthChecks in Program.cs" }
+  known_gap: >
+    Program.cs navigates to "/error/404" from ChildManagementPage and ChildrenListPage
+    but no route "/error/{code}" exists. Components/Pages/Error.razor exists without a
+    @page directive for that pattern. P11-T7 fixes this.
+
+# ---------------------------------------------------------------------------
+# 3. VERIFICATION ENVIRONMENT (every task's acceptance runs here)
+# ---------------------------------------------------------------------------
+verification:
+  build:
+    command: dotnet build ChildAllowanceManager.sln --configuration Release
+    must: exit 0, zero warnings introduced by your diff
+  test:
+    command: bash scripts/test-postgres.sh
+    note: >
+      UNMODIFIED, this script does `docker compose up` then `docker compose down --volumes`
+      on shared port 55432, and PostgresTestDatabase calls EnsureDeletedAsync(). Two agents
+      running it concurrently destroy each other's database. P00-T2 makes it swarm-safe.
+      Until P00-T2 is done, `postgres-test-db` is an exclusive_resource - only one task may
+      hold it at a time. After P00-T2 is done, use the per-agent form below.
+    per_agent_form_after_P00_T2: |
+      CAM_TEST_DB=cam_test_<task_id_lowercased_underscored> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh
+  test_files:
+    tests/ChildAllowanceManager.Tests/AllowanceServiceTests.cs: service-level allowance/transaction logic
+    tests/ChildAllowanceManager.Tests/AccountAndTenantServiceTests.cs: user + tenant service logic
+    tests/ChildAllowanceManager.Tests/PostgresEndToEndTests.cs: real-Postgres end-to-end
+    tests/ChildAllowanceManager.Tests/ValidatorTests.cs: FluentValidation validators
+    tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs: bunit render assertions
+    tests/ChildAllowanceManager.Tests/UiFlowTests.cs: bunit interaction flows
+    tests/ChildAllowanceManager.Tests/UiTestDoubles.cs: recording fakes (RecordingTenantService etc.)
+    tests/ChildAllowanceManager.Tests/BunitTestContext.cs: "BunitTestContext.Create() -> BunitContext with JSInterop Loose + AddMudServices()"
+    tests/ChildAllowanceManager.Tests/PostgresTestDatabase.cs: "CreateCleanContextAsync() (EnsureCreated) and CreateMigratedContextAsync() (MigrateAsync)"
+  anchoring_rule: >
+    Locate every edit site by the verbatim `anchor` string given in your phase file,
+    not by line number. Line numbers in this plan are hints only and WILL drift as
+    sibling phases land. If an anchor is not found verbatim, set status=blocked.
+
+# ---------------------------------------------------------------------------
+# 4. DECISIONS ALREADY MADE (do not re-open; implement as written)
+# ---------------------------------------------------------------------------
+decisions:
+  D1_negative_balances:
+    ruling: ALLOWED.
+    detail: >
+      A withdrawal may drive a balance below zero. The product rule is explicit -
+      "A withdrawal can take a balance below zero. The app shows the resulting balance
+      before you confirm." Implement as - WithdrawFundsDialogue shows an inline warning
+      and requires a second confirm when Child.Balance - Amount < 0. No service-level block.
+    owned_by: [P04-T6, P06-T4]
+  D2_unused_transaction_types:
+    ruling: KEEP the enum members, PIN their numeric values, hide from UI.
+    detail: >
+      TransactionType is persisted as `integer`. Removing members renumbers the rest and
+      corrupts existing rows. Assign explicit values matching today's implicit ordering -
+      DailyAllowance=0, BirthdayAllowance=1, Withdrawal=2, Deposit=3, Transfer=4,
+      Adjustment=5, Interest=6, Hold=7, Other=8. Add XML doc comments marking Transfer,
+      Interest and Other as "reserved - no product flow; do not surface in UI".
+    owned_by: [P04-T7]
+  D3_delete_semantics:
+    ruling: Soft delete stays. Copy must stop claiming permanence. Restore path is built for tenants and children.
+    detail: >
+      Replace "This cannot be undone." with "This hides the family and its children.
+      An administrator can restore it." (tenant) / "This hides the child and their history.
+      A parent can restore them." (child). Admin page gains a "Deleted" section listing
+      soft-deleted tenants with a Restore action; the child management page gains the same
+      for children.
+    owned_by: [P04-T8, P10-T6]
+  D4_deleted_suffix_reuse:
+    ruling: Unique indexes become filtered on NOT Deleted.
+    detail: >
+      IX_Tenants_UrlSuffix -> unique WHERE NOT "Deleted". IX_Users_Email -> unique
+      WHERE NOT "Deleted". Service-level duplicate checks must add `&& !x.Deleted`
+      to match (TenantService.AddTenant and UpdateTenant currently omit it).
+    owned_by: [P03-T3, P04-T9]
+  D5_tenant_roles:
+    ruling: Introduce a TenantMembership entity. User.Roles stays for GLOBAL roles only (admin).
+    detail: >
+      TenantMembership { Id, UserId, TenantId, Role, Deleted, timestamps } replaces
+      User.Tenants[] as the authority for tenant access, and carries the per-tenant role.
+      User.Tenants remains a persisted column during migration for rollback safety but is
+      no longer read after P08-T2; P08-T5 removes reads. ValidRoles gains
+      TenantRoles = { Parent = "parent" } scoping note. Global role set stays { admin, parent }
+      so existing [Authorize(Roles=...)] attributes keep compiling.
+    owned_by: [P03-T4, P08-T1, P08-T2, P08-T5]
+  D6_timezone_storage:
+    ruling: Per-tenant IANA timezone id, stored as text, default "Europe/London".
+    detail: >
+      TenantConfiguration.TimeZoneId (string, NOT NULL, default 'Europe/London'). Resolve with
+      TimeZoneInfo.FindSystemTimeZoneById - .NET 10 on Linux and Windows both accept IANA ids.
+      The Quartz trigger changes from one daily UTC fire to hourly, and the job pays a tenant
+      only when local time in that tenant's zone has just crossed 00:01.
+    owned_by: [P03-T2, P05-T1, P05-T2, P05-T3]
+  D7_idempotency:
+    ruling: Client-supplied RequestId (GUID) on AllowanceTransaction, unique per tenant when set.
+    detail: >
+      AllowanceTransaction.RequestId (string?, max 64). Unique filtered index on
+      (TenantId, RequestId) WHERE "RequestId" IS NOT NULL. TransactionService.AddTransaction
+      returns the existing row when a RequestId collides, same shape as the existing
+      AllowanceDate de-duplication branch. Dialogs generate one RequestId per dialog
+      instance, not per click.
+    owned_by: [P03-T5, P04-T3, P06-T3]
+  D8_migrations_at_deploy:
+    ruling: Application startup no longer migrates. A dedicated command does.
+    detail: >
+      Program.cs gains `--migrate` argv handling - when present, the host applies migrations
+      and exits with code 0 (or 1 on failure) without serving. CI runs it as a deploy step.
+      Development still auto-migrates and seeds, gated on IsDevelopment().
+    owned_by: [P02-T3, P12-T5]
+  D9_fonts:
+    ruling: Self-host. No Google Fonts CDN link.
+    detail: >
+      Remove the fonts.googleapis.com <link>. Ship DM Sans (400/500/600/700) and
+      Fraunces (600) as woff2 under wwwroot/fonts/ with @font-face declarations and
+      font-display: swap. Nunito is dropped entirely.
+    owned_by: [P09-T3]
+  D10_out_of_scope:
+    ruling: The audit's "Feature opportunities" that are NOT findings are deferred, explicitly.
+    deferred:
+      - Savings goals / labelled allowance categories - new product surface, no defect behind it.
+      - Optional child-facing read-only view - new auth surface, no defect behind it.
+    covered_elsewhere: >
+      The other feature opportunities (tenant switcher, invitation lifecycle, configurable
+      schedule + timezone, audit/export/correction/restore) ARE findings and are covered by
+      phases 05, 07, 08 and 04.
+
+# ---------------------------------------------------------------------------
+# 5. NAMED MUTEXES AND EXCLUSIVE RESOURCES
+# ---------------------------------------------------------------------------
+mutexes:
+  program-cs: ChildAllowanceManager/Program.cs — touched by 7 phases; additive edits only
+  app-css: ChildAllowanceManager/wwwroot/app.css — 819 lines, touched by 3 phases
+  children-list-page: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor(+.cs) — touched by 5 phases
+  transaction-service: ChildAllowanceManager/Services/TransactionService.cs — touched by 3 phases
+  child-service: ChildAllowanceManager/Services/ChildService.cs — touched by P04 and P05, which run in parallel
+exclusive_resources:
+  postgres-test-db: >
+    The Docker Postgres on host port 55432. Held for the whole duration of a task whose
+    acceptance runs scripts/test-postgres.sh, UNTIL P00-T2 is done. After P00-T2, only
+    P00-T2 itself and any task explicitly listing it still need it.
+
+# ---------------------------------------------------------------------------
+# 6. PHASES
+# ---------------------------------------------------------------------------
+phases:
+  - id: P00
+    file: docs/plan/phase-00-tooling.yaml
+    title: Toolchain and swarm-safe verification
+    depends_on: []
+    status: pending
+
+  - id: P01
+    file: docs/plan/phase-01-boot-and-headers.yaml
+    title: Startup configuration, telemetry, framing policy, host allowlist
+    depends_on: [P00]
+    status: pending
+
+  - id: P02
+    file: docs/plan/phase-02-migration-baseline.yaml
+    title: EF migration baseline, model snapshot, deploy-time migration
+    depends_on: [P01]
+    status: pending
+
+  - id: P03
+    file: docs/plan/phase-03-schema.yaml
+    title: Schema integrity — foreign keys, timezone, actor, idempotency, membership
+    depends_on: [P02]
+    status: pending
+
+  - id: P04
+    file: docs/plan/phase-04-transaction-integrity.yaml
+    title: Atomic workflows, idempotency, balance history, audit trail, corrections
+    depends_on: [P03]
+    status: pending
+
+  - id: P05
+    file: docs/plan/phase-05-timezone.yaml
+    title: Tenant timezone scheduling and display
+    depends_on: [P03]
+    status: pending
+
+  - id: P06
+    file: docs/plan/phase-06-ui-resilience.yaml
+    title: Error containment, busy states, success confirmations, preserved input
+    depends_on: [P04]
+    status: pending
+
+  - id: P07
+    file: docs/plan/phase-07-tenant-switcher.yaml
+    title: Family switcher and choose-a-family state
+    depends_on: [P06]
+    status: pending
+
+  - id: P08
+    file: docs/plan/phase-08-access-management.yaml
+    title: Tenant-scoped roles, invitations, user management, central authorization
+    depends_on: [P07]
+    status: pending
+
+  - id: P09
+    file: docs/plan/phase-09-design-tokens.yaml
+    title: Brand source of truth — tokens, palette, typography, assets
+    depends_on: [P00]
+    status: pending
+
+  - id: P10
+    file: docs/plan/phase-10-visual-redesign.yaml
+    title: Calm ledger redesign — remove decoration, unify copy, standardize patterns
+    depends_on: [P09, P08]
+    status: pending
+
+  - id: P11
+    file: docs/plan/phase-11-accessibility.yaml
+    title: Accessibility and interaction correctness
+    depends_on: [P10]
+    status: pending
+
+  - id: P12
+    file: docs/plan/phase-12-ops-hygiene.yaml
+    title: Dev seeder, resource leaks, cancellation, deploy verification, docs
+    depends_on: [P05, P11]
+    status: pending
+
+  - id: P13
+    file: docs/plan/phase-13-rename-dialogue.yaml
+    title: Rename Dialogue -> Dialog across components, call sites and tests
+    depends_on: [P12]
+    status: pending
+    exclusive: true
+    note: Runs alone. No sibling task may be in_progress while any P13 task runs.
+
+# ---------------------------------------------------------------------------
+# 7. TASK INDEX
+# files_touched is authoritative for scheduling. Full specs live in the phase file.
+# ---------------------------------------------------------------------------
+tasks:
+
+  # ---- P00 ----------------------------------------------------------------
+  - id: P00-T1
+    phase: P00
+    title: Add dotnet-ef local tool manifest
+    depends_on: []
+    files_touched: [.config/dotnet-tools.json]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P00-T2
+    phase: P00
+    title: Make the Postgres test harness safe for concurrent agents
+    depends_on: []
+    files_touched:
+      - scripts/test-postgres.sh
+      - docker-compose.test.yml
+      - tests/ChildAllowanceManager.Tests/PostgresTestDatabase.cs
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P01 ----------------------------------------------------------------
+  - id: P01-T1
+    phase: P01
+    title: Make Azure Monitor telemetry opt-in and validate production config
+    depends_on: [P00-T2]
+    files_touched:
+      - ChildAllowanceManager/Program.cs
+      - ChildAllowanceManager/appsettings.json
+      - ChildAllowanceManager/appsettings.Development.json
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P01-T2
+    phase: P01
+    title: Default frame-ancestors to 'self' with an explicit allowlist
+    depends_on: [P01-T1]
+    files_touched:
+      - ChildAllowanceManager/Program.cs
+      - ChildAllowanceManager/Middleware/ResponseHeaderMiddleware.cs
+      - ChildAllowanceManager/appsettings.json
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P01-T3
+    phase: P01
+    title: Replace AllowedHosts wildcard with an explicit production allowlist
+    depends_on: [P01-T2]
+    files_touched:
+      - ChildAllowanceManager/appsettings.json
+      - ChildAllowanceManager/appsettings.Development.json
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P01-T4
+    phase: P01
+    title: Startup-configuration tests
+    depends_on: [P01-T3]
+    files_touched: [tests/ChildAllowanceManager.Tests/StartupConfigurationTests.cs]
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P02 ----------------------------------------------------------------
+  - id: P02-T1
+    phase: P02
+    title: Replace the hand-written Initial migration with a scaffolded baseline plus model snapshot
+    depends_on: [P01-T4]
+    files_touched:
+      - ChildAllowanceManager/Migrations/20260810180000_Initial.cs
+      - ChildAllowanceManager/Migrations/
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P02-T2
+    phase: P02
+    title: Compatibility migration for databases created by EnsureCreated
+    depends_on: [P02-T1]
+    files_touched: [ChildAllowanceManager/Migrations/]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P02-T3
+    phase: P02
+    title: Move migrations off the web boot path behind a --migrate command
+    depends_on: [P02-T2]
+    files_touched: [ChildAllowanceManager/Program.cs]
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P02-T4
+    phase: P02
+    title: Migration lifecycle tests
+    depends_on: [P02-T3]
+    files_touched: [tests/ChildAllowanceManager.Tests/MigrationTests.cs]
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P03 ----------------------------------------------------------------
+  - id: P03-T1
+    phase: P03
+    title: Foreign keys for child->tenant and transaction->child/tenant
+    depends_on: [P02-T4]
+    files_touched:
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager.Common/Models/ChildConfiguration.cs
+      - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T2
+    phase: P03
+    title: TenantConfiguration.TimeZoneId column
+    depends_on: [P03-T1]
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantConfiguration.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager.Common/Validators/TenantConfigurationValidator.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T3
+    phase: P03
+    title: Filter unique indexes on NOT Deleted so suffixes and emails are reusable
+    depends_on: [P03-T2]
+    files_touched: [ChildAllowanceManager/Data/AllowanceDbContext.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T4
+    phase: P03
+    title: TenantMembership entity
+    depends_on: [P03-T3]
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantMembership.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T5
+    phase: P03
+    title: Transaction actor metadata, RequestId and reversal linkage
+    depends_on: [P03-T4]
+    files_touched:
+      - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T6
+    phase: P03
+    title: Scaffold the schema migration and backfill script
+    depends_on: [P03-T5]
+    files_touched: [ChildAllowanceManager/Migrations/]
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P03-T7
+    phase: P03
+    title: Schema constraint tests
+    depends_on: [P03-T6]
+    files_touched: [tests/ChildAllowanceManager.Tests/SchemaConstraintTests.cs]
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P04 ----------------------------------------------------------------
+  - id: P04-T0
+    phase: P04
+    title: Let AddTransaction enlist in an ambient database transaction
+    depends_on: [P03-T7]
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T1
+    phase: P04
+    title: Atomic hold workflow in a service method
+    depends_on: [P04-T0]
+    files_touched:
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Interfaces/IChildService.cs
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+    mutex: child-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T2
+    phase: P04
+    title: Atomic tenant deletion
+    depends_on: [P04-T1]
+    files_touched: [ChildAllowanceManager/Services/TenantService.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T3
+    phase: P04
+    title: Idempotent AddTransaction via RequestId
+    depends_on: [P04-T2]
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T4
+    phase: P04
+    title: Opening-balance point for empty balance-history ranges
+    depends_on: [P04-T3]
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T5
+    phase: P04
+    title: Record the acting user on every transaction
+    depends_on: [P04-T4]
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager/Services/CurrentContextService.cs
+      - ChildAllowanceManager.Common/Interfaces/ICurrentContextService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: [transaction-service, program-cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T6
+    phase: P04
+    title: Immutability rule plus reversing-entry correction workflow
+    depends_on: [P04-T5]
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+    mutex: transaction-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T7
+    phase: P04
+    title: Pin TransactionType numeric values and document reserved members
+    depends_on: [P04-T6]
+    files_touched: [ChildAllowanceManager.Common/Models/TransactionType.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T8
+    phase: P04
+    title: Restore path for soft-deleted tenants and children
+    depends_on: [P04-T7]
+    files_touched:
+      - ChildAllowanceManager/Services/TenantService.cs
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+      - ChildAllowanceManager.Common/Interfaces/IChildService.cs
+    mutex: child-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T9
+    phase: P04
+    title: Exclude deleted rows from tenant suffix uniqueness checks
+    depends_on: [P04-T8]
+    files_touched: [ChildAllowanceManager/Services/TenantService.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T10
+    phase: P04
+    title: CSV export of a child's transaction history
+    depends_on: [P04-T9]
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+    mutex: transaction-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P04-T11
+    phase: P04
+    title: Transaction integrity tests
+    depends_on: [P04-T10]
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/AllowanceServiceTests.cs
+      - tests/ChildAllowanceManager.Tests/TransactionIntegrityTests.cs
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P05 ----------------------------------------------------------------
+  - id: P05-T1
+    phase: P05
+    title: Hourly Quartz trigger replacing the fixed UTC-midnight trigger
+    depends_on: [P03-T7]
+    files_touched: [ChildAllowanceManager/Program.cs]
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P05-T2
+    phase: P05
+    title: Tenant-local allowance date resolution in DailyAllowanceJob
+    depends_on: [P05-T1]
+    files_touched: [ChildAllowanceManager/Workers/DailyAllowanceJob.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P05-T3
+    phase: P05
+    title: Tenant-local next-allowance calculation in ChildService
+    depends_on: [P05-T2]
+    files_touched:
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Models/ChildWithBalance.cs
+    mutex: child-service
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P05-T4
+    phase: P05
+    title: Timezone editor in the tenant configuration form
+    depends_on: [P05-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P05-T5
+    phase: P05
+    title: Timezone tests
+    depends_on: [P05-T4]
+    files_touched: [tests/ChildAllowanceManager.Tests/TimezoneTests.cs]
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P06 ----------------------------------------------------------------
+  - id: P06-T1
+    phase: P06
+    title: Shared operation wrapper for service calls
+    depends_on: [P04-T11, P05-T5]
+    files_touched:
+      - ChildAllowanceManager/Components/OperationRunner.cs
+      - ChildAllowanceManager/Components/CancellableComponentBase.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T2
+    phase: P06
+    title: Application-level error boundary
+    depends_on: [P06-T1]
+    files_touched:
+      - ChildAllowanceManager/Components/Routes.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+      - ChildAllowanceManager/Components/Pages/Error.razor
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T3
+    phase: P06
+    title: Money dialogs — busy state, disabled submit, request id, success snackbar, preserved input
+    depends_on: [P06-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor.cs
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T4
+    phase: P06
+    title: Overdraw confirmation in the withdraw dialog
+    depends_on: [P06-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T5
+    phase: P06
+    title: Management pages routed through the operation wrapper
+    depends_on: [P06-T4]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T6
+    phase: P06
+    title: Dashboard page routed through the operation wrapper
+    depends_on: [P06-T5]
+    files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P06-T7
+    phase: P06
+    title: UI resilience tests
+    depends_on: [P06-T6]
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/UiResilienceTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P07 ----------------------------------------------------------------
+  - id: P07-T1
+    phase: P07
+    title: Tenant list for the signed-in user
+    depends_on: [P06-T7]
+    files_touched:
+      - ChildAllowanceManager/Services/TenantService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P07-T2
+    phase: P07
+    title: Family switcher in the app bar account menu
+    depends_on: [P07-T1]
+    files_touched:
+      - ChildAllowanceManager/Components/Layout/FamilySwitcher.razor
+      - ChildAllowanceManager/Components/Layout/FamilySwitcher.razor.cs
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P07-T3
+    phase: P07
+    title: Choose-a-family home state with stale-tenant recovery
+    depends_on: [P07-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/Home.razor
+      - ChildAllowanceManager/Components/Pages/Home.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P07-T4
+    phase: P07
+    title: Family switcher tests
+    depends_on: [P07-T3]
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/FamilySwitcherTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P08 ----------------------------------------------------------------
+  - id: P08-T1
+    phase: P08
+    title: Membership service backed by TenantMembership
+    depends_on: [P07-T4]
+    files_touched:
+      - ChildAllowanceManager/Services/MembershipService.cs
+      - ChildAllowanceManager.Common/Interfaces/IMembershipService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P08-T2
+    phase: P08
+    title: Claims enrichment from memberships with per-tenant role claims
+    depends_on: [P08-T1]
+    files_touched:
+      - ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
+      - ChildAllowanceManager.Common/Models/CustomClaimTypes.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P08-T3
+    phase: P08
+    title: Central tenant authorization service replacing page-level checks
+    depends_on: [P08-T2]
+    files_touched:
+      - ChildAllowanceManager/Services/TenantAuthorizationService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantAuthorizationService.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/Home.razor.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: [program-cs, children-list-page]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P08-T4
+    phase: P08
+    title: Invitation lifecycle with email validation and confirmation
+    depends_on: [P08-T3]
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantInvitation.cs
+      - ChildAllowanceManager/Services/InvitationService.cs
+      - ChildAllowanceManager.Common/Interfaces/IInvitationService.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager/Migrations/
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P08-T5
+    phase: P08
+    title: People management screen and removal of User.Tenants reads
+    depends_on: [P08-T4]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+      - ChildAllowanceManager/Services/UserService.cs
+      - ChildAllowanceManager/Services/TenantService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P08-T6
+    phase: P08
+    title: Access management tests
+    depends_on: [P08-T5]
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/AccessManagementTests.cs
+      - tests/ChildAllowanceManager.Tests/AccountAndTenantServiceTests.cs
+    exclusive_resources: [postgres-test-db]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P09 ----------------------------------------------------------------
+  - id: P09-T1
+    phase: P09
+    title: Brand guidelines document
+    depends_on: [P00-T1]
+    files_touched: [docs/brand/brand-guidelines.md]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P09-T2
+    phase: P09
+    title: Design token stylesheet
+    depends_on: [P09-T1]
+    files_touched:
+      - ChildAllowanceManager/wwwroot/tokens.css
+      - ChildAllowanceManager/Components/App.razor
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P09-T3
+    phase: P09
+    title: Self-hosted typography
+    depends_on: [P09-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/App.razor
+      - ChildAllowanceManager/wwwroot/fonts/
+      - ChildAllowanceManager/wwwroot/tokens.css
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P09-T4
+    phase: P09
+    title: MudBlazor theme bound to the token palette
+    depends_on: [P09-T3]
+    files_touched: [ChildAllowanceManager/ThemeConfiguration.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P09-T5
+    phase: P09
+    title: Brand mark, favicon and social preview assets
+    depends_on: [P09-T4]
+    files_touched:
+      - ChildAllowanceManager/wwwroot/brand/
+      - ChildAllowanceManager/Components/App.razor
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P09-T6
+    phase: P09
+    title: Token contrast test
+    depends_on: [P09-T5]
+    files_touched: [tests/ChildAllowanceManager.Tests/DesignTokenTests.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P10 ---------------------------------------------------------------
+  - id: P10-T1
+    phase: P10
+    title: Delete the animated dashboard decoration
+    depends_on: [P09-T6, P08-T6]
+    files_touched:
+      - ChildAllowanceManager/wwwroot/app.css
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+    mutex: [app-css, children-list-page]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T2
+    phase: P10
+    title: Rewrite app.css onto tokens with the ledger motif
+    depends_on: [P10-T1]
+    files_touched:
+      - ChildAllowanceManager/wwwroot/app.css
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.css
+    mutex: app-css
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T3
+    phase: P10
+    title: Apply the copy map across every user-facing string
+    depends_on: [P10-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/Home.razor
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
+      - tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T4
+    phase: P10
+    title: Standardize dialog chrome
+    depends_on: [P10-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/AppDialog.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T5
+    phase: P10
+    title: Consistent action hierarchy on settings pages
+    depends_on: [P10-T4]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T6
+    phase: P10
+    title: Restore UI for soft-deleted families and children
+    depends_on: [P10-T5]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T7
+    phase: P10
+    title: Demote the chart below balances and upcoming actions
+    depends_on: [P10-T6]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: [app-css, children-list-page]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P10-T8
+    phase: P10
+    title: Redesign rendering tests
+    depends_on: [P10-T7]
+    files_touched: [tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P11 ---------------------------------------------------------------
+  - id: P11-T1
+    phase: P11
+    title: Accessible data-table alternative for the balance chart
+    depends_on: [P10-T8]
+    files_touched:
+      - ChildAllowanceManager/Components/BalanceHistoryTable.razor
+      - ChildAllowanceManager/Components/BalanceHistoryTable.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T2
+    phase: P11
+    title: Non-color encoding for chart series
+    depends_on: [P11-T1]
+    files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T3
+    phase: P11
+    title: aria-hidden on every decorative icon
+    depends_on: [P11-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildTransactionsDialogue.razor
+      - ChildAllowanceManager/Components/ChildTransactionsTable.razor
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T4
+    phase: P11
+    title: Distinguish signed-in-without-access from signed-out
+    depends_on: [P11-T3]
+    files_touched: [ChildAllowanceManager/Components/Routes.razor]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T5
+    phase: P11
+    title: Consistent confirmation behaviour for destructive and money actions
+    depends_on: [P11-T4]
+    files_touched:
+      - ChildAllowanceManager/Components/ConfirmDialog.razor
+      - ChildAllowanceManager/Components/ConfirmDialog.razor.cs
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor
+      - ChildAllowanceManager/Components/Pages/AdministrationPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T6
+    phase: P11
+    title: Validate forms on blur and submit instead of every keystroke
+    depends_on: [P11-T5]
+    files_touched:
+      - ChildAllowanceManager/Components/ChildConfigurationEditor.razor
+      - ChildAllowanceManager/Components/TenantConfigurationEditor.razor
+      - ChildAllowanceManager/Components/Pages/AddFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T7
+    phase: P11
+    title: Mobile transaction table readability and the missing error route
+    depends_on: [P11-T6]
+    files_touched:
+      - ChildAllowanceManager/Components/ChildTransactionsTable.razor
+      - ChildAllowanceManager/Components/Pages/Error.razor
+      - ChildAllowanceManager/wwwroot/app.css
+    mutex: app-css
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P11-T8
+    phase: P11
+    title: Accessibility tests
+    depends_on: [P11-T7]
+    files_touched: [tests/ChildAllowanceManager.Tests/AccessibilityTests.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P12 ---------------------------------------------------------------
+  - id: P12-T1
+    phase: P12
+    title: Idempotent, non-destructive development seeder
+    depends_on: [P11-T8]
+    files_touched: [ChildAllowanceManager/Services/DevelopmentDataSeeder.cs]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P12-T2
+    phase: P12
+    title: Dispose the MainLayout JS module and use it for the cookie call
+    depends_on: [P12-T1]
+    files_touched:
+      - ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
+      - ChildAllowanceManager/wwwroot/Components/Layout/MainLayout.razor.js
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P12-T3
+    phase: P12
+    title: Eliminate CancellationToken.None on component and auth paths
+    depends_on: [P12-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+      - ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P12-T4
+    phase: P12
+    title: Health check that reports migration state
+    depends_on: [P12-T3]
+    files_touched:
+      - ChildAllowanceManager/HealthChecks/MigrationHealthCheck.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P12-T5
+    phase: P12
+    title: Deploy workflow migration step and post-deploy health gate
+    depends_on: [P12-T4]
+    files_touched: [.github/workflows/main_allowance-manager.yml]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  - id: P12-T6
+    phase: P12
+    title: README and configuration documentation refresh
+    depends_on: [P12-T5]
+    files_touched: [README.md]
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+  # ---- P13 ---------------------------------------------------------------
+  - id: P13-T1
+    phase: P13
+    title: Rename Dialogue to Dialog across components, call sites and tests
+    depends_on: [P12-T6]
+    files_touched: ["*"]
+    exclusive: true
+    status: pending
+    owner: null
+    updated: null
+    result: null
+
+# ---------------------------------------------------------------------------
+# 8. AUDIT COVERAGE MAP — every finding maps to at least one task.
+# Use this to verify nothing was dropped. Do not edit.
+# ---------------------------------------------------------------------------
+audit_coverage:
+  A-P0-1-default-config-does-not-boot: [P01-T1, P01-T4]
+  A-P0-2-framing-any-origin: [P01-T2, P01-T4]
+  A-P1-3-migration-lifecycle: [P02-T1, P02-T2, P02-T3, P02-T4, P12-T5]
+  A-P1-4-hold-and-delete-not-atomic: [P04-T0, P04-T1, P04-T2, P04-T11]
+  A-P1-5-money-actions-not-idempotent: [P03-T5, P04-T3, P06-T3, P06-T7]
+  A-P1-6-service-errors-not-contained: [P06-T1, P06-T2, P06-T5, P06-T6, P06-T7]
+  A-P1-7-no-tenant-switcher: [P07-T1, P07-T2, P07-T3, P07-T4]
+  A-P1-8-implicit-timezone: [P03-T2, P05-T1, P05-T2, P05-T3, P05-T4, P05-T5, P10-T3]
+  A-P1-9-balance-history-empty-range: [P04-T4, P04-T11]
+  A-P1-10-no-audit-identity-or-correction: [P03-T5, P04-T5, P04-T6, P04-T10, P04-T11]
+  A-P2-DI-1-no-foreign-keys: [P03-T1, P03-T6, P03-T7]
+  A-P2-DI-2-roles-and-tenants-as-arrays: [P03-T4, P08-T1, P08-T2, P08-T5]
+  A-P2-DI-3-deleted-suffix-not-reusable: [P03-T3, P04-T9, P03-T7]
+  A-P2-DI-4-cannot-be-undone-copy-and-no-restore: [P04-T8, P10-T3, P10-T6]
+  A-P2-DI-5-unused-transaction-types: [P04-T7]
+  A-P2-DI-6-negative-balance-rule-unstated: [P06-T4, P12-T6]
+  A-P2-UA-1-parent-email-not-validated: [P08-T4]
+  A-P2-UA-2-no-invitation-or-confirmation: [P08-T4, P08-T6]
+  A-P2-UA-3-no-user-management-screen: [P08-T5, P08-T6]
+  A-P2-UA-4-global-roles-not-tenant-scoped: [P03-T4, P08-T1, P08-T2]
+  A-P2-UA-5-authorization-in-pages: [P08-T3, P08-T6]
+  A-P2-DD-1-dev-seeder-rewrites-data: [P12-T1]
+  A-P2-DD-2-allowed-hosts-wildcard: [P01-T3]
+  A-P2-DD-3-no-post-deploy-health-check: [P12-T4, P12-T5]
+  A-P2-DD-4-mainlayout-js-module-leak: [P12-T2]
+  A-P2-DD-5-cancellationtoken-none: [P12-T3]
+  A-P2-DD-6-dialogue-spelling: [P13-T1]
+  A-A11Y-1-chart-role-img-no-table: [P11-T1, P11-T8]
+  A-A11Y-2-chart-color-only: [P11-T2, P11-T8]
+  A-A11Y-3-decorative-icons-missing-aria-hidden: [P11-T3, P11-T8]
+  A-A11Y-4-no-access-vs-signed-out: [P11-T4, P11-T8]
+  A-A11Y-5-ambiguous-money-labels: [P10-T3]
+  A-A11Y-6-no-success-confirmations: [P06-T3, P06-T7]
+  A-A11Y-7-inconsistent-confirmations: [P11-T5, P11-T8]
+  A-A11Y-8-validation-on-every-change: [P11-T6]
+  A-A11Y-9-long-descriptions-mobile-table: [P11-T7]
+  A-A11Y-10-warning-secondary-contrast: [P09-T2, P09-T4, P09-T6]
+  A-BR-1-no-brand-source-of-truth: [P09-T1, P09-T2, P09-T5]
+  A-BR-2-ai-generated-decoration: [P10-T1, P10-T2, P10-T8]
+  A-BR-3-color-inconsistency-and-dark-mode: [P09-T2, P09-T4, P10-T2, P11-T2]
+  A-BR-4-typography-tokens-and-external-fonts: [P09-T2, P09-T3]
+  A-BR-5-voice-and-copy: [P10-T3]
+  A-BR-6-component-and-layout-inconsistency: [P10-T4, P10-T5, P10-T7, P10-T8]
+  # P00-T1 and P00-T2 are not audit findings. They are the toolchain and verification
+  # prerequisites without which no other task can be checked. They map to nothing on purpose.
+  A-VD-1-palette-direction: [P09-T2, P09-T4]
+  A-VD-2-typography-direction: [P09-T3]
+  A-VD-3-visual-language: [P09-T5, P10-T2, P10-T4]
+  A-VD-4-interaction-polish: [P05-T3, P06-T3, P07-T2, P10-T3, P10-T7]
+  A-FO-tenant-switcher-and-invitations: [P07-T2, P08-T4]
+  A-FO-configurable-schedule-and-timezone: [P05-T4]
+  A-FO-audit-export-correction-restore: [P04-T6, P04-T8, P04-T10, P10-T6]
+  A-FO-savings-goals: [DEFERRED-see-decisions.D10_out_of_scope]
+  A-FO-child-facing-view: [DEFERRED-see-decisions.D10_out_of_scope]

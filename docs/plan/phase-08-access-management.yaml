@@ -1,0 +1,363 @@
+phase: P08
+title: Tenant-scoped roles, invitations, user management, central authorization
+covers: [A-P2-UA-1, A-P2-UA-2, A-P2-UA-3, A-P2-UA-4, A-P2-UA-5, A-P2-DI-2, A-FO-invitations]
+read_before_starting: [plan.yaml]
+context: >
+  Access lives in two places today. User.Tenants is a string[] column; User.Roles is a string[]
+  of GLOBAL roles. Program.cs's OnCreatingTicket adds one CustomClaimTypes.Tenant claim per entry
+  in user.Tenants. ClaimEnrichmentTransformer re-syncs those claims on every request. Pages then
+  check `user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenantId)`,
+  duplicated in ChildrenListPage.HasTenantAccessAsync, ChildManagementPage.OnParametersSetAsync
+  and Home.HasTenantAccessBySuffixAsync. A "parent" in one household is therefore a "parent"
+  everywhere. P03-T4 added TenantMembership and P03-T6 backfilled it from User.Tenants.
+migration_stance: >
+  TenantMembership becomes authoritative. User.Tenants stays as a persisted column through this
+  phase for rollback safety, kept in sync by writes, and stops being READ at P08-T5. Do not drop
+  the column in this plan.
+
+tasks:
+
+  - id: P08-T1
+    title: Membership service backed by TenantMembership
+    files_touched:
+      - ChildAllowanceManager/Services/MembershipService.cs
+      - ChildAllowanceManager.Common/Interfaces/IMembershipService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    api: |
+      namespace ChildAllowanceManager.Common.Interfaces;
+
+      public interface IMembershipService
+      {
+          /// Live memberships for a user, by their id.
+          ValueTask<IEnumerable<TenantMembership>> GetMembershipsForUserAsync(string userId, CancellationToken ct = default);
+
+          /// Live memberships for a user, by email. Returns empty when no such user exists.
+          ValueTask<IEnumerable<TenantMembership>> GetMembershipsByEmailAsync(string email, CancellationToken ct = default);
+
+          /// Live memberships within a family, ordered by the member's email.
+          ValueTask<IEnumerable<TenantMembership>> GetMembershipsForTenantAsync(string tenantId, CancellationToken ct = default);
+
+          /// Grants access. Idempotent - re-granting an existing live membership updates its role
+          /// and returns it. Restores a soft-deleted membership rather than creating a duplicate.
+          ValueTask<TenantMembership> GrantAsync(string userId, string tenantId, string role, CancellationToken ct = default);
+
+          /// Soft-deletes the membership. Returns false when there was nothing to revoke.
+          /// Throws InvalidOperationException when this would leave the family with no parent.
+          ValueTask<bool> RevokeAsync(string userId, string tenantId, CancellationToken ct = default);
+
+          /// The role this user holds in this family, or null when they hold none.
+          ValueTask<string?> GetRoleAsync(string userId, string tenantId, CancellationToken ct = default);
+      }
+    steps:
+      - "Implement in ChildAllowanceManager/Services/MembershipService.cs with the primary-constructor style used by the other services - `public class MembershipService(AllowanceDbContext db) : IMembershipService`."
+      - >
+        GrantAsync and RevokeAsync must ALSO keep User.Tenants in sync inside the same
+        SaveChangesAsync, until P08-T5 removes the array reads. Append on grant, remove on revoke.
+      - >
+        The last-parent guard in RevokeAsync - count live memberships with Role == ValidRoles.Parent
+        for the tenant; if revoking would take it to zero, throw
+        InvalidOperationException("A family must keep at least one parent."). A global admin can
+        still reach the family, so this is a usability guard, not a security one.
+      - file: ChildAllowanceManager/Program.cs
+        add: 'builder.Services.AddScoped<IMembershipService, MembershipService>();'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P08-T6."
+    commit: "feat(access): add a membership service for per-family access"
+
+  - id: P08-T2
+    title: Claims enrichment from memberships with per-tenant role claims
+    files_touched:
+      - ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
+      - ChildAllowanceManager.Common/Models/CustomClaimTypes.cs
+    steps:
+      - file: ChildAllowanceManager.Common/Models/CustomClaimTypes.cs
+        add: |
+          /// Value format "<tenantId>:<role>", for example "a1b2:parent". One claim per
+          /// membership. Read with TenantRoleClaim.TryParse rather than string surgery at
+          /// call sites.
+          public const string TenantRole = "tenant_role";
+        also_add: |
+          A small static helper in the same file or beside it:
+            public static class TenantRoleClaim
+            {
+                public static string Format(string tenantId, string role) => $"{tenantId}:{role}";
+                public static bool TryParse(string value, out string tenantId, out string role);
+            }
+          TryParse splits on the FIRST ':' only - ids are GUID N-format and roles are lowercase
+          words, but parse defensively anyway.
+      - file: ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
+        change: |
+          Replace the `matchingUser.Tenants` reads with IMembershipService.GetMembershipsForUserAsync.
+          The transformer must, for the resolved user:
+            - remove every CustomClaimTypes.Tenant claim not backed by a live membership;
+            - remove every CustomClaimTypes.TenantRole claim not backed by a live membership;
+            - add one CustomClaimTypes.Tenant claim per membership TenantId;
+            - add one CustomClaimTypes.TenantRole claim per membership, TenantRoleClaim.Format(...);
+            - keep the existing global-role reconciliation against matchingUser.Roles unchanged.
+          Preserve the existing early-outs - no email claim, or no matching user, returns the
+          principal untouched with the same log messages.
+        rules:
+          - "TransformAsync runs on EVERY request. Keep it to the single membership query it already implies - do not add a per-tenant round trip."
+          - "It currently passes CancellationToken.None. P12-T3 fixes that; leave it as-is here to avoid a double edit."
+      - >
+        Program.cs's OnCreatingTicket handler also seeds Tenant claims from `user.Tenants`. Leave
+        it - the transformer immediately reconciles them, and Program.cs is under the program-cs
+        mutex held by another task in this phase. P08-T5 removes that seeding.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P08-T6."
+    commit: "feat(access): derive tenant claims and per-family roles from memberships"
+
+  - id: P08-T3
+    title: Central tenant authorization service replacing page-level checks
+    files_touched:
+      - ChildAllowanceManager/Services/TenantAuthorizationService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantAuthorizationService.cs
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/Home.razor.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: [program-cs, children-list-page]
+    api: |
+      public interface ITenantAuthorizationService
+      {
+          /// True when the principal may view this family.
+          bool CanView(ClaimsPrincipal principal, string tenantId);
+
+          /// True when the principal may change children, allowances and money in this family.
+          bool CanManage(ClaimsPrincipal principal, string tenantId);
+
+          /// True when the principal may invite or remove people in this family.
+          bool CanManagePeople(ClaimsPrincipal principal, string tenantId);
+      }
+    rules: |
+      Semantics, exactly:
+        CanView         = IsInRole(admin) || has Tenant claim for tenantId
+        CanManage       = IsInRole(admin) || has TenantRole claim "<tenantId>:parent"
+        CanManagePeople = same as CanManage
+      A global admin bypasses every check. That matches today's behaviour and every existing
+      [Authorize(Roles = "admin,parent")] attribute keeps working unchanged.
+    steps:
+      - "Implement as a stateless class. Register as Scoped in Program.cs beside the other services."
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: |-
+              private async Task<bool> HasTenantAccessAsync(string tenantId)
+              {
+                  if (AuthenticationState is null)
+                      return true;
+                  var user = (await AuthenticationState).User;
+                  return user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenantId);
+              }
+        replace_with: |
+              private async Task<bool> HasTenantAccessAsync(string tenantId)
+              {
+                  if (AuthenticationState is null)
+                      return true;
+                  return TenantAuthorization.CanView((await AuthenticationState).User, tenantId);
+              }
+        note: 'Add `[Inject] private ITenantAuthorizationService TenantAuthorization { get; set; } = default!;`'
+      - file: ChildAllowanceManager/Components/Pages/ChildManagementPage.razor.cs
+        anchor: 'if (!user.IsInRole(ValidRoles.Admin) && !user.HasClaim(CustomClaimTypes.Tenant, tenant.Id))'
+        replace_with: 'if (!TenantAuthorization.CanManage(user, tenant.Id))'
+        note: >
+          This is a deliberate TIGHTENING. Today anyone with a tenant claim reaches the child
+          management page because the page attribute alone gates on the GLOBAL parent role. After
+          this change a viewer without the parent role in THAT family is redirected to "/".
+      - file: ChildAllowanceManager/Components/Pages/Home.razor.cs
+        anchor: 'return user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenant.Id);'
+        replace_with: 'return TenantAuthorization.CanView(user, tenant.Id);'
+      - >
+        Also gate the money and hold actions on the dashboard. ChildrenListPage.razor wraps them
+        in `<AuthorizeView Roles="admin,parent">`, which is a GLOBAL role check. Add a
+        `private bool CanManageCurrentTenant` field set in OnParametersSetAsync from
+        CanManage(user, _tenantId) and expose it for P10/P11 to bind the buttons' Disabled or
+        rendering to. Do not edit ChildrenListPage.razor in this task - set the field and record
+        in `result` that P10-T3 must consume it.
+      - "grep the solution for `HasClaim(CustomClaimTypes.Tenant` and `IsInRole(ValidRoles.Admin)` afterwards. Every remaining hit outside TenantAuthorizationService and ClaimEnrichmentTransformer is a leak - route it through the service or explain it in `result`."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "No page performs its own claim arithmetic - the grep above returns only the two allowed files."
+      - "Verified by P08-T6."
+    commit: "refactor(access): centralise tenant authorization"
+
+  - id: P08-T4
+    title: Invitation lifecycle with email validation and confirmation
+    files_touched:
+      - ChildAllowanceManager.Common/Models/TenantInvitation.cs
+      - ChildAllowanceManager/Services/InvitationService.cs
+      - ChildAllowanceManager.Common/Interfaces/IInvitationService.cs
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager/Migrations/
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+      - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    exclusive_resources: [postgres-test-db]
+    problem: >
+      AddParentDialogue takes an Email marked Required="true" with no format validation and calls
+      UserService.AddUserToTenantAsync, which silently creates a User row for whatever was typed.
+      A typo creates a phantom account with real access and no way to notice.
+    model:
+      file: ChildAllowanceManager.Common/Models/TenantInvitation.cs
+      shape: |
+        public class TenantInvitation : BaseItem
+        {
+            public string TenantId { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;      // lowercased on set, like User.Email
+            public string Role { get; set; } = ValidRoles.Parent;
+            public string InvitedByEmail { get; set; } = string.Empty;
+            public DateTimeOffset ExpiresAt { get; set; }
+            public DateTimeOffset? AcceptedAt { get; set; }
+            public TenantConfiguration? Tenant { get; set; }
+        }
+      db_config: |
+        ConfigureItem(modelBuilder.Entity<TenantInvitation>());
+        entity.Property(x => x.Email).IsRequired().HasMaxLength(320);
+        entity.Property(x => x.Role).IsRequired().HasMaxLength(32);
+        entity.Property(x => x.InvitedByEmail).HasMaxLength(320);
+        entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique().HasFilter("NOT \"Deleted\"");
+        entity.HasIndex(x => x.Email);
+        entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+    api: |
+      public interface IInvitationService
+      {
+          /// Creates a pending invitation. Validates the email format. Throws ValidationException
+          /// on a malformed address, InvalidOperationException when the person already has access.
+          /// Re-inviting an unexpired pending invitation refreshes its expiry and returns it.
+          ValueTask<TenantInvitation> InviteAsync(string tenantId, string email, string role, CancellationToken ct = default);
+
+          /// Pending, unexpired, unaccepted invitations for a family.
+          ValueTask<IEnumerable<TenantInvitation>> GetPendingForTenantAsync(string tenantId, CancellationToken ct = default);
+
+          /// Pending, unexpired invitations addressed to this email.
+          ValueTask<IEnumerable<TenantInvitation>> GetPendingForEmailAsync(string email, CancellationToken ct = default);
+
+          /// Accepts every pending invitation for this email, creating the memberships.
+          /// Called during sign-in. Returns the number accepted.
+          ValueTask<int> AcceptPendingAsync(string email, string name, CancellationToken ct = default);
+
+          /// Withdraws a pending invitation.
+          ValueTask<bool> RevokeAsync(string invitationId, string tenantId, CancellationToken ct = default);
+      }
+    rules:
+      - "Expiry is 14 days from creation. Define it as a `public const int InvitationDaysValid = 14;` on InvitationService, not as a magic number at the call site."
+      - >
+        Email validation - use `System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email)`.
+        It is already available with zero new dependencies and is the same validator MudBlazor's
+        own email validation uses. Do not write a regex.
+      - >
+        AcceptPendingAsync creates the User row if it does not exist (reuse
+        UserService.InitializeUserAsync) and then calls IMembershipService.GrantAsync per
+        invitation, stamping AcceptedAt. Run it in one database transaction.
+      - "Inviting someone who already holds a live membership throws InvalidOperationException(\"That person already has access to this family.\")."
+    wire_into_signin:
+      file: ChildAllowanceManager/Program.cs
+      where: 'Inside `options.Events.OnCreatingTicket`, immediately after the existing user lookup/initialisation block and BEFORE the tenant claims are added.'
+      call: 'await context.HttpContext.RequestServices.GetRequiredService<IInvitationService>().AcceptPendingAsync(email, name ?? string.Empty, context.HttpContext.RequestAborted);'
+      why: 'Acceptance must land before claims are computed, or the newly invited user signs in with no access and has to sign in twice.'
+    dialog_changes:
+      file: ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
+      changes:
+        - 'Title "Add Parent" becomes "Invite a parent".'
+        - >
+          The email MudTextField gains
+          `Validation="@(new EmailAddressAttribute { ErrorMessage = "Enter a valid email address." })"`
+          and keeps Required="true". Add `@using System.ComponentModel.DataAnnotations`.
+        - 'The "Full Name" field becomes optional (Required="false") with the label "Name (optional)" - the invitee supplies their own name at sign-in.'
+        - 'The submit button reads "Send invitation".'
+        - 'Add helper text under the form - "They get access the next time they sign in with this address. Invitations expire after 14 days."'
+      file_cs: ChildAllowanceManager/Components/Pages/AddParentDialogue.razor.cs
+      changes:
+        - 'Call IInvitationService.InviteAsync instead of IUserService.AddUserToTenantAsync.'
+        - 'Wrap in RunAsync with successMessage $"Invitation sent to {NewParent.Email}."'
+        - 'Carry the Disabled="@IsBusy" and preserved-values behaviour established in P06-T3.'
+    migration: 'Run `dotnet ef migrations add TenantInvitations` after the model and DbContext changes. Do not hand-edit the generated files.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`dotnet ef migrations add __Probe` yields an empty Up body; remove the probe."
+      - "Verified by P08-T6."
+    commit: "feat(access): invite parents by email with a confirmation flow"
+
+  - id: P08-T5
+    title: People management screen and removal of User.Tenants reads
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+      - ChildAllowanceManager/Components/Layout/NavMenu.razor
+      - ChildAllowanceManager/Services/UserService.cs
+      - ChildAllowanceManager/Services/TenantService.cs
+    steps:
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor
+        route: '@page "/{tenantSuffix}/people"'
+        auth: '@attribute [Authorize(Roles = "admin,parent")]'
+        renders: |
+          - A page heading "People" with subheading "Who can see and manage this family."
+          - A table of current members - Name, Email, Role, "Member since" (CreatedTimestamp,
+            exact date), and a Remove action per row.
+          - A table of pending invitations - Email, Role, Invited by, Expires, and a Withdraw action.
+          - An "Invite a parent" button opening AddParentDialogue.
+          - Empty states for both tables.
+        rules:
+          - 'Server-side gate in OnParametersSetAsync with ITenantAuthorizationService.CanManagePeople; redirect to "/" when false. The route attribute alone is a global-role check and is not sufficient.'
+          - 'Every action goes through RunAsync. Remove and Withdraw both require a confirmation - use the shared ConfirmDialog introduced in P11-T5 if it exists yet, otherwise MudMessageBox in the style already used by AdministrationPage, and record which in `result`.'
+          - 'Removing the last parent surfaces the service''s InvalidOperationException message through the wrapper. Do not pre-empt it with a second copy of the rule in the page.'
+      - file: ChildAllowanceManager/Components/Layout/NavMenu.razor
+        add: |
+          Inside the existing `<AuthorizeView Roles="parent">` block, after the Manage Children link:
+            <MudNavLink Href="@($"/{TenantSuffix}/people")" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Group">People</MudNavLink>
+        also: 'NavMenu.UpdateTenantSuffix matches `segments[1] is "children" or "configuration"`. Add `or "people"` or the switcher and nav vanish on the new page.'
+      - file: ChildAllowanceManager/Services/UserService.cs
+        change: |
+          - GetTenantUsersInRole currently filters `x.Tenants.Contains(tenantId) && x.Roles.Contains(role)`.
+            Rewrite it as a join through TenantMemberships on (UserId, TenantId, Role).
+          - AddUserToTenantAsync currently appends to both arrays. Rewrite it to delegate to
+            IMembershipService.GrantAsync, keeping the User row upsert. It stays on the interface -
+            InvitationService.AcceptPendingAsync uses it.
+          - InitializeUserAsync's `tenantId` parameter appends to user.Tenants. Keep the append
+            (the column is still written) but ALSO grant a membership.
+      - file: ChildAllowanceManager/Services/TenantService.cs
+        change: 'GetTenantsForUser (added in P07-T1) already reads claims, which now derive from memberships. No change needed - verify only.'
+      - file: ChildAllowanceManager/Program.cs
+        change: >
+          The OnCreatingTicket handler's `foreach (var tenantId in user.Tenants.Distinct())` claim
+          seeding is now redundant - ClaimEnrichmentTransformer derives the same claims from
+          memberships on every request. Delete that loop. Program.cs is in this task's files_touched
+          list and this task holds the program-cs mutex.
+      - "After this task, `grep -rn '\\.Tenants' ChildAllowanceManager` must show only WRITES (keeping the column in sync) and no reads that drive authorization."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P08-T6."
+    commit: "feat(access): add a people management screen backed by memberships"
+
+  - id: P08-T6
+    title: Access management tests
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/AccessManagementTests.cs
+      - tests/ChildAllowanceManager.Tests/AccountAndTenantServiceTests.cs
+    create_file: tests/ChildAllowanceManager.Tests/AccessManagementTests.cs
+    exclusive_resources: [postgres-test-db]
+    required_tests:
+      - Granting_the_same_membership_twice_updates_the_role_and_creates_no_duplicate
+      - Revoking_restores_cleanly_when_granted_again
+      - Revoking_the_last_parent_throws
+      - Claims_carry_one_tenant_and_one_tenant_role_claim_per_membership
+      - Claims_for_a_revoked_membership_are_removed_on_the_next_request
+      - CanManage_is_false_for_a_parent_in_a_different_family
+      - CanManage_is_true_for_a_global_admin_in_every_family
+      - CanView_is_false_without_a_tenant_claim
+      - Invitation_with_a_malformed_email_is_rejected
+      - Inviting_an_existing_member_throws
+      - Accepting_a_pending_invitation_creates_the_membership_and_stamps_accepted_at
+      - Expired_invitations_are_not_accepted
+      - Re_inviting_refreshes_expiry_rather_than_duplicating
+      - People_page_redirects_a_parent_from_another_family
+    also: >
+      Update AccountAndTenantServiceTests.cs where it asserts on User.Tenants semantics - those
+      assertions must now go through IMembershipService. Do not delete coverage; move it.
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p08t6 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All fourteen tests exist and pass, and the pre-existing suite still passes."
+    commit: "test(access): cover memberships, claims, authorization and invitations"

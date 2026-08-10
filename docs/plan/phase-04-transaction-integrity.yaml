@@ -1,0 +1,480 @@
+phase: P04
+title: Atomic workflows, idempotency, balance history, audit trail, corrections
+covers: [A-P1-4, A-P1-5, A-P1-9, A-P1-10, A-P2-DI-4, A-P2-DI-5, A-P2-DI-3]
+read_before_starting: [plan.yaml]
+context: >
+  TransactionService.AddTransaction already opens a Serializable database transaction and
+  already de-duplicates on AllowanceDate. Extend that machinery - do not build a parallel one.
+  ChildService and TenantService do not use transactions at all.
+existing_shape_you_must_preserve:
+  - "AddTransaction validates -> checks child exists (including db.Children.Local for the AddChild-before-save case) -> opens Serializable transaction -> dedupes on AllowanceDate -> stamps timestamps -> computes Balance from GetBalanceForChild + TransactionAmount -> saves -> commits -> raises globalNotificationService.OnChildStateChanged with a type-dependent message."
+  - "The AllowanceDate dedupe branch returns the existing row WITHOUT committing. That is a pre-existing latent bug - the using-scoped transaction is disposed and rolled back, which is harmless for a read-only path. Leave it, but return through the same path you add for RequestId so both behave identically."
+
+tasks:
+
+  - id: P04-T0
+    title: Let AddTransaction enlist in an ambient database transaction
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    why: >
+      Every atomic workflow in this phase needs to call AddTransaction from INSIDE a database
+      transaction it already opened. AddTransaction unconditionally calls
+      `db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ...)`. Npgsql does not
+      support nested transactions - the inner call throws InvalidOperationException. This must
+      be fixed before P04-T1 and P04-T2, not inside them.
+    steps:
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        anchor: |-
+                  await using var dbTransaction = await db.Database.BeginTransactionAsync(
+                      IsolationLevel.Serializable, cancellationToken);
+        replace_with: |
+                  // Enlist in a caller's transaction when there is one, so multi-record workflows
+                  // (hold, tenant delete, corrections) commit or roll back as a unit.
+                  var ownsTransaction = db.Database.CurrentTransaction is null;
+                  await using var dbTransaction = ownsTransaction
+                      ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+                      : null;
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        anchor: |-
+                  await db.SaveChangesAsync(cancellationToken);
+                  await dbTransaction.CommitAsync(cancellationToken);
+        replace_with: |
+                  await db.SaveChangesAsync(cancellationToken);
+                  if (ownsTransaction && dbTransaction is not null)
+                      await dbTransaction.CommitAsync(cancellationToken);
+    rules:
+      - "When this call did NOT open the transaction, it must NOT commit and must NOT roll back. The owner decides."
+      - >
+        The existing AllowanceDate de-duplication early-return already exits without committing.
+        That stays correct under both branches - when enlisted it is a plain read; when owning,
+        disposing an uncommitted transaction rolls back nothing that was written.
+      - >
+        The notification call `globalNotificationService.OnChildStateChanged(...)` at the end fires
+        BEFORE an enlisting caller has committed. That is a pre-existing pattern and acceptable
+        here - the notification only triggers a UI reload. Do not move it inside a commit callback;
+        that would be a larger redesign than this plan calls for. Leave a `ponytail:` comment
+        naming the ceiling.
+    existing_callers_to_verify:
+      - "ChildService.AddChild - adds a child to the change tracker then calls AddTransaction, which saves both. No ambient transaction; behaviour unchanged."
+      - "DailyAllowanceJob.Execute - no ambient transaction; behaviour unchanged."
+      - "AddFundsDialogue, WithdrawFundsDialogue, AddHoldDialogue - no ambient transaction; behaviour unchanged."
+    check: >
+      Add to P04-T11 - `Rolling_back_an_outer_transaction_removes_the_enlisted_transaction_row` -
+      open a transaction, call AddTransaction, roll back, assert zero rows.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`CAM_TEST_DB=cam_test_p04t0 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0 - the existing suite must still pass, since every current caller is unenlisted."
+    commit: "refactor(transactions): let AddTransaction join a caller's transaction"
+
+  - id: P04-T1
+    title: Atomic hold workflow in a service method
+    files_touched:
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Interfaces/IChildService.cs
+      - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+    problem: >
+      AddHoldDialogue.AddHold calls ChildService.UpdateChild (which saves) and THEN
+      TransactionService.AddTransaction. If the transaction insert fails the allowance stays
+      paused with no audit row.
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/IChildService.cs
+        add: |
+          /// Pauses a child's allowance for `days` days and writes the matching Hold audit
+          /// transaction in one database transaction. Returns the updated child.
+          ValueTask<ChildConfiguration> ApplyHoldAsync(
+              string childId, string tenantId, int days, string description,
+              string? requestId, CancellationToken cancellationToken = default);
+
+          /// Removes one held day and writes the matching Hold audit transaction atomically.
+          ValueTask<ChildConfiguration> RemoveHoldDayAsync(
+              string childId, string tenantId, string? requestId,
+              CancellationToken cancellationToken = default);
+      - file: ChildAllowanceManager/Services/ChildService.cs
+        implement: |
+          Both methods follow this shape:
+            await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            load the tracked child (Id + TenantId + !Deleted) or throw KeyNotFoundException;
+            mutate HoldDaysRemaining (clamped at >= 0);
+            child.UpdatedTimestamp = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+            await transactionService.AddTransaction(new AllowanceTransaction { ChildId, TenantId,
+                TransactionAmount = 0, TransactionType = TransactionType.Hold,
+                Description = <see below>, RequestId = requestId }, cancellationToken);
+            await dbTransaction.CommitAsync(cancellationToken);
+            globalNotificationService.OnChildStateChanged(child.Id, child.TenantId, <message>);
+            return child;
+        rules:
+          - "ChildService already has `db` and `transactionService` injected. Use them; add no new dependency."
+          - "AddTransaction already enlists in an ambient transaction after P04-T0. Do not re-implement that guard here, and do not edit TransactionService.cs in this task."
+          - "Hold description - `$\"{description} ({days} days)\"` for ApplyHoldAsync, preserving today's format. For RemoveHoldDayAsync - \"Hold reduced by 1 day\"."
+          - "ApplyHoldAsync must reject days <= 0 with ValidationException."
+      - file: ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
+        anchor: |-
+                  child.HoldDaysRemaining += Days;
+                  await ChildService.UpdateChild(child, CancellationToken);
+        replace_the_whole_AddHold_body_with: >
+          A single call to ChildService.ApplyHoldAsync(Child.Id, Child.TenantId, Days, Description,
+          _requestId, CancellationToken) after form validation, then MudDialog.Close().
+          The GetChild-then-null-check dance disappears - ApplyHoldAsync throws KeyNotFoundException,
+          which the P06 operation wrapper surfaces. `_requestId` is added in P06-T3; until then pass null.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "fix(allowance): make hold changes atomic with their audit record"
+
+  - id: P04-T2
+    title: Atomic tenant deletion
+    files_touched: [ChildAllowanceManager/Services/TenantService.cs]
+    problem: >
+      DeleteTenant saves the tenant, then loops children through childService.DeleteChild (a save
+      each), then saves user membership changes - three or more independent commits.
+    steps:
+      - file: ChildAllowanceManager/Services/TenantService.cs
+        anchor: |-
+                  tenant.Deleted = true;
+                  tenant.UpdatedTimestamp = DateTimeOffset.UtcNow;
+                  await db.SaveChangesAsync(cancellationToken);
+        change: |
+          Wrap the entire remainder of DeleteTenant in one
+          `await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);`
+          opened immediately after the null/already-deleted guards, and commit once at the end.
+          Replace the childService.DeleteChild loop with a direct tracked update in this context so
+          it participates in the same transaction:
+            var children = await db.Children.Where(x => x.TenantId == id && !x.Deleted).ToListAsync(ct);
+            foreach (var child in children) { child.Deleted = true; child.UpdatedTimestamp = now; }
+          Also soft-delete TenantMemberships for this tenant in the same transaction:
+            var memberships = await db.TenantMemberships.Where(x => x.TenantId == id && !x.Deleted).ToListAsync(ct);
+            foreach (var m in memberships) { m.Deleted = true; m.UpdatedTimestamp = now; }
+          Keep the existing User.Tenants array pruning as well - both representations must stay
+          consistent until P08-T5 removes the array reads.
+          One SaveChangesAsync, then CommitAsync.
+      - >
+        `childService` may become an unused constructor parameter. If nothing else in
+        TenantService uses it, remove it from the primary constructor and from the DI-resolved
+        signature. Check first - do not leave an unused injection.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "fix(tenant): delete a family and its dependents in one transaction"
+
+  - id: P04-T3
+    title: Idempotent AddTransaction via RequestId
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    implements: decisions.D7_idempotency
+    steps:
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        anchor: |-
+                  if (transaction.AllowanceDate is not null)
+                  {
+                      var existing = await ForChild(transaction.ChildId, transaction.TenantId)
+                          .Where(x => x.AllowanceDate == transaction.AllowanceDate)
+                          .FirstOrDefaultAsync(cancellationToken);
+                      if (existing is not null)
+                          return existing;
+                  }
+        add_before_it: |
+          if (!string.IsNullOrWhiteSpace(transaction.RequestId))
+          {
+              var duplicate = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+                  x => x.TenantId == transaction.TenantId && x.RequestId == transaction.RequestId,
+                  cancellationToken);
+              if (duplicate is not null)
+                  return duplicate;
+          }
+        rules:
+          - "Query db.Transactions directly, not ForChild - a replayed request must be recognised even if the caller got the ChildId wrong on the retry."
+          - "Do NOT filter on !Deleted here. A soft-deleted duplicate still means the request was already processed."
+          - "Also catch DbUpdateException around the SaveChangesAsync and, when the unique index IX_Transactions_TenantId_RequestId is the violated constraint, re-query and return the winning row. Two concurrent identical requests must both return the same row rather than one throwing."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "fix(transactions): make creation idempotent on request id"
+
+  - id: P04-T4
+    title: Opening-balance point for empty balance-history ranges
+    files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
+    mutex: transaction-service
+    problem: >
+      GetBalanceHistoryForChild returns `[]` as soon as the filtered query is empty, before it
+      computes the pre-range balance. A child with a real balance and no activity in the window
+      renders an empty chart.
+    steps:
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        anchor: |-
+                  if (result.Count == 0)
+                      return [];
+        replace_with: |
+          // An empty window is not an empty history. Emit the balance carried into the window
+          // so the chart shows a flat line at the real balance instead of nothing.
+          var openingBalance = await ForChild(childId, tenantId)
+              .Where(x => startDate == null || x.TransactionTimestamp < startDate.Value)
+              .OrderByDescending(x => x.TransactionTimestamp).ThenByDescending(x => x.Id)
+              .Select(x => (decimal?)x.Balance)
+              .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+
+          if (result.Count == 0)
+          {
+              var openFrom = (startDate ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
+              var openTo = (endDate ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
+              if (openTo < openFrom)
+                  openTo = openFrom;
+              var flat = new List<BalanceHistoryEntry>();
+              for (var date = openFrom; date <= openTo; date = date.AddDays(1))
+                  flat.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), openingBalance));
+              return flat;
+          }
+        then: >
+          Below this, the existing `lastBalance` computation duplicates the same query. Replace its
+          body with `var lastBalance = openingBalance;` and delete the now-dead conditional.
+          Keep the rest of the gap-filling loop exactly as it is.
+    rules:
+      - "When startDate is null and there are no transactions at all, the result is a single point at today with balance 0. That is correct and must not be special-cased away."
+      - "Guard against an unbounded loop - if endDate is null the window is a single day, not 'until forever'."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "fix(transactions): return an opening balance for empty history ranges"
+
+  - id: P04-T5
+    title: Record the acting user on every transaction
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager/Services/CurrentContextService.cs
+      - ChildAllowanceManager.Common/Interfaces/ICurrentContextService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: [transaction-service, program-cs]
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/ICurrentContextService.cs
+        add: |
+          /// The signed-in user's email, lowercased, or null when there is no user
+          /// (the scheduled allowance job).
+          string? GetCurrentUserEmail();
+
+          /// The signed-in user's display name, or "Allowance schedule" when there is no user.
+          string GetCurrentUserName();
+      - file: ChildAllowanceManager/Services/CurrentContextService.cs
+        implement: >
+          Inject IHttpContextAccessor (already registered via builder.Services.AddHttpContextAccessor()).
+          Read System.Security.Claims.ClaimTypes.Email and ClaimTypes.Name from
+          httpContextAccessor.HttpContext?.User. Lowercase and trim the email. Return
+          "Allowance schedule" from GetCurrentUserName when there is no authenticated user.
+        caveat: >
+          In a Blazor Server interactive circuit HttpContext is null after the initial render.
+          Therefore ALSO cache the values - CurrentContextService is scoped, and the circuit's
+          scope is created during the initial HTTP request when HttpContext is still available.
+          Read once in the constructor into readonly fields; do not read HttpContext per call.
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        anchor: |-
+                  transaction.TransactionTimestamp = DateTimeOffset.UtcNow;
+        add_before_it: |
+          transaction.ActorEmail ??= currentContextService.GetCurrentUserEmail();
+          if (string.IsNullOrWhiteSpace(transaction.ActorName) ||
+              transaction.ActorName == "Allowance schedule")
+          {
+              transaction.ActorName = currentContextService.GetCurrentUserName();
+          }
+        note: >
+          Add ICurrentContextService to the TransactionService primary constructor parameter list.
+          The `??=` lets DailyAllowanceJob leave both null/default and be attributed to the schedule.
+      - file: ChildAllowanceManager/Program.cs
+        change: >
+          No registration change is needed - ICurrentContextService and IHttpContextAccessor are
+          both already registered. Verify only. If `builder.Services.AddHttpContextAccessor();`
+          is absent (it is present at the audit snapshot), add it.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "A transaction created through a signed-in circuit carries that user's email; one created by DailyAllowanceJob carries ActorEmail null and ActorName \"Allowance schedule\"."
+    commit: "feat(audit): record who performed each money action"
+
+  - id: P04-T6
+    title: Immutability rule plus reversing-entry correction workflow
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+    mutex: transaction-service
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+        add: |
+          /// Corrects a past transaction by writing a NEW transaction that reverses its amount.
+          /// History is never edited or deleted. Throws KeyNotFoundException if the original is
+          /// not found in the tenant, and ValidationException if it has already been reversed.
+          ValueTask<AllowanceTransaction> ReverseTransactionAsync(
+              string transactionId, string tenantId, string reason,
+              string? requestId, CancellationToken cancellationToken = default);
+      - file: ChildAllowanceManager/Services/TransactionService.cs
+        implement: |
+          - Load the original with AsNoTracking by Id + TenantId + !Deleted, or throw KeyNotFoundException.
+          - Reject when a row already exists with ReversesTransactionId == transactionId (ValidationException, "This transaction has already been corrected.").
+          - Reject a reversal of a reversal (original.ReversesTransactionId is not null) with ValidationException.
+          - Reject an empty reason with ValidationException("A correction reason is required.").
+          - Build the reversing row - same ChildId/TenantId, TransactionAmount = -original.TransactionAmount,
+            TransactionType = TransactionType.Adjustment, Description = $"Correction: {original.Description}",
+            ReversesTransactionId = original.Id, CorrectionReason = reason, RequestId = requestId,
+            AllowanceDate = null (must be null - it would collide with the original's unique allowance-date index).
+          - Delegate to AddTransaction so balance computation, idempotency and notification stay in one place.
+        immutability_enforcement: >
+          Add an override of SaveChangesAsync in AllowanceDbContext that throws
+          InvalidOperationException when any tracked AllowanceTransaction entry has
+          State == EntityState.Modified and the modified properties include Balance,
+          TransactionAmount, TransactionType, AllowanceDate, ChildId or TenantId.
+          Deleted (the soft-delete flag), UpdatedTimestamp and the correction fields remain
+          mutable. This is the rule that makes "immutable transaction" real rather than a
+          convention. Note - DevelopmentDataSeeder.SeedTransactionAsync currently mutates
+          TransactionAmount on existing rows; P12-T1 fixes the seeder. Until P12-T1 lands the
+          development seeder will throw, which is acceptable and expected - record it in `result`.
+    validation_amount_rule: >
+      ValidateAmount currently requires Withdrawal < 0 and Deposit > 0. A reversal is typed
+      Adjustment, whose rule is `_ => true`, so no change is needed there.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "feat(audit): correct transactions with reversing entries, never edits"
+
+  - id: P04-T7
+    title: Pin TransactionType numeric values and document reserved members
+    files_touched: [ChildAllowanceManager.Common/Models/TransactionType.cs]
+    implements: decisions.D2_unused_transaction_types
+    steps:
+      - file: ChildAllowanceManager.Common/Models/TransactionType.cs
+        replace_whole_file_with: |
+          namespace ChildAllowanceManager.Common.Models;
+
+          /// Persisted as `integer`. The numeric values are PINNED - existing rows depend on
+          /// them. Never reorder, never remove a member, never reuse a value.
+          public enum TransactionType
+          {
+              DailyAllowance = 0,
+              BirthdayAllowance = 1,
+              Withdrawal = 2,
+              Deposit = 3,
+
+              /// Reserved. No product flow. Do not surface in the UI.
+              Transfer = 4,
+
+              /// Balance corrections, including reversing entries. See ITransactionService.ReverseTransactionAsync.
+              Adjustment = 5,
+
+              /// Reserved. No product flow. Do not surface in the UI.
+              Interest = 6,
+
+              Hold = 7,
+
+              /// Reserved. No product flow. Do not surface in the UI.
+              Other = 8
+          }
+    verify: 'The pinned values match today''s implicit ordering exactly - confirm against git history before committing so no existing row is reinterpreted.'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`CAM_TEST_DB=cam_test_p04t7 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0 - existing tests assert on stored types."
+    commit: "docs(model): pin transaction type values and mark reserved members"
+
+  - id: P04-T8
+    title: Restore path for soft-deleted tenants and children
+    files_touched:
+      - ChildAllowanceManager/Services/TenantService.cs
+      - ChildAllowanceManager/Services/ChildService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+      - ChildAllowanceManager.Common/Interfaces/IChildService.cs
+    implements: decisions.D3_delete_semantics
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/ITenantService.cs
+        add: |
+          /// Families that have been soft-deleted and can still be restored.
+          ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default);
+
+          /// Un-deletes a family, its children and its memberships in one transaction.
+          /// Returns false if the family does not exist or is not deleted.
+          /// Throws InvalidOperationException if a live family already holds its UrlSuffix.
+          ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default);
+      - file: ChildAllowanceManager.Common/Interfaces/IChildService.cs
+        add: |
+          ValueTask<IEnumerable<ChildConfiguration>> GetDeletedChildren(string tenantId, CancellationToken cancellationToken = default);
+          ValueTask<bool> RestoreChild(string id, string tenantId, CancellationToken cancellationToken = default);
+      - implement: >
+          Mirror the delete implementations. RestoreTenant runs in one BeginTransactionAsync and
+          restores tenant + children + memberships + the User.Tenants array entries it removed.
+          RestoreChild only touches the child row. Both bump UpdatedTimestamp.
+      - "Restoring a child whose tenant is deleted must throw InvalidOperationException(\"Restore the family first.\")."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "feat(data): restore soft-deleted families and children"
+
+  - id: P04-T9
+    title: Exclude deleted rows from tenant suffix uniqueness checks
+    files_touched: [ChildAllowanceManager/Services/TenantService.cs]
+    steps:
+      - anchor: 'if (await db.Tenants.AnyAsync(x => x.UrlSuffix == tenant.UrlSuffix, cancellationToken))'
+        replace_with: 'if (await db.Tenants.AnyAsync(x => x.UrlSuffix == tenant.UrlSuffix && !x.Deleted, cancellationToken))'
+      - anchor: 'if (await db.Tenants.AnyAsync(x => x.Id != tenant.Id && x.UrlSuffix == tenant.UrlSuffix, cancellationToken))'
+        replace_with: 'if (await db.Tenants.AnyAsync(x => x.Id != tenant.Id && x.UrlSuffix == tenant.UrlSuffix && !x.Deleted, cancellationToken))'
+      - "Apply the same `&& !x.Deleted` reasoning to UserService if any uniqueness check there omits it. Read UserService.UpsertUserAsync - its lookup already filters !x.Deleted, so no change is expected. Verify, do not assume."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by P04-T11."
+    commit: "fix(tenant): allow reuse of a deleted family's url suffix"
+
+  - id: P04-T10
+    title: CSV export of a child's transaction history
+    files_touched:
+      - ChildAllowanceManager/Services/TransactionService.cs
+      - ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+    mutex: transaction-service
+    steps:
+      - file: ChildAllowanceManager.Common/Interfaces/ITransactionService.cs
+        add: |
+          /// Full transaction history for one child as RFC 4180 CSV, newest last.
+          /// Columns - Date,Type,Description,Amount,Balance,Actor,CorrectionOf,CorrectionReason
+          ValueTask<string> ExportTransactionsCsvAsync(
+              string childId, string tenantId, CancellationToken cancellationToken = default);
+      - implement: |
+          Reuse ForChild(childId, tenantId) ordered ascending by TransactionTimestamp then Id.
+          Build with a StringBuilder. Quote every field with '"' and escape embedded quotes by
+          doubling them - descriptions are free text and will contain commas.
+          Format Date as "yyyy-MM-dd HH:mm:ss" in UTC with a trailing "Z" so the export is
+          unambiguous. Format Amount and Balance with InvariantCulture "0.00" - NOT the
+          en-GB "C2" currency format, which would embed "£" and break spreadsheet import.
+      - "No UI wiring in this task. P10 does not wire it either; add a download button in the transactions dialog as part of P10-T4 only if the dialog rework touches it, otherwise expose it and leave the surface for later. Record which you did in `result`."
+    check: "Leave one assert-based check that a description containing `a,\"b` round-trips through the CSV escaping. Put it in P04-T11."
+    acceptance:
+      - "`dotnet build` exits 0"
+    commit: "feat(audit): export a child's transaction history as CSV"
+
+  - id: P04-T11
+    title: Transaction integrity tests
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/AllowanceServiceTests.cs
+      - tests/ChildAllowanceManager.Tests/TransactionIntegrityTests.cs
+    create_file: tests/ChildAllowanceManager.Tests/TransactionIntegrityTests.cs
+    exclusive_resources: [postgres-test-db]
+    required_tests:
+      - Hold_failure_rolls_back_the_child_update — force AddTransaction to fail (empty Description triggers ValidationException) inside ApplyHoldAsync and assert HoldDaysRemaining is unchanged in the database.
+      - Hold_success_writes_both_the_child_update_and_one_hold_transaction
+      - Deleting_a_tenant_marks_tenant_children_and_memberships_in_one_commit
+      - Repeating_a_request_id_returns_the_same_transaction_and_creates_no_second_row
+      - Concurrent_identical_request_ids_both_return_the_same_row — run two AddTransaction calls on two contexts and assert one row exists and neither throws.
+      - Empty_date_range_returns_a_flat_opening_balance — child with a transaction 60 days ago, query a 7-day window with no activity, assert every returned point equals the real balance and the list is non-empty.
+      - Child_with_no_transactions_returns_a_single_zero_point
+      - Reversal_creates_a_new_row_and_leaves_the_original_untouched
+      - Reversing_twice_throws
+      - Editing_a_persisted_transaction_amount_throws
+      - Deleted_family_suffix_can_be_reused_through_the_service — AddTenant with a suffix held only by a deleted tenant succeeds.
+      - Restoring_a_family_restores_its_children_and_memberships
+      - Csv_export_escapes_quotes_and_commas
+      - Actor_is_recorded_for_a_signed_in_user_and_defaults_to_the_schedule
+      - Rolling_back_an_outer_transaction_removes_the_enlisted_transaction_row
+    fixture_note: >
+      Use PostgresTestDatabase.CreateMigratedContextAsync(). Construct services directly with
+      `new TransactionService(db, new GlobalNotificationService(), <ICurrentContextService fake>)`
+      following the pattern already used in tests/ChildAllowanceManager.Tests/AllowanceServiceTests.cs -
+      read that file first and match its construction style rather than introducing a DI container.
+      Add a minimal ICurrentContextService fake to UiTestDoubles.cs if one does not exist.
+    also: >
+      Existing tests in AllowanceServiceTests.cs may break on the new FK constraints and the
+      immutability guard. Fix them by inserting the required parent rows - do not relax the
+      production rules to make a test pass.
+    acceptance:
+      - "`CAM_TEST_DB=cam_test_p04t11 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh` exits 0"
+      - "All fifteen tests exist and pass, and the pre-existing suite still passes."
+    commit: "test(transactions): cover atomicity, idempotency, history and corrections"
