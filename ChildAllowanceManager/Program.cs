@@ -149,8 +149,11 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity($"{nameof(DailyAllowanceJob)}-trigger")
-        .WithDescription("Minute past midnight")
-        .WithCronSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 1).InTimeZone(TimeZoneInfo.Utc)
+        // Families choose their own time zone, so the job wakes every hour and pays only the families whose local day has just started. The job is idempotent per
+        // (child, allowance date), so extra wake-ups are harmless.
+        .WithDescription("Hourly; pays each family at its own local 00:01")
+        .WithCronSchedule("0 1 * * * ?", x => x
+            .InTimeZone(TimeZoneInfo.Utc)
             .WithMisfireHandlingInstructionFireAndProceed()));
 });
 builder.Services.AddQuartzHostedService(config =>

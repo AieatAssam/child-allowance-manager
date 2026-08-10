@@ -677,10 +677,10 @@ tasks:
     depends_on: [P03-T7]
     files_touched: [ChildAllowanceManager/Program.cs]
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p05
+    updated: 2026-08-10T22:58:00Z
+    result: "Replaced the fixed UTC-midnight Quartz trigger with the prescribed hourly UTC cron trigger; bounded build skipped at user direction."
 
   - id: P05-T2
     phase: P05
