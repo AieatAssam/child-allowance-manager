@@ -16,6 +16,7 @@ public partial class AddFundsDialogue : CancellableComponentBase
     private decimal _amount;
     private string _description = string.Empty;
     private MudForm _form = default!;
+    private readonly string _requestId = Guid.NewGuid().ToString("N");
 
     public decimal Amount
     {
@@ -45,14 +46,19 @@ public partial class AddFundsDialogue : CancellableComponentBase
         await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
-        await TransactionService.AddTransaction(new AllowanceTransaction
-        {
-            Description = Description,
-            TransactionAmount = Amount,
-            TenantId = Child.TenantId,
-            ChildId = Child.Id,
-            TransactionType = TransactionType.Deposit
-        }, CancellationToken);
-        MudDialog.Close();
+        var outcome = await RunAsync(
+            async () => await TransactionService.AddTransaction(new AllowanceTransaction
+            {
+                Description = Description,
+                TransactionAmount = Amount,
+                TenantId = Child.TenantId,
+                ChildId = Child.Id,
+                TransactionType = TransactionType.Deposit,
+                RequestId = _requestId
+            }, CancellationToken),
+            successMessage: $"Added {Amount:C2} to {Child.Name}.");
+
+        if (outcome.Succeeded)
+            MudDialog.Close();
     }
 }

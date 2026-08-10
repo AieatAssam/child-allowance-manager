@@ -21,7 +21,8 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="AddFunds" Color="Color.Primary">Add</MudButton>
-        <MudButton OnClick="MudDialog.Cancel" Color="Color.Secondary">Cancel</MudButton>
+        <MudButton OnClick="AddFunds" Disabled="@IsBusy" Color="Color.Primary">Add</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
     </DialogActions>
+    @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
 </MudDialog>

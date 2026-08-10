@@ -18,13 +18,19 @@ public partial class AddHoldDialogue : CancellableComponentBase
     public string Description { get; set; } = string.Empty;
 
     private MudForm _form = null!;
+    private readonly string _requestId = Guid.NewGuid().ToString("N");
     
     private async Task AddHold()
     {
         await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
-        await ChildService.ApplyHoldAsync(Child.Id, Child.TenantId, Days, Description, null, CancellationToken);
-        MudDialog.Close();
+        var outcome = await RunAsync(
+            async () => await ChildService.ApplyHoldAsync(
+                Child.Id, Child.TenantId, Days, Description, _requestId, CancellationToken),
+            successMessage: $"Allowance paused for {Days} day(s).");
+
+        if (outcome.Succeeded)
+            MudDialog.Close();
     }
 }

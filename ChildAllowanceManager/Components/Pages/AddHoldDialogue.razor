@@ -13,7 +13,8 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="AddHold" Color="Color.Primary">Suspend</MudButton>
-        <MudButton OnClick="MudDialog.Cancel" Color="Color.Secondary">Cancel</MudButton>
+        <MudButton OnClick="AddHold" Disabled="@IsBusy" Color="Color.Primary">Suspend</MudButton>
+        <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
     </DialogActions>
+    @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
 </MudDialog>

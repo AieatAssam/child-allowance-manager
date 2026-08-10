@@ -768,10 +768,10 @@ tasks:
       - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
       - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
       - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p06
+    updated: 2026-08-10T23:19:24Z
+    result: "Added per-dialog request IDs, busy/disabled controls, success snackbars, and preserved failed input; diff check passed, dotnet unavailable."
 
   - id: P06-T4
     phase: P06
