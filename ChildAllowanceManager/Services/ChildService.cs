@@ -24,7 +24,33 @@ public class ChildService(
     public async ValueTask<IEnumerable<ChildWithBalanceHistory>> GetChildrenWithBalanceHistory(
         string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken)
     {
-        var children = await GetChildren(tenantId, cancellationToken);
+        var children = (await GetChildren(tenantId, cancellationToken)).ToArray();
+        if (startDate is null && endDate is null)
+        {
+            var childIds = children.Select(child => child.Id).ToArray();
+            var transactions = await db.Transactions.AsNoTracking()
+                .Where(transaction => transaction.TenantId == tenantId &&
+                                      !transaction.Deleted && childIds.Contains(transaction.ChildId))
+                .OrderBy(transaction => transaction.ChildId)
+                .ThenBy(transaction => transaction.TransactionTimestamp)
+                .ThenBy(transaction => transaction.Id)
+                .Select(transaction => new
+                {
+                    transaction.ChildId,
+                    Entry = new BalanceHistoryEntry(transaction.TransactionTimestamp, transaction.Balance)
+                })
+                .ToListAsync(cancellationToken);
+            var historyByChild = transactions
+                .GroupBy(transaction => transaction.ChildId)
+                .ToDictionary(group => group.Key, group => FillHistory(group.Select(transaction => transaction.Entry)));
+
+            return children.Select(child => new ChildWithBalanceHistory(
+                child.Id,
+                $"{child.FirstName} {child.LastName}",
+                child.TenantId,
+                historyByChild.GetValueOrDefault(child.Id, [])));
+        }
+
         var result = new List<ChildWithBalanceHistory>();
         foreach (var child in children)
         {
@@ -39,13 +65,23 @@ public class ChildService(
     public async ValueTask<IEnumerable<ChildWithBalance>> GetChildrenWithBalance(
         string tenantId, CancellationToken cancellationToken)
     {
-        var children = await GetChildren(tenantId, cancellationToken);
+        var children = (await GetChildren(tenantId, cancellationToken)).ToArray();
+        var childIds = children.Select(child => child.Id).ToArray();
+        var latestBalances = await db.Transactions.AsNoTracking()
+            .Where(transaction => transaction.TenantId == tenantId &&
+                                  !transaction.Deleted && childIds.Contains(transaction.ChildId))
+            .GroupBy(transaction => transaction.ChildId)
+            .Select(group => group
+                .OrderByDescending(transaction => transaction.TransactionTimestamp)
+                .ThenByDescending(transaction => transaction.Id)
+                .Select(transaction => new { transaction.ChildId, transaction.Balance })
+                .First())
+            .ToDictionaryAsync(item => item.ChildId, item => item.Balance, cancellationToken);
         var result = new List<ChildWithBalance>();
         foreach (var child in children)
         {
-            var latest = await transactionService.GetLatestTransactionForChild(child.Id, tenantId, cancellationToken);
             var now = DateTimeOffset.UtcNow;
-            var balance = latest?.Balance ?? 0m;
+            var balance = latestBalances.GetValueOrDefault(child.Id);
             var nextDate = new DateTimeOffset(
                 now.Date.AddDays(1 + child.HoldDaysRemaining), TimeSpan.Zero);
             var isBirthday = child.BirthDate is not null && SameDayInYear(child.BirthDate, DateTime.UtcNow.Date);
@@ -69,6 +105,28 @@ public class ChildService(
         }
 
         return result;
+    }
+
+    private static BalanceHistoryEntry[] FillHistory(IEnumerable<BalanceHistoryEntry> entries)
+    {
+        var result = entries.ToArray();
+        if (result.Length == 0)
+            return [];
+
+        var firstDate = result[0].Timestamp.UtcDateTime.Date;
+        var lastDate = result[^1].Timestamp.UtcDateTime.Date;
+        var lastBalance = 0m;
+        var extraRecords = new List<BalanceHistoryEntry>();
+        for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
+        {
+            var existing = result.LastOrDefault(x => x.Timestamp.UtcDateTime.Date == date);
+            if (existing is not null)
+                lastBalance = existing.Balance;
+            else
+                extraRecords.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), lastBalance));
+        }
+
+        return result.Concat(extraRecords).OrderBy(x => x.Timestamp).ToArray();
     }
 
     private static bool SameDayInYear(DateTime? first, DateTime? second) =>

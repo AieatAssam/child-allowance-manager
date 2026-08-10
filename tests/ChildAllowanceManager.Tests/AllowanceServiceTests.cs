@@ -95,6 +95,33 @@ public class AllowanceServiceTests
     }
 
     [Fact]
+    public async Task ChildBalanceHistoryBatchPathFillsMissingDates()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var transactions = new TransactionService(db, notifications);
+        var service = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        var child = new ChildConfiguration
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            TenantId = "tenant-1"
+        };
+        var first = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        db.Children.Add(child);
+        db.Transactions.AddRange(
+            Transaction(child.Id, child.TenantId, TransactionType.Deposit, 1m, first, 1m),
+            Transaction(child.Id, child.TenantId, TransactionType.Deposit, 2m, first.AddDays(2), 3m));
+        await db.SaveChangesAsync(cancellationToken);
+
+        var history = Assert.Single(await service.GetChildrenWithBalanceHistory(child.TenantId, null, null, cancellationToken));
+
+        Assert.Equal(3, history.BalanceHistory.Length);
+        Assert.Equal(1m, history.BalanceHistory[1].Balance);
+    }
+
+    [Fact]
     public async Task DeletingChildHidesItWithoutDeletingItsTransactions()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
