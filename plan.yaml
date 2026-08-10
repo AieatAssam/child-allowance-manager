@@ -235,7 +235,7 @@ phases:
     file: docs/plan/phase-01-boot-and-headers.yaml
     title: Startup configuration, telemetry, framing policy, host allowlist
     depends_on: [P00]
-    status: pending
+    status: done
 
   - id: P02
     file: docs/plan/phase-02-migration-baseline.yaml
