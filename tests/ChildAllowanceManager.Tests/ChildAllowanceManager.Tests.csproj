@@ -21,4 +21,8 @@
     <ProjectReference Include="../../ChildAllowanceManager/ChildAllowanceManager.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../ChildAllowanceManager/appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

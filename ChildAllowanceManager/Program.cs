@@ -7,7 +7,6 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Data;
-using ChildAllowanceManager.Middleware;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
@@ -30,7 +29,8 @@ CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
 CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddOpenTelemetry().UseAzureMonitor();
+if (StartupConfiguration.UseAzureMonitor(builder.Environment, builder.Configuration))
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -158,13 +158,13 @@ builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
 
-builder.Services.AddSingleton<ResponseHeaderMiddleware>();
 builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
+if (StartupConfiguration.ShouldMigrate(app.Environment, args))
 {
+    await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AllowanceDbContext>();
     await db.Database.MigrateAsync();
     if (app.Environment.IsDevelopment())
@@ -193,11 +193,8 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseMiddleware<ResponseHeaderMiddleware>();
-
 app.MapRazorComponents<App>()
-    // set headers to allow iframe embedding - disable this (use parametersless overload) if you want to block embedding
-    .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = "'self' *");
+    .AddInteractiveServerRenderMode();
 
 // Choose an authentication type
 app.Map("/login", signinApp =>

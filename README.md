@@ -16,7 +16,7 @@ Allowance manager is an application for tracking child allowance and managing it
 ## Requirements
 
 - .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
-- PostgreSQL 14+ database (the app applies EF Core migrations on start)
+- PostgreSQL 14+ database
 - Azure App Registration for OAuth2 authentication
 - Blazor-compatible hosting (Azure App Service, etc.)
 
@@ -25,7 +25,10 @@ Allowance manager is an application for tracking child allowance and managing it
 Configuration is done via `appsettings.json` or environment variables. Main settings that need to be populated are
 * **ConnectionStrings__Postgres** - PostgreSQL connection string
 * **AzureMonitor__ConnectionString** - connection string to Azure Monitor/Application Insights for logging
+* **AzureMonitor__Enabled** - set to `true` to enable Azure Monitor outside production
 * **Authentication__Microsoft__ClientId** and **Authentication__Microsoft__ClientSecret** - Azure App Registration credentials
+
+The default allowed hosts are `localhost;127.0.0.1`; production deployments should override `AllowedHosts` with their real host names. Production database migrations run only when the app is started with `--migrate`; development applies migrations and seeds the local demo data automatically.
 
 Allowance scheduling and birthday checks use UTC; keep the deployment and household expectations aligned with that boundary.
 
