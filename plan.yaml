@@ -496,10 +496,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
       - ChildAllowanceManager/Data/AllowanceDbContext.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p03-t5
+    updated: 2026-08-10T22:01:37Z
+    result: "Added actor metadata, RequestId, reversal linkage, and requested transaction indexes without a self-FK; git diff --check passes. Build not run."
 
   - id: P03-T6
     phase: P03

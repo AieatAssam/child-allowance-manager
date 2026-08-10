@@ -37,10 +37,19 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.Property(x => x.Balance).HasPrecision(18, 2);
             entity.Property(x => x.TransactionAmount).HasPrecision(18, 2);
             entity.Property(x => x.AllowanceDate).HasColumnType("date");
+            entity.Property(x => x.ActorEmail).HasMaxLength(320);
+            entity.Property(x => x.ActorName).IsRequired().HasMaxLength(200).HasDefaultValue("Allowance schedule");
+            entity.Property(x => x.RequestId).HasMaxLength(64);
+            entity.Property(x => x.ReversesTransactionId).HasMaxLength(32);
+            entity.Property(x => x.CorrectionReason).HasMaxLength(500);
             entity.HasIndex(x => new { x.TenantId, x.ChildId, x.TransactionTimestamp });
             entity.HasIndex(x => new { x.TenantId, x.ChildId, x.AllowanceDate })
                 .IsUnique()
                 .HasFilter("\"AllowanceDate\" IS NOT NULL");
+            entity.HasIndex(x => new { x.TenantId, x.RequestId })
+                .IsUnique()
+                .HasFilter("\"RequestId\" IS NOT NULL");
+            entity.HasIndex(x => x.ReversesTransactionId);
             entity.HasOne(x => x.Child)
                 .WithMany()
                 .HasForeignKey(x => x.ChildId)
