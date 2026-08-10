@@ -19,7 +19,7 @@
             <MudToolBar>
                 <MudText Typo="Typo.subtitle1">Child Management</MudText>
                 <MudSpacer/>
-                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add child" OnClick="() => AddingChild = true"/>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add child" Disabled="@IsBusy" OnClick="() => AddingChild = true"/>
             </MudToolBar>
 
             @if (Children == null)
@@ -37,7 +37,7 @@
                             <ChildConfigurationEditor @bind-Child="NewChild"></ChildConfigurationEditor>
                         </MudCardContent>
                         <MudCardActions>
-                            <MudButton Color="Color.Primary" OnClick="async () => await AddChild()">Save</MudButton>
+                            <MudButton Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddChild()">Save</MudButton>
                             <MudButton Color="Color.Secondary" OnClick="() => NewChild = new ChildConfiguration()">Clear</MudButton>
                         </MudCardActions>
                     </MudCard>
@@ -62,12 +62,13 @@
                                 {
                                     <MudButton Color="Color.Primary"
                                                OnClick="() => ChildBeingEditedId = Children[idxLocal].Id">Edit</MudButton>
-                                    <MudButton Color="Color.Secondary" OnClick="async () => await DeleteChild(Children[idxLocal])">Delete</MudButton>
+                                    <MudButton Color="Color.Secondary" Disabled="@IsBusy" OnClick="async () => await DeleteChild(Children[idxLocal])">Delete</MudButton>
                                 }
                                 else
                                 {
                                     // already being edited
                                     <MudButton Color="Color.Primary"
+                                               Disabled="@IsBusy"
                                                OnClick="async () => await UpdateChild(Children[idxLocal])">Save</MudButton>
                                     <MudButton Color="Color.Secondary" 
                                                OnClick="async () => await ReloadChildren()">Cancel</MudButton>

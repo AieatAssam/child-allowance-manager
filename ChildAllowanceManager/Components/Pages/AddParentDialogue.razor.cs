@@ -20,8 +20,11 @@ public partial class AddParentDialogue : CancellableComponentBase
         await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
-        var result = await UserService.AddUserToTenantAsync(NewParent.Email, NewParent.Name, TenantId,
-            ValidRoles.Parent, CancellationToken);
-        MudDialog.Close(DialogResult.Ok(result));
+        var outcome = await RunAsync(
+            async () => await UserService.AddUserToTenantAsync(
+                NewParent.Email, NewParent.Name, TenantId, ValidRoles.Parent, CancellationToken),
+            successMessage: "Parent added.");
+        if (outcome.Succeeded)
+            MudDialog.Close(DialogResult.Ok());
     }
 }

@@ -19,7 +19,7 @@
             <MudToolBar>
                 <MudText Typo="Typo.subtitle1">Tenant Management</MudText>
                 <MudSpacer/>
-                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add tenant" OnClick="() => AddingTenant = true"/>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add tenant" Disabled="@IsBusy" OnClick="() => AddingTenant = true"/>
             </MudToolBar>
 
             @if (Tenants == null)
@@ -37,7 +37,7 @@
                             <TenantConfigurationEditor @bind-Tenant="NewTenant"></TenantConfigurationEditor>
                         </MudCardContent>
                         <MudCardActions>
-                            <MudButton Color="Color.Primary" OnClick="async () => await AddTenant()">Save</MudButton>
+                            <MudButton Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddTenant()">Save</MudButton>
                             <MudButton Color="Color.Secondary" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
                         </MudCardActions>
                     </MudCard>
@@ -63,12 +63,13 @@
                                 {
                                     <MudButton Color="Color.Primary"
                                                OnClick="() => TenantBeingEditedId = Tenants[idxLocal].Id">Edit</MudButton>
-                                    <MudButton Color="Color.Secondary" OnClick="async () => await DeleteTenant(Tenants[idxLocal])">Delete</MudButton>
+                                    <MudButton Color="Color.Secondary" Disabled="@IsBusy" OnClick="async () => await DeleteTenant(Tenants[idxLocal])">Delete</MudButton>
                                 }
                                 else
                                 {
                                     // already being edited
                                     <MudButton Color="Color.Primary"
+                                               Disabled="@IsBusy"
                                                OnClick="async () => await UpdateTenant(Tenants[idxLocal])">Save</MudButton>
                                     <MudButton Color="Color.Secondary"
                                                OnClick="async () => await ReloadTenants()">Cancel</MudButton>

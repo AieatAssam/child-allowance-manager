@@ -29,8 +29,11 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task AddTenant()
     {
-        await TenantService.AddTenant(NewTenant, CancellationToken);
-        await ReloadTenants();
+        var outcome = await RunAsync(
+            async () => await TenantService.AddTenant(NewTenant, CancellationToken),
+            successMessage: "Family added.");
+        if (outcome.Succeeded)
+            await ReloadTenants();
     }
 
     private async Task DeleteTenant(TenantConfiguration tenant)
@@ -39,13 +42,22 @@ public partial class AdministrationPage : CancellableComponentBase
         {
             return;
         }
-        await TenantService.DeleteTenant(tenant.Id, CancellationToken);
-        await ReloadTenants();
+        var outcome = await RunAsync(
+            async () => await TenantService.DeleteTenant(tenant.Id, CancellationToken),
+            successMessage: "Family removed. You can restore it from the deleted list.");
+        if (outcome.Succeeded)
+            await ReloadTenants();
     }
 
     private async Task ReloadTenants()
     {
-        Tenants = (await TenantService.GetTenants(CancellationToken)).ToArray();
+        TenantConfiguration[]? loaded = null;
+        var outcome = await RunAsync(
+            async () => loaded = (await TenantService.GetTenants(CancellationToken)).ToArray());
+        if (!outcome.Succeeded)
+            return;
+
+        Tenants = loaded!;
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();
@@ -53,7 +65,10 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task UpdateTenant(TenantConfiguration tenant)
     {
-        await TenantService.UpdateTenant(tenant, CancellationToken);
-        await ReloadTenants();
+        var outcome = await RunAsync(
+            async () => await TenantService.UpdateTenant(tenant, CancellationToken),
+            successMessage: "Family updated.");
+        if (outcome.Succeeded)
+            await ReloadTenants();
     }
 }

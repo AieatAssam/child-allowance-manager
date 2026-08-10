@@ -44,7 +44,12 @@ public partial class ChildManagementPage : CancellableComponentBase
     {
         if (!string.IsNullOrWhiteSpace(TenantSuffix))
         {
-            var tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+            TenantConfiguration? tenant = null;
+            var outcome = await RunAsync(
+                async () => tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken));
+            if (!outcome.Succeeded)
+                return;
+
             if (tenant is null)
             {
                 Navigation.NavigateTo("/error/404");
@@ -74,8 +79,11 @@ public partial class ChildManagementPage : CancellableComponentBase
             return;
         }
         NewChild.TenantId = _tenantId;
-        await ChildService.AddChild(NewChild, CancellationToken);
-        await ReloadChildren();
+        var outcome = await RunAsync(
+            async () => await ChildService.AddChild(NewChild, CancellationToken),
+            successMessage: "Child added.");
+        if (outcome.Succeeded)
+            await ReloadChildren();
     }
 
     private async Task DeleteChild(ChildConfiguration child)
@@ -89,8 +97,11 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
-        await ChildService.DeleteChild(child.Id, _tenantId, CancellationToken);
-        await ReloadChildren();
+        var outcome = await RunAsync(
+            async () => await ChildService.DeleteChild(child.Id, _tenantId, CancellationToken),
+            successMessage: "Child removed. A parent can restore them.");
+        if (outcome.Succeeded)
+            await ReloadChildren();
     }
 
     private async Task ReloadChildren()
@@ -99,7 +110,13 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
-        Children = (await ChildService.GetChildren(_tenantId, CancellationToken)).ToArray();
+        ChildConfiguration[]? loaded = null;
+        var outcome = await RunAsync(
+            async () => loaded = (await ChildService.GetChildren(_tenantId, CancellationToken)).ToArray());
+        if (!outcome.Succeeded)
+            return;
+
+        Children = loaded!;
         ChildBeingEditedId = null;
         AddingChild = false;
         NewChild = new ChildConfiguration();
@@ -107,7 +124,10 @@ public partial class ChildManagementPage : CancellableComponentBase
 
     private async Task UpdateChild(ChildConfiguration child)
     {
-        await ChildService.UpdateChild(child, CancellationToken);
-        await ReloadChildren();
+        var outcome = await RunAsync(
+            async () => await ChildService.UpdateChild(child, CancellationToken),
+            successMessage: "Child updated.");
+        if (outcome.Succeeded)
+            await ReloadChildren();
     }
 }
