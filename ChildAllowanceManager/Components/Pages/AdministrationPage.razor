@@ -4,11 +4,18 @@
 @attribute [Authorize(Roles = "admin")]
 <PageTitle>Administration</PageTitle>
 
-<MudText Typo="Typo.h2">Administration</MudText>
+<div class="page-shell settings-view">
+    <div class="page-heading">
+        <div class="page-heading-copy">
+            <MudText Typo="Typo.overline" Class="page-kicker">System access</MudText>
+            <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Administration</MudText>
+            <MudText Color="Color.Secondary">Keep families, links, and access details organised.</MudText>
+        </div>
+    </div>
 
-<MudTabs>
+<MudTabs Class="settings-tabs">
     <MudTabPanel Icon="@Icons.Material.Filled.People" Text="Tenants" BadgeData="Tenants?.Count()">
-        <MudPaper Class="ma-4 pa-3" Elevation="10">
+        <MudPaper Class="settings-card" Elevation="0">
             <MudToolBar>
                 <MudText Typo="Typo.subtitle1">Tenant Management</MudText>
                 <MudSpacer/>
@@ -25,7 +32,7 @@
                 {
                     <MudCard>
                         <MudCardHeader>
-                            <MudText Typo="Typo.h6">Adding New Tenant</MudText>
+                        <MudText Typo="Typo.h5">Add a family</MudText>
                         </MudCardHeader>
                         <MudCardContent>
                             <TenantConfigurationEditor @bind-Tenant="NewTenant"></TenantConfigurationEditor>
@@ -75,7 +82,7 @@
             }
             else
             {
-                <MudAlert Severity="Severity.Info" Class="pa-6">No tenants configured. Please add a new tenant.</MudAlert>
+                <MudAlert Severity="Severity.Info" Class="empty-state">No families yet. Add one to create a new allowance space.</MudAlert>
             }
         </MudPaper>
     </MudTabPanel>
@@ -85,9 +92,10 @@
                Class="pa-6 ma-3"
                Title="Warning" CancelText="Cancel">
     <MessageContent>
-        Deleting can <b><i>not</i></b> be undone!
+        Delete this family? This cannot be undone.
     </MessageContent>
     <YesButton>
         <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
     </YesButton>
 </MudMessageBox>
+</div>

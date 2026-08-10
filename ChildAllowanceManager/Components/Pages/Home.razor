@@ -1,24 +1,25 @@
 @page "/"
 <PageTitle>Child Allowance Manager</PageTitle>
 
-@if (!_initialised)
-{
-    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true"/>
-}
-else
-{
-    <div class="home-state">
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="home-alert">
-            <MudText Typo="Typo.body1">Please log in or use your secret link to access.</MudText>
+<main class="home-state" aria-busy="@(!_initialised)">
+    @if (!_initialised)
+    {
+        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" aria-label="Loading" />
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="home-alert">
+            <MudText Typo="Typo.h5" HtmlTag="h1">Sign in to manage pocket money</MudText>
+            <MudText Typo="Typo.body1" Class="mt-2">Open your family link, or use the local demo account while developing.</MudText>
             @if (Environment.IsDevelopment())
             {
-                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-3">
-                    Use local demo account
+                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
+                    Open local demo
                 </MudButton>
             }
         </MudAlert>
-    </div>
-}
+    }
+</main>
 
 @code {
     

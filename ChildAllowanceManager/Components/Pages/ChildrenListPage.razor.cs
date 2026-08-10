@@ -3,6 +3,7 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using Plotly.Blazor;
 using Plotly.Blazor.ConfigLib;
@@ -57,6 +58,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     [Inject]
     public ISnackbar Snackbar { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ServiceScopeFactory { get; set; } = default!;
 
     [Parameter]
     public string? TenantSuffix { get; set; }
@@ -173,7 +177,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 await _dataGate.WaitAsync(CancellationToken);
                 try
                 {
-                    tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+                    await using var scope = ServiceScopeFactory.CreateAsyncScope();
+                    var isolatedTenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
+                    tenant = await isolatedTenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
                 }
                 finally
                 {
@@ -263,7 +269,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         await _dataGate.WaitAsync(CancellationToken);
         try
         {
-            Children = (await ChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
+            await using var scope = ServiceScopeFactory.CreateAsyncScope();
+            var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
+            Children = (await isolatedChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
             _balanceHistoryNeedsSync = true;
             StateHasChanged();
         }
@@ -283,7 +291,10 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         await _dataGate.WaitAsync(CancellationToken);
         try
         {
-            var balanceHistory = await ChildService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
+            await using var scope = ServiceScopeFactory.CreateAsyncScope();
+            var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
+            var balanceHistory = await isolatedChildService.GetChildrenWithBalanceHistory(
+                _tenantId, null, null, CancellationToken);
             bool changesFound = false;
             foreach (var (child, index) in balanceHistory.Select((child, index) => (child, index)))
             {

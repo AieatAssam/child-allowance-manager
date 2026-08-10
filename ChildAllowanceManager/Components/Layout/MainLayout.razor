@@ -10,6 +10,7 @@
 <MudSnackbarProvider/>
 
 <MudLayout>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <MudAppBar Elevation="0" Class="app-bar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        aria-label="Toggle navigation" OnClick="@((e) => DrawerToggle())"/>
@@ -17,7 +18,7 @@
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
-                <MudMenu Icon="fa-solid fa-user" Color="Color.Inherit" aria-label="Account menu">
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" aria-label="Account menu">
                     <MudMenuItem Icon="@Icons.Material.Filled.VerifiedUser">
                         @context.User.Identity?.Name
                     </MudMenuItem>
@@ -38,7 +39,7 @@
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer">
         <NavMenu/>
     </MudDrawer>
-    <MudMainContent Class="app-main">
+    <MudMainContent id="main-content" tabindex="-1" Class="app-main">
         <CascadingValue Value="@_themeConfiguration">
         @Body
         </CascadingValue>

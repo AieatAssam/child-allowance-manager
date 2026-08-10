@@ -40,7 +40,7 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Tenant is not null)
+        if (Tenant is not null && !ReadOnly)
         {
             await ReloadParentsAsync();
         }

@@ -47,8 +47,22 @@ public class ComponentRenderingTests
 
         Assert.Contains("Name", cut.Markup);
         Assert.Contains("URL Suffix", cut.Markup);
-        Assert.Contains("Parents:", cut.Markup);
-        Assert.Contains("Add", cut.Markup);
+        Assert.Contains("Parents", cut.Markup);
+        Assert.Contains("Add parent", cut.Markup);
+    }
+
+    [Fact]
+    public async Task TenantEditorHidesParentAssignmentControlsWhenReadOnly()
+    {
+        await using var context = BunitTestContext.Create();
+        context.Services.Add(ServiceDescriptor.Singleton<IUserService>(new FakeUserService()));
+
+        var cut = context.Render<TenantConfigurationEditor>(parameters => parameters
+            .Add(x => x.Tenant, new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" })
+            .Add(x => x.ReadOnly, true));
+
+        Assert.DoesNotContain("Parents", cut.Markup);
+        Assert.DoesNotContain("Add parent", cut.Markup);
     }
 
     [Fact]

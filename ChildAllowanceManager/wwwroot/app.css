@@ -10,6 +10,7 @@
 
 html, body {
     min-width: 320px;
+    scroll-padding-top: 5rem;
     background: var(--app-bg);
     color: var(--app-ink);
     font-family: "DM Sans", system-ui, sans-serif;
@@ -17,6 +18,34 @@ html, body {
 
 body {
     margin: 0;
+    overflow-x: hidden;
+}
+
+button, a, input, select, textarea {
+    touch-action: manipulation;
+}
+
+:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--app-primary) 72%, white);
+    outline-offset: 3px;
+}
+
+.skip-link {
+    position: fixed;
+    z-index: 2000;
+    top: .75rem;
+    left: .75rem;
+    padding: .65rem .9rem;
+    border-radius: .6rem;
+    background: var(--mud-palette-surface, #fff);
+    color: var(--app-ink);
+    box-shadow: var(--app-shadow);
+    transform: translateY(-180%);
+    transition: transform .18s ease;
+}
+
+.skip-link:focus {
+    transform: translateY(0);
 }
 
 .app-bar {
@@ -45,21 +74,18 @@ body {
     min-height: calc(100vh - 64px);
     margin-top: 64px;
     padding: clamp(1rem, 3vw, 2.5rem);
-    padding-top: calc(clamp(1rem, 3vw, 2.5rem) + 4rem);
+    padding-top: clamp(1rem, 3vw, 2.5rem);
     overflow-x: clip;
 }
 
-.app-main > .mud-typography-h2 {
-    max-width: 100%;
-    font-size: clamp(2rem, 8vw, 3.75rem);
-    line-height: 1.1;
-    overflow-wrap: anywhere;
-    text-wrap: balance;
+.mud-icon-button {
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .home-state {
     display: grid;
-    min-height: 12rem;
+    min-height: min(60vh, 34rem);
     place-items: center;
 }
 
@@ -246,6 +272,55 @@ body {
 .page-title {
     margin: .25rem 0 .5rem;
     text-wrap: balance;
+}
+
+.settings-view {
+    width: min(100%, 1180px);
+}
+
+.settings-tabs {
+    margin-top: .5rem;
+}
+
+.settings-card {
+    margin-top: .75rem;
+    padding: clamp(.85rem, 2vw, 1.5rem);
+    border: 1px solid var(--app-border);
+    border-radius: 1.25rem;
+    background: var(--mud-palette-surface, #fff);
+}
+
+.settings-card .mud-toolbar {
+    min-height: 3rem;
+    padding: 0 0 .75rem;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.settings-card .mud-expansion-panel {
+    margin: .5rem 0;
+    border: 1px solid var(--app-border);
+    border-radius: .85rem;
+}
+
+.settings-card .mud-expansion-panel-header {
+    min-height: 3.5rem;
+}
+
+.settings-card .mud-card {
+    margin: 1rem 0;
+    border: 1px solid var(--app-border);
+    border-radius: .9rem;
+    background: color-mix(in srgb, var(--app-primary) 4%, var(--mud-palette-surface, #fff));
+}
+
+.empty-state {
+    margin-top: 1rem;
+}
+
+.birthday-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
 }
 
 .child-card,

@@ -21,8 +21,8 @@
         <div class="page-heading">
             <div class="page-heading-copy">
                 <MudText Typo="Typo.overline" Class="page-kicker">Pocket money</MudText>
-                <MudText Typo="Typo.h3" Class="page-title">Money in. Money out.</MudText>
-                <MudText Color="Color.Secondary">See what’s saved, what’s spent, and what’s next.</MudText>
+                <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">See the money move</MudText>
+                <MudText Color="Color.Secondary">Balances, allowances, and spending for this family.</MudText>
             </div>
             <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WbSunny">
                 Today at a glance
@@ -42,7 +42,9 @@
                             <MudText Typo="Typo.h6">@child.Name</MudText>
                             @if (child.IsBirthday)
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Success">Birthday bonus day 🎂</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Success" Class="birthday-label">
+                                    <MudIcon Icon="@Icons.Material.Filled.Cake" Size="Size.Small" aria-hidden="true" /> Birthday bonus day
+                                </MudText>
                             }
                         </div>
                     </MudCardHeader>
@@ -109,7 +111,7 @@
                     <div>
                         <MudText Typo="Typo.h5">Balance over time</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Follow the ups, downs, and spending choices behind each balance.
+                            A simple view of each child’s balance across recent days.
                         </MudText>
                     </div>
                     <MudChip T="string" Color="Color.Tertiary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Insights">
@@ -118,7 +120,7 @@
                 </div>
                 <div class="chart-note" id="balance-chart-description">
                     <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
-                    <span>Hover a point to compare balances on the same day.</span>
+                    <span>Tap or hover a point to see that day’s balance.</span>
                 </div>
                 <div class="chart-frame" role="img" aria-label="Balance over time chart" aria-describedby="balance-chart-description">
                     <PlotlyChart @bind-Config="_plotlyConfig"
