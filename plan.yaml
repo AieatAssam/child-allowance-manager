@@ -507,10 +507,10 @@ tasks:
     depends_on: [P03-T5]
     files_touched: [ChildAllowanceManager/Migrations/]
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-10T22:20:00Z
+    result: "Scaffolded SchemaIntegrity migration and snapshot, added orphan cleanup and TenantMembership backfill, and added a design-time DbContext factory for EF tooling."
 
   - id: P03-T7
     phase: P03
