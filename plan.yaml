@@ -283,7 +283,7 @@ phases:
     file: docs/plan/phase-09-design-tokens.yaml
     title: Brand source of truth — tokens, palette, typography, assets
     depends_on: [P00]
-    status: pending
+    status: done
 
   - id: P10
     file: docs/plan/phase-10-visual-redesign.yaml
