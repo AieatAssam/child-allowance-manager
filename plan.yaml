@@ -462,10 +462,10 @@ tasks:
       - ChildAllowanceManager.Common/Models/TenantConfiguration.cs
       - ChildAllowanceManager/Data/AllowanceDbContext.cs
       - ChildAllowanceManager.Common/Validators/TenantConfigurationValidator.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p03-t2
+    updated: 2026-08-10T21:59:18Z
+    result: "Added Europe/London default, required IANA validation and migration mapping, plus invalid/valid validator coverage; git diff --check passes. Build not run."
 
   - id: P03-T3
     phase: P03

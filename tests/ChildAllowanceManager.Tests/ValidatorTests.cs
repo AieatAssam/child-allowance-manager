@@ -34,4 +34,16 @@ public class ValidatorTests
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TenantConfiguration.TenantName));
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(TenantConfiguration.UrlSuffix));
     }
+
+    [Fact]
+    public async Task TenantValidatorRequiresAnExistingTimeZone()
+    {
+        var validator = new TenantConfigurationValidator();
+        var invalid = await validator.ValidateAsync(new TenantConfiguration { TenantName = "Family", TimeZoneId = "Not/AZone" });
+        var valid = await validator.ValidateAsync(new TenantConfiguration { TenantName = "Family", TimeZoneId = "Europe/London" });
+
+        Assert.False(invalid.IsValid);
+        Assert.Contains(invalid.Errors, error => error.ErrorMessage == "Choose a valid time zone.");
+        Assert.True(valid.IsValid);
+    }
 }

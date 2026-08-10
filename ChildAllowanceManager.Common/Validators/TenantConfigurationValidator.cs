@@ -16,6 +16,10 @@ public class TenantConfigurationValidator: AbstractValidator<TenantConfiguration
             .MinimumLength(5)
             .Matches("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
             .WithMessage("URL suffix may contain lowercase letters, numbers, and hyphens only");
+        RuleFor(tenant => tenant.TimeZoneId)
+            .NotEmpty()
+            .Must(id => TimeZoneInfo.TryFindSystemTimeZoneById(id, out _))
+            .WithMessage("Choose a valid time zone.");
     }
     
     public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>

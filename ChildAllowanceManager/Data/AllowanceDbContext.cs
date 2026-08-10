@@ -49,7 +49,11 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<TenantConfiguration>(entity => entity.HasIndex(x => x.UrlSuffix).IsUnique());
+        modelBuilder.Entity<TenantConfiguration>(entity =>
+        {
+            entity.HasIndex(x => x.UrlSuffix).IsUnique();
+            entity.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64).HasDefaultValue("Europe/London");
+        });
         modelBuilder.Entity<User>(entity => entity.HasIndex(x => x.Email).IsUnique());
     }
 
