@@ -17,11 +17,20 @@ public partial class WithdrawFundsDialogue : CancellableComponentBase
     private string _description = string.Empty;
     private MudForm _form = default!;
     private readonly string _requestId = Guid.NewGuid().ToString("N");
+    private bool _overdrawAcknowledged;
+
+    private decimal ResultingBalance => Child.Balance - Amount;
+    private bool WillOverdraw => ResultingBalance < 0;
     
     public decimal Amount
     {
         get => _amount;
-        set => _amount = value;
+        set
+        {
+            _amount = value;
+            if (!WillOverdraw)
+                _overdrawAcknowledged = false;
+        }
     }
     
     public string Description

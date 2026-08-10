@@ -780,10 +780,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
       - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p06
+    updated: 2026-08-10T23:20:06Z
+    result: "Added live resulting-balance display, acknowledgement-gated overdraw confirmation, and acknowledgement reset; diff check passed, dotnet unavailable."
 
   - id: P06-T5
     phase: P06

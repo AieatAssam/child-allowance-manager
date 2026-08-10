@@ -8,6 +8,14 @@
                              InputMode="@(InputMode.@decimal)"
                              Required="true"
                              Immediate="true"/>
+            <MudText Typo="Typo.body2">New balance: @ResultingBalance.ToString("C2")</MudText>
+            @if (WillOverdraw)
+            {
+                <MudAlert Severity="Severity.Warning">
+                    This takes @Child.Name below zero, to @ResultingBalance.ToString("C2").
+                </MudAlert>
+                <MudCheckBox @bind-Value="_overdrawAcknowledged" Label="I know, continue anyway" />
+            }
             <MudTextField Label="Description"
                           @bind-Value="Description"
                           Required="true"
@@ -15,7 +23,7 @@
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="WithdrawFunds" Disabled="@IsBusy" Color="Color.Primary">Withdraw</MudButton>
+        <MudButton OnClick="WithdrawFunds" Disabled="@(IsBusy || (WillOverdraw && !_overdrawAcknowledged))" Color="Color.Primary">Withdraw</MudButton>
         <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
     </DialogActions>
     @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
