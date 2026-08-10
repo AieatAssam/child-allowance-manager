@@ -5,9 +5,7 @@ public static class StartupConfiguration
     public static bool UseAzureMonitor(IHostEnvironment environment, IConfiguration configuration)
     {
         var connectionString = configuration["AzureMonitor:ConnectionString"];
-        var configured = !string.IsNullOrWhiteSpace(connectionString) &&
-            !connectionString.StartsWith('<');
-        if (configured)
+        if (StartupPolicy.IsConfigured(connectionString))
             return true;
 
         if (!environment.IsDevelopment())

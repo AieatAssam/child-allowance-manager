@@ -389,10 +389,10 @@ tasks:
     depends_on: [P01-T3]
     files_touched: [tests/ChildAllowanceManager.Tests/StartupConfigurationTests.cs]
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p01
+    updated: 2026-08-10T21:38:00Z
+    result: "StartupPolicy extracted, Program and StartupConfiguration use it, and six required tests are present; git diff --check passes. Postgres test could not reach dotnet because dotnet is unavailable in the environment."
 
   # ---- P02 ----------------------------------------------------------------
   - id: P02-T1

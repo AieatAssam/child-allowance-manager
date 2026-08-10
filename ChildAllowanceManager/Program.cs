@@ -40,8 +40,8 @@ builder.Services.AddMudServices();
 builder.Services.AddHttpContextAccessor();
 
 var configuration = builder.Configuration;
-var postgresConnection = configuration.GetConnectionString("Postgres");
-if (string.IsNullOrWhiteSpace(postgresConnection) || postgresConnection.StartsWith('<'))
+var postgresConnection = configuration.GetConnectionString("Postgres") ?? string.Empty;
+if (!StartupPolicy.IsConfigured(postgresConnection))
 {
     throw new InvalidOperationException(
         "ConnectionStrings:Postgres is required and must not be the placeholder value. " +
@@ -66,14 +66,14 @@ if (!builder.Environment.IsDevelopment())
 {
     authentication.AddMicrosoftAccount("Microsoft", "Microsoft", options =>
     {
-        var clientId = configuration["Authentication:Microsoft:ClientId"];
-        if (string.IsNullOrWhiteSpace(clientId) || clientId.StartsWith('<'))
+        var clientId = configuration["Authentication:Microsoft:ClientId"] ?? string.Empty;
+        if (!StartupPolicy.IsConfigured(clientId))
             throw new InvalidOperationException(
                 "Authentication:Microsoft:ClientId is required and must not be the placeholder value.");
         options.ClientId = clientId;
 
-        var clientSecret = configuration["Authentication:Microsoft:ClientSecret"];
-        if (string.IsNullOrWhiteSpace(clientSecret) || clientSecret.StartsWith('<'))
+        var clientSecret = configuration["Authentication:Microsoft:ClientSecret"] ?? string.Empty;
+        if (!StartupPolicy.IsConfigured(clientSecret))
             throw new InvalidOperationException(
                 "Authentication:Microsoft:ClientSecret is required and must not be the placeholder value.");
         options.ClientSecret = clientSecret;
@@ -217,15 +217,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
-foreach (var entry in frameAncestors)
-{
-    if (entry.Contains('*'))
-        throw new InvalidOperationException($"FrameAncestors entry must not contain '*': {entry}");
-}
-
-var frameAncestorsPolicy = frameAncestors.Length == 0
-    ? "'self'"
-    : string.Join(' ', new[] { "'self'" }.Concat(frameAncestors));
+var frameAncestorsPolicy = StartupPolicy.BuildFrameAncestorsPolicy(frameAncestors);
 app.MapRazorComponents<App>()
     // Embedding is denied by default. Add explicit origins to the FrameAncestors
     // configuration array to allow trusted embedders.
