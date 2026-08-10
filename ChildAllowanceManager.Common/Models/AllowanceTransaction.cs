@@ -13,4 +13,7 @@ public class AllowanceTransaction: BaseItem
 
     public DateTime? AllowanceDate { get; set; }
 
+    public ChildConfiguration? Child { get; set; }
+    public TenantConfiguration? Tenant { get; set; }
+
 }

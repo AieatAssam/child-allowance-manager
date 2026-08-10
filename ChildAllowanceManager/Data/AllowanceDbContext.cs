@@ -24,6 +24,10 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.Property(x => x.RegularAllowance).HasPrecision(18, 2);
             entity.Property(x => x.BirthdayAllowance).HasPrecision(18, 2);
             entity.HasIndex(x => new { x.TenantId, x.Deleted });
+            entity.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AllowanceTransaction>(entity =>
@@ -35,6 +39,14 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.HasIndex(x => new { x.TenantId, x.ChildId, x.AllowanceDate })
                 .IsUnique()
                 .HasFilter("\"AllowanceDate\" IS NOT NULL");
+            entity.HasOne(x => x.Child)
+                .WithMany()
+                .HasForeignKey(x => x.ChildId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<TenantConfiguration>(entity => entity.HasIndex(x => x.UrlSuffix).IsUnique());

@@ -449,10 +449,10 @@ tasks:
       - ChildAllowanceManager/Data/AllowanceDbContext.cs
       - ChildAllowanceManager.Common/Models/ChildConfiguration.cs
       - ChildAllowanceManager.Common/Models/AllowanceTransaction.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p03-t1
+    updated: 2026-08-10T21:58:12Z
+    result: "Added Restrict foreign keys and nullable ownership navigations; git diff --check passes. Release build intentionally not run per user instruction."
 
   - id: P03-T2
     phase: P03

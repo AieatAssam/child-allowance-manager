@@ -18,5 +18,7 @@ public class ChildConfiguration : BaseItem
     [DataType(DataType.Currency)] public decimal? BirthdayAllowance { get; set; } = null;
     
     public string TenantId { get; set; } = string.Empty;
+
+    public TenantConfiguration? Tenant { get; set; }
     
 }
