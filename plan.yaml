@@ -435,10 +435,10 @@ tasks:
     depends_on: [P02-T3]
     files_touched: [tests/ChildAllowanceManager.Tests/MigrationTests.cs]
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p02-t4
+    updated: 2026-08-10T21:57:00Z
+    result: "Added fresh-schema, no-pending-model-differences, and EnsureCreated compatibility lifecycle tests; PostgreSQL and build acceptance checks were intentionally not run."
 
   # ---- P03 ----------------------------------------------------------------
   - id: P03-T1
