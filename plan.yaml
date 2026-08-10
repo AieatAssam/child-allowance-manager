@@ -614,10 +614,10 @@ tasks:
     title: Pin TransactionType numeric values and document reserved members
     depends_on: [P04-T6]
     files_touched: [ChildAllowanceManager.Common/Models/TransactionType.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:55:00Z
+    result: "Pinned TransactionType values 0-8 after confirming the historical implicit ordering; diff check passed, long build/test checks were skipped."
 
   - id: P04-T8
     phase: P04
