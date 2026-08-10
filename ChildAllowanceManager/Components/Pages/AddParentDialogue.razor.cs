@@ -10,7 +10,7 @@ public partial class AddParentDialogue : CancellableComponentBase
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string TenantId { get; set; } = default!;
     
-    [Inject] private IUserService UserService { get; set; } = default!;
+    [Inject] private IInvitationService InvitationService { get; set; } = default!;
     
     private User NewParent { get; set; } = new User();
     private MudForm _form = null!;
@@ -21,9 +21,9 @@ public partial class AddParentDialogue : CancellableComponentBase
         if (!_form.IsValid)
             return;
         var outcome = await RunAsync(
-            async () => await UserService.AddUserToTenantAsync(
-                NewParent.Email, NewParent.Name, TenantId, ValidRoles.Parent, CancellationToken),
-            successMessage: "Parent added.");
+            async () => await InvitationService.InviteAsync(
+                TenantId, NewParent.Email, ValidRoles.Parent, CancellationToken),
+            successMessage: $"Invitation sent to {NewParent.Email}.");
         if (outcome.Succeeded)
             MudDialog.Close(DialogResult.Ok());
     }

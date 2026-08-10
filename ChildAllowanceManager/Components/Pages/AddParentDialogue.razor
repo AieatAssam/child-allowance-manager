@@ -1,7 +1,8 @@
+@using System.ComponentModel.DataAnnotations
 @using MudBlazor.Utilities
 <MudDialog>
     <TitleContent>
-        Add Parent
+        Invite a parent
     </TitleContent>
     <DialogContent>
         <MudForm Model="@NewParent" @ref="_form">
@@ -10,16 +11,18 @@
                           InputMode="InputMode.email" 
                           Label="Email"
                           Required="true"
+                          Validation="@(new EmailAddressAttribute { ErrorMessage = "Enter a valid email address." })"
                           T="string"></MudTextField>
             <MudTextField For="() => NewParent.Name" 
                           @bind-Value="NewParent.Name" 
-                          Required="true"
-                          Label="Full Name"
+                          Required="false"
+                          Label="Name (optional)"
                           T="string"></MudTextField>
+            <MudText Typo="Typo.caption">They get access the next time they sign in with this address. Invitations expire after 14 days.</MudText>
         </MudForm>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy">Cancel</MudButton>
-        <MudButton Color="@Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="AddParentAsync">Add</MudButton>
+        <MudButton Color="@Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="AddParentAsync">Send invitation</MudButton>
     </DialogActions>
 </MudDialog>

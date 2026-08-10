@@ -11,6 +11,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
     public DbSet<TenantConfiguration> Tenants => Set<TenantConfiguration>();
     public DbSet<User> Users => Set<User>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+    public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -49,6 +50,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
         ConfigureItem(modelBuilder.Entity<TenantConfiguration>());
         ConfigureItem(modelBuilder.Entity<User>());
         ConfigureItem(modelBuilder.Entity<TenantMembership>());
+        ConfigureItem(modelBuilder.Entity<TenantInvitation>());
 
         modelBuilder.Entity<ChildConfiguration>(entity =>
         {
@@ -102,6 +104,15 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.HasIndex(x => new { x.UserId, x.TenantId }).IsUnique().HasFilter("NOT \"Deleted\"");
             entity.HasIndex(x => x.TenantId);
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<TenantInvitation>(entity =>
+        {
+            entity.Property(x => x.Email).IsRequired().HasMaxLength(320);
+            entity.Property(x => x.Role).IsRequired().HasMaxLength(32);
+            entity.Property(x => x.InvitedByEmail).HasMaxLength(320);
+            entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique().HasFilter("NOT \"Deleted\"");
+            entity.HasIndex(x => x.Email);
             entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         });
     }

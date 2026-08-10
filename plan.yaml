@@ -930,10 +930,10 @@ tasks:
       - ChildAllowanceManager/Program.cs
     mutex: program-cs
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p08
+    updated: 2026-08-10T23:43:00Z
+    result: "Added validated invitations, expiry/acceptance/revocation lifecycle, membership-backed sign-in acceptance, EF model configuration, and dialog wiring; migration, build, and tests skipped per user instruction."
 
   - id: P08-T5
     phase: P08

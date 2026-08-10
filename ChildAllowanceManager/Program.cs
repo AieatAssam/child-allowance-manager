@@ -110,6 +110,10 @@ if (!builder.Environment.IsDevelopment())
                         await userService.UpsertUserAsync(user, CancellationToken.None);
                     }
 
+                    await context.HttpContext.RequestServices.GetRequiredService<IInvitationService>()
+                        .AcceptPendingAsync(email, identity.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty,
+                            context.HttpContext.RequestAborted);
+
                     foreach (var tenantId in user.Tenants.Distinct())
                         identity.AddClaim(new Claim(CustomClaimTypes.Tenant, tenantId));
                 }
@@ -181,6 +185,7 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
 builder.Services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
