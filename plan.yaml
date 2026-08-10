@@ -893,10 +893,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager/Services/ClaimEnrichmentTransformer.cs
       - ChildAllowanceManager.Common/Models/CustomClaimTypes.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p08
+    updated: 2026-08-10T23:37:51Z
+    result: "Claims now reconcile live memberships into tenant and tenant-role claims with defensive formatting/parsing; git diff --check passes, dotnet unavailable for build."
 
   - id: P08-T3
     phase: P08

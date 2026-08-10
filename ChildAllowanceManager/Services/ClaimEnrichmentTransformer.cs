@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 namespace ChildAllowanceManager.Services;
 
 public class ClaimEnrichmentTransformer(IUserService _userService,
+    IMembershipService _membershipService,
     ILogger<ClaimEnrichmentTransformer> _logger) : IClaimsTransformation
 {
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
@@ -26,8 +27,22 @@ public class ClaimEnrichmentTransformer(IUserService _userService,
             return principal;
         }
 
+        var memberships = (await _membershipService.GetMembershipsForUserAsync(
+            matchingUser.Id, CancellationToken.None)).ToArray();
+        var tenantIds = memberships.Select(x => x.TenantId).ToHashSet();
+        var tenantRoles = memberships
+            .Select(x => TenantRoleClaim.Format(x.TenantId, x.Role))
+            .ToHashSet();
+
         foreach (var claim in identity.FindAll(CustomClaimTypes.Tenant)
-                     .Where(c => !matchingUser.Tenants.Contains(c.Value))
+                     .Where(c => !tenantIds.Contains(c.Value))
+                     .ToArray())
+        {
+            identity.RemoveClaim(claim);
+        }
+
+        foreach (var claim in identity.FindAll(CustomClaimTypes.TenantRole)
+                     .Where(c => !tenantRoles.Contains(c.Value))
                      .ToArray())
         {
             identity.RemoveClaim(claim);
@@ -47,10 +62,16 @@ public class ClaimEnrichmentTransformer(IUserService _userService,
             identity.AddClaim(new Claim(ClaimTypes.Role, role));
         }
 
-        foreach (var tenantId in matchingUser.Tenants.Where(x =>
+        foreach (var tenantId in tenantIds.Where(x =>
                      !identity.HasClaim(c => c.Type == CustomClaimTypes.Tenant && c.Value == x)))
         {
             identity.AddClaim(new Claim(CustomClaimTypes.Tenant, tenantId));
+        }
+
+        foreach (var tenantRole in tenantRoles.Where(x =>
+                     !identity.HasClaim(c => c.Type == CustomClaimTypes.TenantRole && c.Value == x)))
+        {
+            identity.AddClaim(new Claim(CustomClaimTypes.TenantRole, tenantRole));
         }
 
         return principal;
