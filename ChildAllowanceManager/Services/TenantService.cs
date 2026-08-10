@@ -105,7 +105,8 @@ public class TenantService(
             membership.UpdatedTimestamp = now;
         }
 
-        var users = await db.Users.Where(x => !x.Deleted && x.Tenants.Contains(id)).ToListAsync(cancellationToken);
+        var userIds = memberships.Select(x => x.UserId).Distinct().ToArray();
+        var users = await db.Users.Where(x => !x.Deleted && userIds.Contains(x.Id)).ToListAsync(cancellationToken);
         foreach (var user in users)
         {
             user.Tenants = user.Tenants.Where(x => x != id).ToArray();

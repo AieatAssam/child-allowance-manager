@@ -32,7 +32,7 @@ public partial class NavMenu : IDisposable
         var segments = Navigation.ToBaseRelativePath(uri)
             .Trim('/')
             .Split('/', StringSplitOptions.RemoveEmptyEntries);
-        TenantSuffix = segments.Length == 2 && segments[1] is "children" or "configuration"
+        TenantSuffix = segments.Length == 2 && segments[1] is "children" or "configuration" or "people"
             ? segments[0]
             : null;
     }

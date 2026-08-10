@@ -25,11 +25,11 @@ public class MembershipService(AllowanceDbContext db) : IMembershipService
 
     public async ValueTask<IEnumerable<TenantMembership>> GetMembershipsForTenantAsync(
         string tenantId, CancellationToken ct = default) =>
-        await (from membership in db.TenantMemberships.AsNoTracking()
-               join user in db.Users.AsNoTracking() on membership.UserId equals user.Id
-               where !membership.Deleted && !user.Deleted && membership.TenantId == tenantId
-               orderby user.Email
-               select membership).ToListAsync(ct);
+        await db.TenantMemberships.AsNoTracking()
+            .Include(x => x.User)
+            .Where(x => !x.Deleted && x.TenantId == tenantId && x.User != null && !x.User.Deleted)
+            .OrderBy(x => x.User!.Email)
+            .ToListAsync(ct);
 
     public async ValueTask<TenantMembership> GrantAsync(
         string userId, string tenantId, string role, CancellationToken ct = default)

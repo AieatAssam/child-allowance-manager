@@ -947,10 +947,10 @@ tasks:
       - ChildAllowanceManager/Services/TenantService.cs
       - ChildAllowanceManager/Program.cs
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p08
+    updated: 2026-08-10T23:50:41Z
+    result: "Added People page and navigation, membership-backed user access operations, confirmation actions, tenant deletion synchronization, and removed legacy sign-in tenant claim seeding; diff check only per user instruction."
 
   - id: P08-T6
     phase: P08

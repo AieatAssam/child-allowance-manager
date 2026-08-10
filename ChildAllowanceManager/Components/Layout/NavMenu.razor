@@ -8,6 +8,7 @@
     <AuthorizeView Roles="parent">
         <Authorized >
             <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ManageAccounts">Manage Children</MudNavLink>
+            <MudNavLink Href="@($"/{TenantSuffix}/people")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Group">People</MudNavLink>
         </Authorized>
     </AuthorizeView>
     

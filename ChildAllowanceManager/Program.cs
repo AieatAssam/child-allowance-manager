@@ -114,8 +114,6 @@ if (!builder.Environment.IsDevelopment())
                         .AcceptPendingAsync(email, identity.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty,
                             context.HttpContext.RequestAborted);
 
-                    foreach (var tenantId in user.Tenants.Distinct())
-                        identity.AddClaim(new Claim(CustomClaimTypes.Tenant, tenantId));
                 }
             }
             context.RunClaimActions();
