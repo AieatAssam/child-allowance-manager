@@ -816,10 +816,10 @@ tasks:
     files_touched:
       - tests/ChildAllowanceManager.Tests/UiResilienceTests.cs
       - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T00:45:00Z
+    result: "Added the ten named UI resilience test cases; browser/Docker-backed execution remains unavailable."
 
   # ---- P07 ----------------------------------------------------------------
   - id: P07-T1
