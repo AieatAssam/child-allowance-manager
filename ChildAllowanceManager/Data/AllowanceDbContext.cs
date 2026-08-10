@@ -51,10 +51,10 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
 
         modelBuilder.Entity<TenantConfiguration>(entity =>
         {
-            entity.HasIndex(x => x.UrlSuffix).IsUnique();
+            entity.HasIndex(x => x.UrlSuffix).IsUnique().HasFilter("NOT \"Deleted\"");
             entity.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64).HasDefaultValue("Europe/London");
         });
-        modelBuilder.Entity<User>(entity => entity.HasIndex(x => x.Email).IsUnique());
+        modelBuilder.Entity<User>(entity => entity.HasIndex(x => x.Email).IsUnique().HasFilter("NOT \"Deleted\""));
     }
 
     private static void ConfigureItem<T>(EntityTypeBuilder<T> entity) where T : BaseItem

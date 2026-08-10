@@ -472,10 +472,10 @@ tasks:
     title: Filter unique indexes on NOT Deleted so suffixes and emails are reusable
     depends_on: [P03-T2]
     files_touched: [ChildAllowanceManager/Data/AllowanceDbContext.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p03-t3
+    updated: 2026-08-10T22:00:14Z
+    result: "Filtered tenant suffix and user email unique indexes to live rows; git diff --check passes. Build not run."
 
   - id: P03-T4
     phase: P03
