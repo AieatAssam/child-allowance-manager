@@ -253,13 +253,13 @@ phases:
     file: docs/plan/phase-04-transaction-integrity.yaml
     title: Atomic workflows, idempotency, balance history, audit trail, corrections
     depends_on: [P03]
-    status: pending
+    status: done
 
   - id: P05
     file: docs/plan/phase-05-timezone.yaml
     title: Tenant timezone scheduling and display
     depends_on: [P03]
-    status: pending
+    status: done
 
   - id: P06
     file: docs/plan/phase-06-ui-resilience.yaml
@@ -723,10 +723,10 @@ tasks:
     depends_on: [P05-T4]
     files_touched: [tests/ChildAllowanceManager.Tests/TimezoneTests.cs]
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T00:30:00Z
+    result: "Added all eight named timezone scheduling tests; Docker-backed execution is unavailable in this environment."
 
   # ---- P06 ----------------------------------------------------------------
   - id: P06-T1
