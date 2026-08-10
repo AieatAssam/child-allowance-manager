@@ -18,16 +18,31 @@ public class DailyAllowanceJob(
         var tenants = await tenantService.GetTenants(context.CancellationToken);
         foreach (var tenant in tenants)
         {
+            var fireTimeUtc = context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow;
+            var zone = ResolveZone(tenant.TimeZoneId);
+            if (!string.IsNullOrWhiteSpace(tenant.TimeZoneId) &&
+                !TimeZoneInfo.TryFindSystemTimeZoneById(tenant.TimeZoneId, out _))
+            {
+                logger.LogWarning("Unknown time zone {TimeZoneId} for tenant {TenantId}; falling back to UTC",
+                    tenant.TimeZoneId, tenant.Id);
+            }
+
+            var tenantLocalNow = TimeZoneInfo.ConvertTime(fireTimeUtc, zone);
+            // Pay only in the hour that starts the family's local day.
+            if (tenantLocalNow.Hour != 0)
+                continue;
+
+            var scheduledDate = tenantLocalNow.Date;
             var children = await childService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
             foreach (var child in children)
             {
-                var scheduledDate = (context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
                 var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
                     child.Id, child.TenantId, context.CancellationToken);
                 if (child.HoldDaysRemaining > 0 ||
-                    latestRegular?.TransactionTimestamp.UtcDateTime.Date >= scheduledDate)
+                    (latestRegular?.AllowanceDate >= scheduledDate) == true)
                 {
-                    logger.LogWarning($"Skipping daily allowance for {child.Name} as it is held or already paid for {scheduledDate:yyyy-MM-dd}");
+                    logger.LogWarning("Skipping daily allowance for {Child}; held or already paid for {Date:yyyy-MM-dd}",
+                        child.Name, scheduledDate);
                     continue;
                 }
 
@@ -40,23 +55,35 @@ public class DailyAllowanceJob(
                     Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance",
                     AllowanceDate = scheduledDate
                 };
-                logger.LogInformation($"Adding allowance transaction for {child.Name} with type {transaction.TransactionType}");
+                logger.LogInformation("Adding allowance transaction for {Child} with type {TransactionType}",
+                    child.Name, transaction.TransactionType);
                 await transactionService.AddTransaction(transaction, context.CancellationToken);
 
             }
             
             // process hold at the end of the tenant processing to ensure it is not cleared early
-            await ProcessHoldForTenantAsync(tenant.Id, context.CancellationToken);
+            await ProcessHoldForTenantAsync(tenant.Id, scheduledDate, context.CancellationToken);
         }
     }
 
-    private async Task ProcessHoldForTenantAsync(string tenantId, CancellationToken cancellationToken)
+    private async Task ProcessHoldForTenantAsync(string tenantId, DateTime scheduledDate,
+        CancellationToken cancellationToken)
     {
         var children = await childService.GetChildren(tenantId, cancellationToken);
         foreach (var child in children.Where(child => child.HoldDaysRemaining > 0).ToList())
         {
-            child.HoldDaysRemaining--;
-            await childService.UpdateChild(child, cancellationToken);
+            await childService.RemoveHoldDayAsync(
+                child.Id,
+                $"hold-decrement:{child.Id}:{scheduledDate:yyyy-MM-dd}",
+                cancellationToken);
         }
+    }
+
+    private static TimeZoneInfo ResolveZone(string? id)
+    {
+        if (!string.IsNullOrWhiteSpace(id) &&
+            TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone))
+            return zone;
+        return TimeZoneInfo.Utc;
     }
 }

@@ -687,10 +687,10 @@ tasks:
     title: Tenant-local allowance date resolution in DailyAllowanceJob
     depends_on: [P05-T1]
     files_touched: [ChildAllowanceManager/Workers/DailyAllowanceJob.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p05
+    updated: 2026-08-10T23:01:00Z
+    result: "Daily allowances and hold decrements now use each tenant's local day, AllowanceDate, structured logging, and idempotent date-stable hold request IDs; build check interrupted after no output."
 
   - id: P05-T3
     phase: P05
