@@ -13,4 +13,7 @@ public interface ITenantService
     ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
     ValueTask<TenantConfiguration> UpdateTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default);
     ValueTask<bool> DeleteTenant(string id, CancellationToken cancellationToken = default);
+
+    ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default);
+    ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default);
 }

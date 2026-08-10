@@ -16,6 +16,9 @@ public class TenantService(
     public async ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().Where(x => !x.Deleted).OrderBy(x => x.TenantName).ToListAsync(cancellationToken);
 
+    public async ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default) =>
+        await db.Tenants.AsNoTracking().Where(x => x.Deleted).OrderBy(x => x.TenantName).ToListAsync(cancellationToken);
+
     public async ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && !x.Deleted, cancellationToken);
 
@@ -91,6 +94,50 @@ public class TenantService(
             user.Tenants = user.Tenants.Where(x => x != id).ToArray();
             user.UpdatedTimestamp = now;
         }
+        await db.SaveChangesAsync(cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default)
+    {
+        var tenant = await db.Tenants.FirstOrDefaultAsync(x => x.Id == id && x.Deleted, cancellationToken);
+        if (tenant is null)
+            return false;
+        if (await db.Tenants.AnyAsync(
+                x => x.Id != id && x.UrlSuffix == tenant.UrlSuffix && !x.Deleted, cancellationToken))
+            throw new InvalidOperationException($"Tenant with url suffix {tenant.UrlSuffix} already exists");
+
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        tenant.Deleted = false;
+        tenant.UpdatedTimestamp = now;
+
+        var children = await db.Children.Where(x => x.TenantId == id && x.Deleted).ToListAsync(cancellationToken);
+        foreach (var child in children)
+        {
+            child.Deleted = false;
+            child.UpdatedTimestamp = now;
+        }
+
+        var memberships = await db.TenantMemberships
+            .Where(x => x.TenantId == id && x.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var membership in memberships)
+        {
+            membership.Deleted = false;
+            membership.UpdatedTimestamp = now;
+        }
+
+        var userIds = memberships.Select(x => x.UserId).Distinct().ToArray();
+        var users = await db.Users.Where(x => userIds.Contains(x.Id) && !x.Deleted).ToListAsync(cancellationToken);
+        foreach (var user in users)
+        {
+            if (!user.Tenants.Contains(id))
+                user.Tenants = user.Tenants.Append(id).ToArray();
+            user.UpdatedTimestamp = now;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         await dbTransaction.CommitAsync(cancellationToken);
         return true;

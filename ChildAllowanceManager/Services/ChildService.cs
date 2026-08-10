@@ -253,6 +253,29 @@ public class ChildService(
         return true;
     }
 
+    public async ValueTask<IEnumerable<ChildConfiguration>> GetDeletedChildren(
+        string tenantId, CancellationToken cancellationToken = default) =>
+        await db.Children.AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.Deleted)
+            .OrderBy(x => x.FirstName)
+            .ToListAsync(cancellationToken);
+
+    public async ValueTask<bool> RestoreChild(
+        string id, string tenantId, CancellationToken cancellationToken = default)
+    {
+        var child = await db.Children.FirstOrDefaultAsync(
+            x => x.Id == id && x.TenantId == tenantId && x.Deleted, cancellationToken);
+        if (child is null)
+            return false;
+        if (await db.Tenants.AnyAsync(x => x.Id == tenantId && x.Deleted, cancellationToken))
+            throw new InvalidOperationException("Restore the family first.");
+
+        child.Deleted = false;
+        child.UpdatedTimestamp = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async ValueTask<ChildConfiguration?> GetChild(
         string childId, string childTenantId, CancellationToken cancellationToken = default) =>
         await db.Children.AsNoTracking().FirstOrDefaultAsync(

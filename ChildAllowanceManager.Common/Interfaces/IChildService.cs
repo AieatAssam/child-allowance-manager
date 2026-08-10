@@ -21,6 +21,8 @@ public interface IChildService
         CancellationToken cancellationToken = default);
     
     public ValueTask<bool> DeleteChild(string id, string tenantId, CancellationToken cancellationToken);
+    ValueTask<IEnumerable<ChildConfiguration>> GetDeletedChildren(string tenantId, CancellationToken cancellationToken = default);
+    ValueTask<bool> RestoreChild(string id, string tenantId, CancellationToken cancellationToken = default);
     ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);
 
     ValueTask<IEnumerable<ChildWithBalanceHistory>> GetChildrenWithBalanceHistory(string tenantId, 

@@ -41,6 +41,12 @@ internal sealed class RecordingTenantService : ITenantService
         return ValueTask.FromResult(true);
     }
 
+    public ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<IEnumerable<TenantConfiguration>>([]);
+
+    public ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(false);
+
     private static void Replace(List<TenantConfiguration> tenants, TenantConfiguration tenant)
     {
         var index = tenants.FindIndex(x => x.Id == tenant.Id);
@@ -111,6 +117,13 @@ internal sealed class RecordingChildService : IChildService
         Children.RemoveAll(x => x.Id == id && x.TenantId == tenantId);
         return ValueTask.FromResult(true);
     }
+
+    public ValueTask<IEnumerable<ChildConfiguration>> GetDeletedChildren(string tenantId,
+        CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<IEnumerable<ChildConfiguration>>([]);
+
+    public ValueTask<bool> RestoreChild(string id, string tenantId, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(false);
 
     public ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(Children.SingleOrDefault(x => x.Id == childId && x.TenantId == childTenantId));
