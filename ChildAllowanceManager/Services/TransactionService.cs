@@ -191,6 +191,34 @@ public class TransactionService(
         return transaction;
     }
 
+    public async ValueTask<AllowanceTransaction> ReverseTransactionAsync(
+        string transactionId, string tenantId, string reason, string? requestId,
+        CancellationToken cancellationToken = default)
+    {
+        var original = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+            x => x.Id == transactionId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
+            ?? throw new KeyNotFoundException($"Transaction {transactionId} was not found in tenant {tenantId}.");
+        if (await db.Transactions.AnyAsync(x => x.ReversesTransactionId == transactionId, cancellationToken))
+            throw new ValidationException("This transaction has already been corrected.");
+        if (original.ReversesTransactionId is not null)
+            throw new ValidationException("A correction cannot reverse another correction.");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ValidationException("A correction reason is required.");
+
+        return await AddTransaction(new AllowanceTransaction
+        {
+            ChildId = original.ChildId,
+            TenantId = original.TenantId,
+            TransactionAmount = -original.TransactionAmount,
+            TransactionType = TransactionType.Adjustment,
+            Description = $"Correction: {original.Description}",
+            ReversesTransactionId = original.Id,
+            CorrectionReason = reason,
+            RequestId = requestId,
+            AllowanceDate = null
+        }, cancellationToken);
+    }
+
     private static bool IsRequestIdConflict(DbUpdateException exception, string? requestId) =>
         !string.IsNullOrWhiteSpace(requestId) &&
         exception.InnerException is PostgresException { ConstraintName: "IX_Transactions_TenantId_RequestId" };

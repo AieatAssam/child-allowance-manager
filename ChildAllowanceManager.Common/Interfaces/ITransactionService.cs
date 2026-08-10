@@ -21,4 +21,8 @@ public interface ITransactionService
     ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default);
 
     ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken);
+
+    /// Corrects a past transaction by writing a new reversing transaction.
+    ValueTask<AllowanceTransaction> ReverseTransactionAsync(string transactionId, string tenantId, string reason,
+        string? requestId, CancellationToken cancellationToken = default);
 }

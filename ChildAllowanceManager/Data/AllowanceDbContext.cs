@@ -12,6 +12,36 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
     public DbSet<User> Users => Set<User>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
 
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureTransactionImmutability();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTransactionImmutability();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void EnsureTransactionImmutability()
+    {
+        var immutableProperties = new HashSet<string>
+        {
+            nameof(AllowanceTransaction.Balance),
+            nameof(AllowanceTransaction.TransactionAmount),
+            nameof(AllowanceTransaction.TransactionType),
+            nameof(AllowanceTransaction.AllowanceDate),
+            nameof(AllowanceTransaction.ChildId),
+            nameof(AllowanceTransaction.TenantId)
+        };
+        if (ChangeTracker.Entries<AllowanceTransaction>().Any(entry =>
+                entry.State == EntityState.Modified &&
+                entry.Properties.Any(property => property.IsModified && immutableProperties.Contains(property.Metadata.Name))))
+            throw new InvalidOperationException("Persisted transaction financial fields are immutable.");
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureItem(modelBuilder.Entity<ChildConfiguration>());

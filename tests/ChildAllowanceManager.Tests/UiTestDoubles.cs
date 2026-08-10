@@ -162,6 +162,10 @@ internal sealed class RecordingTransactionService : ITransactionService
     public ValueTask<AllowanceTransaction?> GetLatestTransactionForChild(string childId, string tenantId, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(Transactions.LastOrDefault(x => x.ChildId == childId && x.TenantId == tenantId));
 
+    public ValueTask<AllowanceTransaction> ReverseTransactionAsync(string transactionId, string tenantId,
+        string reason, string? requestId, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     public ValueTask<IEnumerable<BalanceHistoryEntry>> GetBalanceHistoryForChild(string childId, string tenantId,
         DateTimeOffset? startDate, DateTimeOffset? endDate, CancellationToken cancellationToken) =>
         ValueTask.FromResult<IEnumerable<BalanceHistoryEntry>>([]);
