@@ -1,0 +1,23 @@
+@if (_tenants.Length == 1)
+{
+    <MudText Color="Color.Inherit">@_tenants[0].TenantName</MudText>
+}
+else if (_tenants.Length > 1)
+{
+    <MudMenu aria-label="Switch family">
+        <ActivatorContent>
+            <MudButton Color="Color.Inherit" Variant="Variant.Text" aria-label="Switch family">
+                <MudIcon Icon="@Icons.Material.Filled.Home" />
+                <span class="ml-1">@(_activeTenant?.TenantName ?? "Choose a family")</span>
+            </MudButton>
+        </ActivatorContent>
+        @foreach (var tenant in _tenants)
+        {
+            <MudMenuItem OnClick="@(() => SelectFamilyAsync(tenant))"
+                         Icon="@(tenant.Id == _activeTenant?.Id ? Icons.Material.Filled.Check : null)"
+                         aria-current="@(tenant.Id == _activeTenant?.Id ? "true" : null)">
+                @tenant.TenantName
+            </MudMenuItem>
+        }
+    </MudMenu>
+}
