@@ -59,18 +59,27 @@ public class TransactionService(
         var result = await query.OrderBy(x => x.TransactionTimestamp).ThenBy(x => x.Id)
             .Select(x => new BalanceHistoryEntry(x.TransactionTimestamp, x.Balance))
             .ToListAsync(cancellationToken);
+
+        var openingBalance = await ForChild(childId, tenantId)
+            .Where(x => startDate == null || x.TransactionTimestamp < startDate.Value)
+            .OrderByDescending(x => x.TransactionTimestamp).ThenByDescending(x => x.Id)
+            .Select(x => (decimal?)x.Balance)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0m;
         if (result.Count == 0)
-            return [];
+        {
+            var openFrom = (startDate ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
+            var openTo = endDate?.UtcDateTime.Date ?? openFrom;
+            if (openTo < openFrom)
+                openTo = openFrom;
+            var flat = new List<BalanceHistoryEntry>();
+            for (var date = openFrom; date <= openTo; date = date.AddDays(1))
+                flat.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), openingBalance));
+            return flat;
+        }
 
         var firstDate = (startDate ?? result[0].Timestamp).UtcDateTime.Date;
         var lastDate = (endDate ?? result[^1].Timestamp).UtcDateTime.Date;
-        var lastBalance = startDate is null
-            ? 0m
-            : await ForChild(childId, tenantId)
-                .Where(x => x.TransactionTimestamp < startDate.Value)
-                .OrderByDescending(x => x.TransactionTimestamp).ThenByDescending(x => x.Id)
-                .Select(x => (decimal?)x.Balance)
-                .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+        var lastBalance = openingBalance;
         var extraRecords = new List<BalanceHistoryEntry>();
         for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
         {

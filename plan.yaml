@@ -576,10 +576,10 @@ tasks:
     depends_on: [P04-T3]
     files_touched: [ChildAllowanceManager/Services/TransactionService.cs]
     mutex: transaction-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:40:00Z
+    result: "Empty balance-history windows now return flat opening-balance points with a bounded one-day default when endDate is absent; build and diff checks passed."
 
   - id: P04-T5
     phase: P04
