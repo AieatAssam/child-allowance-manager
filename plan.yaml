@@ -700,10 +700,10 @@ tasks:
       - ChildAllowanceManager/Services/ChildService.cs
       - ChildAllowanceManager.Common/Models/ChildWithBalance.cs
     mutex: child-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p05
+    updated: 2026-08-10T23:04:00Z
+    result: "Next allowance dates and amounts now use the tenant's local calendar, unpaid-today handling, hold offsets, and explicit local-date fields; long checks skipped at user direction."
 
   - id: P05-T4
     phase: P05

@@ -77,17 +77,27 @@ public class ChildService(
                 .Select(transaction => new { transaction.ChildId, transaction.Balance })
                 .First())
             .ToDictionaryAsync(item => item.ChildId, item => item.Balance, cancellationToken);
+        var tenantTimeZoneId = await db.Tenants.AsNoTracking()
+            .Where(tenant => tenant.Id == tenantId)
+            .Select(tenant => tenant.TimeZoneId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var zone = ResolveZone(tenantTimeZoneId);
         var result = new List<ChildWithBalance>();
         foreach (var child in children)
         {
-            var now = DateTimeOffset.UtcNow;
             var balance = latestBalances.GetValueOrDefault(child.Id);
-            var nextDate = new DateTimeOffset(
-                now.Date.AddDays(1 + child.HoldDaysRemaining), TimeSpan.Zero);
-            var isBirthday = child.BirthDate is not null && SameDayInYear(child.BirthDate, DateTime.UtcNow.Date);
+            var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+            var today = localNow.Date;
+            var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
+                child.Id, tenantId, cancellationToken);
+            var paidToday = (latestRegular?.AllowanceDate >= today) == true;
+            var firstEligible = paidToday ? today.AddDays(1) : today;
+            var nextLocalDate = firstEligible.AddDays(child.HoldDaysRemaining);
+
             var nextIsBirthday = child.BirthDate is not null &&
-                (SameDayInYear(nextDate.Date, child.BirthDate.Value.Date) ||
-                 (child.HoldDaysRemaining == 0 && isBirthday));
+                SameDayInYear(nextLocalDate, child.BirthDate.Value.Date);
+            var isBirthday = child.BirthDate is not null &&
+                SameDayInYear(today, child.BirthDate.Value.Date);
 
             result.Add(new ChildWithBalance
             {
@@ -100,7 +110,9 @@ public class ChildService(
                 NextRegularChange = nextIsBirthday && child.BirthdayAllowance is not null
                     ? child.BirthdayAllowance.Value
                     : child.RegularAllowance,
-                NextRegularChangeDate = nextDate
+                NextRegularChangeDate = new DateTimeOffset(nextLocalDate, zone.GetUtcOffset(nextLocalDate)),
+                TimeZoneId = tenantTimeZoneId ?? "Europe/London",
+                NextRegularChangeLocalDate = DateOnly.FromDateTime(nextLocalDate)
             });
         }
 
@@ -132,6 +144,14 @@ public class ChildService(
     private static bool SameDayInYear(DateTime? first, DateTime? second) =>
         first is not null && second is not null &&
         first.Value.Month == second.Value.Month && first.Value.Day == second.Value.Day;
+
+    private static TimeZoneInfo ResolveZone(string? id)
+    {
+        if (!string.IsNullOrWhiteSpace(id) &&
+            TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone))
+            return zone;
+        return TimeZoneInfo.Utc;
+    }
 
     public async ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
