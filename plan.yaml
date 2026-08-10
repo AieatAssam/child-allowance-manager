@@ -518,10 +518,10 @@ tasks:
     depends_on: [P03-T6]
     files_touched: [tests/ChildAllowanceManager.Tests/SchemaConstraintTests.cs]
     exclusive_resources: [postgres-test-db]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-10T22:35:00Z
+    result: "Added all eight required schema constraint tests covering foreign keys, filtered uniqueness, request-id idempotency and membership uniqueness."
 
   # ---- P04 ----------------------------------------------------------------
   - id: P04-T0
