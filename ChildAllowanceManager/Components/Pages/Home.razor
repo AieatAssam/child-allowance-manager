@@ -8,15 +8,45 @@
     }
     else
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="home-alert">
-            <MudText Typo="Typo.h5" HtmlTag="h1">Sign in to manage pocket money</MudText>
-            <MudText Typo="Typo.body1" Class="mt-2">Open your family link, or use the local demo account while developing.</MudText>
-            @if (Environment.IsDevelopment())
+        @if (!_authenticated)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="home-alert">
+                <MudText Typo="Typo.h5" HtmlTag="h1">Sign in to manage pocket money</MudText>
+                <MudText Typo="Typo.body1" Class="mt-2">Open your family link, or use the local demo account while developing.</MudText>
+                @if (Environment.IsDevelopment())
+                {
+                    <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
+                        Open local demo
+                    </MudButton>
+                }
+            </MudAlert>
+        }
+        else if (_tenants.Length > 1)
+        {
+            <MudText Typo="Typo.h5" HtmlTag="h1">Choose a family</MudText>
+            @if (_storedFamilyWasStale)
             {
-                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
-                    Open local demo
-                </MudButton>
+                <MudAlert Severity="Severity.Info" Class="mt-4">
+                    The family you last opened is no longer available. Choose another.
+                </MudAlert>
             }
-        </MudAlert>
+            <div class="home-family-list">
+                @foreach (var tenant in _tenants)
+                {
+                    <MudCard Class="mt-4" Outlined="true">
+                        <MudCardContent>
+                            <MudLink Href="@($"/{tenant.UrlSuffix}/children")">@tenant.TenantName</MudLink>
+                        </MudCardContent>
+                    </MudCard>
+                }
+            </div>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="home-alert">
+                <MudText Typo="Typo.h5" HtmlTag="h1">You are signed in, but not part of a family yet</MudText>
+                <MudText Typo="Typo.body1" Class="mt-2">Ask a parent in your household to invite you, or contact an administrator.</MudText>
+            </MudAlert>
+        }
     }
 </main>

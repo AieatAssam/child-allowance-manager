@@ -27,31 +27,45 @@ public partial class Home : CancellableComponentBase
     private Task<AuthenticationState>? AuthenticationState { get; set; }
 
     private bool _initialised = false;
+    private bool _authenticated;
+    private bool _storedFamilyWasStale;
+    private TenantConfiguration[] _tenants = [];
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            _initialised = true;
-            StateHasChanged();
-        }
-        if (firstRender &&
-            await LocalStorage.GetAsync<string>("current_tenant_suffix") is { Success: true } currentTenant &&
-            await HasTenantAccessBySuffixAsync(currentTenant.Value!))
-        {
-            Logger.LogInformation("Navigating to /{Tenant}/children", currentTenant.Value);
-            Navigation.NavigateTo($"/{currentTenant.Value}/children");
-        }
-    }
+        if (!firstRender)
+            return;
 
-    private async Task<bool> HasTenantAccessBySuffixAsync(string suffix)
-    {
-        if (AuthenticationState is null)
-            return true;
-        var tenant = await TenantService.GetTenantBySuffix(suffix, CancellationToken);
-        if (tenant is null)
-            return false;
-        var user = (await AuthenticationState).User;
-        return user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenant.Id);
+        await RunAsync(async () =>
+        {
+            var user = AuthenticationState is null ? null : (await AuthenticationState).User;
+            _authenticated = user?.Identity?.IsAuthenticated == true;
+            if (!_authenticated)
+            {
+                _initialised = true;
+                return;
+            }
+
+            var stored = await LocalStorage.GetAsync<string>("current_tenant_suffix");
+            _tenants = (await TenantService.GetTenantsForUser(user!, CancellationToken)).ToArray();
+            if (stored is { Success: true, Value: not null })
+            {
+                var selected = _tenants.FirstOrDefault(x => x.UrlSuffix == stored.Value);
+                if (selected is not null)
+                {
+                    Logger.LogInformation("Navigating to /{Tenant}/children", selected.UrlSuffix);
+                    Navigation.NavigateTo($"/{selected.UrlSuffix}/children");
+                    return;
+                }
+
+                _storedFamilyWasStale = true;
+                await LocalStorage.DeleteAsync("current_tenant");
+                await LocalStorage.DeleteAsync("current_tenant_suffix");
+            }
+
+            _initialised = true;
+            if (_tenants.Length == 1)
+                Navigation.NavigateTo($"/{_tenants[0].UrlSuffix}/children");
+        }, successMessage: null);
     }
 }
