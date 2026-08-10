@@ -229,7 +229,7 @@ phases:
     file: docs/plan/phase-00-tooling.yaml
     title: Toolchain and swarm-safe verification
     depends_on: []
-    status: pending
+    status: done
 
   - id: P01
     file: docs/plan/phase-01-boot-and-headers.yaml
