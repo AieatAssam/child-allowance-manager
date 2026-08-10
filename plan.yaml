@@ -996,10 +996,10 @@ tasks:
       - ChildAllowanceManager/Components/App.razor
       - ChildAllowanceManager/wwwroot/fonts/
       - ChildAllowanceManager/wwwroot/tokens.css
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex
+    updated: 2026-08-11T00:02:00Z
+    result: Removed the Google Fonts link and shipped the documented system-stack fallback because the sandbox could not resolve the font host; exact self-hosted files are listed in fonts/README.md.
 
   - id: P09-T4
     phase: P09
