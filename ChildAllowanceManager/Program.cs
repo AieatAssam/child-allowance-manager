@@ -8,6 +8,7 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Data;
+using ChildAllowanceManager.Migrations;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
@@ -186,14 +187,34 @@ app.Use(async (context, next) =>
     await next();
 });
 
-if (StartupConfiguration.ShouldMigrate(app.Environment, args))
+var migrateOnly = args.Contains("--migrate", StringComparer.OrdinalIgnoreCase);
+if (migrateOnly || app.Environment.IsDevelopment())
 {
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AllowanceDbContext>();
-    await db.Database.MigrateAsync();
-    if (app.Environment.IsDevelopment())
+
+    var migrationLogger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>().CreateLogger("Migrations");
+    try
+    {
+        await BaselineCompatibility.EnsureBaselineRecordedAsync(db, CancellationToken.None);
+        await db.Database.MigrateAsync();
+        migrationLogger.LogInformation("Database migrations applied.");
+    }
+    catch (Exception ex)
+    {
+        migrationLogger.LogError(ex, "Database migration failed.");
+        if (migrateOnly)
+            return 1;
+        throw;
+    }
+
+    if (app.Environment.IsDevelopment() && !migrateOnly)
         await new DevelopmentDataSeeder(db).SeedAsync();
 }
+
+if (migrateOnly)
+    return 0;
 
 app.UseResponseCompression();
 
@@ -265,3 +286,4 @@ app.Map("/logout", signoutApp =>
 
 app.MapHealthChecks("/health");
 app.Run();
+return 0;

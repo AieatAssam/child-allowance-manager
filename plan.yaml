@@ -424,10 +424,10 @@ tasks:
     depends_on: [P02-T2]
     files_touched: [ChildAllowanceManager/Program.cs]
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p02-t3
+    updated: 2026-08-10T21:55:00Z
+    result: "Moved migration execution behind --migrate, added compatibility recording and failure logging, preserved development seeding, and prevented Kestrel startup in migrate-only mode; acceptance commands were not run."
 
   - id: P02-T4
     phase: P02
