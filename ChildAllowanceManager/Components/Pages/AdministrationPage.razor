@@ -28,8 +28,7 @@
             }
             else if (Tenants.Any() || AddingTenant)
             {
-                @if (AddingTenant)
-                {
+                <MudCollapse Expanded="AddingTenant">
                     <MudCard>
                         <MudCardHeader>
                         <MudText Typo="Typo.h5">Add a family</MudText>
@@ -42,7 +41,7 @@
                             <MudButton Color="Color.Secondary" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
                         </MudCardActions>
                     </MudCard>
-                }
+                </MudCollapse>
                 
                 <MudExpansionPanels MultiExpansion="true">
                     @for (int idx = 0; idx < Tenants.Length; idx++)
