@@ -1,11 +1,7 @@
 using System.Globalization;
-using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Security.Principal;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
@@ -17,8 +13,6 @@ using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
-using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -63,8 +57,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     })
     .AddMicrosoftAccount("Microsoft", "Microsoft", options =>
     {
-        options.ClientId = configuration["Authentication:Microsoft:ClientId"];
-        options.ClientSecret = configuration["Authentication:Microsoft:ClientSecret"];
+        options.ClientId = configuration["Authentication:Microsoft:ClientId"]
+            ?? throw new InvalidOperationException("Authentication:Microsoft:ClientId is required.");
+        options.ClientSecret = configuration["Authentication:Microsoft:ClientSecret"]
+            ?? throw new InvalidOperationException("Authentication:Microsoft:ClientSecret is required.");
         //options.CallbackPath = "/signin-microsoft";
         options.SaveTokens = true;
         options.Scope.Add("User.Read");
@@ -82,33 +78,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             {
                 var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
                 var email = identity.FindFirst(ClaimTypes.Email)?.Value;
-                var tenant = context.Request.Cookies.TryGetValue("current_tenant", out var currentTenant) ? currentTenant : null;
-                
                 if (email != null)
                 {
                     var user = await userService.GetUserByEmailAsync(email, CancellationToken.None);
                     if (user == null)
                     {
                         var name = identity.FindFirst(ClaimTypes.Name)?.Value;
-                        if (!string.IsNullOrEmpty(tenant))
-                        {
-                            identity.AddClaim(new Claim("current_tenant", tenant));
-                        }
-
-                        await userService.InitializeUserAsync(email, name, tenant, CancellationToken.None);
+                        user = await userService.InitializeUserAsync(email, name ?? string.Empty, null, CancellationToken.None);
                     }
                     else
                     {
-                        if (user.Tenants.FirstOrDefault() is { } userTenant)
-                            identity.AddClaim(new Claim("current_tenant", userTenant));
-                        
                         user.LastLoggedIn = DateTimeOffset.UtcNow;
-                        
-                        // ensure tenant user logged into is listed as their accessible one
-                        if (!string.IsNullOrEmpty(tenant))
-                            user.Tenants = user.Tenants.Append(tenant).Distinct().ToArray();
                         await userService.UpsertUserAsync(user, CancellationToken.None);
                     }
+
+                    foreach (var tenantId in user.Tenants.Distinct())
+                        identity.AddClaim(new Claim(CustomClaimTypes.Tenant, tenantId));
                 }
             }
             context.RunClaimActions();
@@ -117,7 +102,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         {
             var tenant = context.Request.Cookies.TryGetValue("current_tenant", out var currentTenant) ? currentTenant : null;
 
-            if (!string.IsNullOrEmpty(tenant) && string.IsNullOrEmpty(context.ReturnUri?.Trim('/')))
+            if (!string.IsNullOrEmpty(tenant) &&
+                context.Principal?.HasClaim(CustomClaimTypes.Tenant, tenant) == true &&
+                string.IsNullOrEmpty(context.ReturnUri?.Trim('/')))
             {
                 // no return uri specified, so set one for user's tenant
                 var tenantService = context.HttpContext.RequestServices.GetRequiredService<ITenantService>();
@@ -179,7 +166,7 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AllowanceDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    await db.Database.MigrateAsync();
     if (app.Environment.IsDevelopment())
         await new DevelopmentDataSeeder(db).SeedAsync();
 }
@@ -226,6 +213,7 @@ app.Map("/login", signinApp =>
                 new Claim(ClaimTypes.Email, DevelopmentDataSeeder.UserEmail),
                 new Claim(ClaimTypes.Role, ValidRoles.Admin),
                 new Claim(ClaimTypes.Role, ValidRoles.Parent),
+                new Claim(CustomClaimTypes.Tenant, DevelopmentDataSeeder.TenantId),
                 new Claim("current_tenant", DevelopmentDataSeeder.TenantId)
             };
             var principal = new ClaimsPrincipal(new ClaimsIdentity(

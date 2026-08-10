@@ -1,6 +1,8 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
+using ChildAllowanceManager.Common.Validators;
 using ChildAllowanceManager.Data;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChildAllowanceManager.Services;
@@ -11,6 +13,8 @@ public class ChildService(
     ITransactionService transactionService,
     ILogger<ChildService> logger) : IChildService
 {
+    private readonly ChildConfigurationValidator validator = new();
+
     public async ValueTask<IEnumerable<ChildConfiguration>> GetChildren(string tenantId, CancellationToken cancellationToken = default) =>
         await db.Children.AsNoTracking()
             .Where(child => child.TenantId == tenantId && !child.Deleted)
@@ -26,7 +30,7 @@ public class ChildService(
         {
             var history = await transactionService.GetBalanceHistoryForChild(
                 child.Id, tenantId, startDate, endDate, cancellationToken);
-            result.Add(new ChildWithBalanceHistory(child.Id, child.FirstName, child.TenantId, history.ToArray()));
+            result.Add(new ChildWithBalanceHistory(child.Id, $"{child.FirstName} {child.LastName}", child.TenantId, history.ToArray()));
         }
 
         return result;
@@ -44,7 +48,7 @@ public class ChildService(
             var balance = latest?.Balance ?? 0m;
             var nextDate = new DateTimeOffset(
                 now.Date.AddDays(1 + child.HoldDaysRemaining), TimeSpan.Zero);
-            var isBirthday = child.BirthDate is not null && SameDayInYear(child.BirthDate, DateTime.Today);
+            var isBirthday = child.BirthDate is not null && SameDayInYear(child.BirthDate, DateTime.UtcNow.Date);
             var nextIsBirthday = child.BirthDate is not null &&
                 (SameDayInYear(nextDate.Date, child.BirthDate.Value.Date) ||
                  (child.HoldDaysRemaining == 0 && isBirthday));
@@ -73,6 +77,7 @@ public class ChildService(
 
     public async ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
+        await ValidateAsync(child, cancellationToken);
         child.CreatedTimestamp = DateTimeOffset.UtcNow;
         child.UpdatedTimestamp = child.CreatedTimestamp;
         db.Children.Add(child);
@@ -88,28 +93,30 @@ public class ChildService(
 
     public async ValueTask<ChildConfiguration> UpdateChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
-        var existing = await db.Children.FirstOrDefaultAsync(x => x.Id == child.Id, cancellationToken);
+        await ValidateAsync(child, cancellationToken);
+        var existing = await db.Children.FirstOrDefaultAsync(
+            x => x.Id == child.Id && x.TenantId == child.TenantId && !x.Deleted, cancellationToken);
         if (existing is null)
-        {
-            existing = child;
-            db.Children.Update(existing);
-        }
-        else
-        {
-            existing.FirstName = child.FirstName;
-            existing.LastName = child.LastName;
-            existing.BirthDate = child.BirthDate;
-            existing.RegularAllowance = child.RegularAllowance;
-            existing.HoldDaysRemaining = child.HoldDaysRemaining;
-            existing.BirthdayAllowance = child.BirthdayAllowance;
-            existing.TenantId = child.TenantId;
-            existing.Deleted = child.Deleted;
-        }
+            throw new KeyNotFoundException($"Child {child.Id} was not found in tenant {child.TenantId}.");
+
+        existing.FirstName = child.FirstName;
+        existing.LastName = child.LastName;
+        existing.BirthDate = child.BirthDate;
+        existing.RegularAllowance = child.RegularAllowance;
+        existing.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining);
+        existing.BirthdayAllowance = child.BirthdayAllowance;
 
         existing.UpdatedTimestamp = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         globalNotificationService.OnChildStateChanged(existing.Id, existing.TenantId, string.Empty);
         return existing;
+    }
+
+    private async Task ValidateAsync(ChildConfiguration child, CancellationToken cancellationToken)
+    {
+        var result = await validator.ValidateAsync(child, cancellationToken);
+        if (!result.IsValid)
+            throw new ValidationException(result.Errors);
     }
 
     public async ValueTask<bool> DeleteChild(string id, string tenantId, CancellationToken cancellationToken = default)

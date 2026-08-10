@@ -1,7 +1,5 @@
-using System.Security.Claims;
 using ChildAllowanceManager.Common.Interfaces;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.JSInterop;
 using MudBlazor;
@@ -11,13 +9,10 @@ namespace ChildAllowanceManager.Components.Layout;
 public partial class MainLayout
 {
     private bool _drawerOpen = false;
-    private ClaimsPrincipal? _user;
     private bool _useDarkMode;
     private MudThemeProvider _themeProvider = default!;
     
     private ThemeConfiguration _themeConfiguration = new ThemeConfiguration();
-
-    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
 
     [Inject] private ICurrentContextService CurrentContextService { get; set; } = default!;
     [Inject] private ProtectedLocalStorage LocalStorage { get; set; } = default!;
@@ -26,18 +21,6 @@ public partial class MainLayout
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await base.OnInitializedAsync();
-        if (AuthenticationState != null)
-        {
-            var authState = await AuthenticationState;
-            _user = authState.User;
-        }
-
-        _themeConfiguration.IsDarkMode = _useDarkMode;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

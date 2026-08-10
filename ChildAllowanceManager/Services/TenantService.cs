@@ -1,6 +1,8 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
+using ChildAllowanceManager.Common.Validators;
 using ChildAllowanceManager.Data;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChildAllowanceManager.Services;
@@ -10,6 +12,8 @@ public class TenantService(
     IChildService childService,
     ILogger<TenantService> logger) : ITenantService
 {
+    private readonly TenantConfigurationValidator validator = new();
+
     public async ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().Where(x => !x.Deleted).OrderBy(x => x.TenantName).ToListAsync(cancellationToken);
 
@@ -18,11 +22,13 @@ public class TenantService(
 
     public async ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix, CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().FirstOrDefaultAsync(
-            x => x.UrlSuffix.ToLower() == urlSuffix.ToLower() && !x.Deleted, cancellationToken);
+            x => x.UrlSuffix == urlSuffix.Trim().ToLowerInvariant() && !x.Deleted, cancellationToken);
 
     public async ValueTask<TenantConfiguration> AddTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default)
     {
-        if (await GetTenantBySuffix(tenant.UrlSuffix, cancellationToken) is not null)
+        tenant.UrlSuffix = tenant.UrlSuffix.Trim().ToLowerInvariant();
+        await ValidateAsync(tenant, cancellationToken);
+        if (await db.Tenants.AnyAsync(x => x.UrlSuffix == tenant.UrlSuffix, cancellationToken))
             throw new InvalidOperationException($"Tenant with url suffix {tenant.UrlSuffix} already exists");
         tenant.CreatedTimestamp = DateTimeOffset.UtcNow;
         tenant.UpdatedTimestamp = tenant.CreatedTimestamp;
@@ -33,10 +39,17 @@ public class TenantService(
 
     public async ValueTask<TenantConfiguration> UpdateTenant(TenantConfiguration tenant, CancellationToken cancellationToken = default)
     {
-        tenant.UpdatedTimestamp = DateTimeOffset.UtcNow;
-        db.Tenants.Update(tenant);
+        tenant.UrlSuffix = tenant.UrlSuffix.Trim().ToLowerInvariant();
+        await ValidateAsync(tenant, cancellationToken);
+        if (await db.Tenants.AnyAsync(x => x.Id != tenant.Id && x.UrlSuffix == tenant.UrlSuffix, cancellationToken))
+            throw new InvalidOperationException($"Tenant with url suffix {tenant.UrlSuffix} already exists");
+        var existing = await db.Tenants.FirstOrDefaultAsync(x => x.Id == tenant.Id && !x.Deleted, cancellationToken)
+            ?? throw new KeyNotFoundException($"Tenant {tenant.Id} was not found.");
+        existing.TenantName = tenant.TenantName;
+        existing.UrlSuffix = tenant.UrlSuffix;
+        existing.UpdatedTimestamp = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
-        return tenant;
+        return existing;
     }
 
     public async ValueTask<bool> DeleteTenant(string id, CancellationToken cancellationToken = default)
@@ -65,5 +78,12 @@ public class TenantService(
         }
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    private async Task ValidateAsync(TenantConfiguration tenant, CancellationToken cancellationToken)
+    {
+        var result = await validator.ValidateAsync(tenant, cancellationToken);
+        if (!result.IsValid)
+            throw new ValidationException(result.Errors);
     }
 }

@@ -11,7 +11,7 @@ namespace ChildAllowanceManager.Components;
 public partial class TenantConfigurationEditor : CancellableComponentBase
 {
     [Parameter, Required]
-    public TenantConfiguration? Tenant { get; set; }
+    public TenantConfiguration Tenant { get; set; } = default!;
     
     [Parameter]
     public EventCallback<TenantConfiguration> TenantChanged { get; set; }
@@ -61,23 +61,12 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
         if (parent is not null)
         {
             _parents.Remove(parent);
-            parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
+            parent.Tenants = parent.Tenants.Where(id => id != Tenant.Id).ToArray();
+            if (parent.Tenants.Length == 0)
+                parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
             await UserService.UpsertUserAsync(parent, CancellationToken.None);
             await ReloadParentsAsync();
         }
-    }
-    
-    private async Task AddParentAsync(string email, string name)
-    {
-        if (Tenant is null)
-            return;
-        var parent = await UserService.GetUserByEmailAsync(email, CancellationToken.None);
-        if (parent is null)
-            parent = await UserService.InitializeUserAsync(email, name, Tenant.Id, CancellationToken.None);
-        _parents.Remove(parent);
-        parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
-        await UserService.UpsertUserAsync(parent, CancellationToken.None);
-        await ReloadParentsAsync();
     }
     
     private async Task AddParentDialogue()

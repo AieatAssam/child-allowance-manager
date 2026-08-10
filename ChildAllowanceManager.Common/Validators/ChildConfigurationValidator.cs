@@ -14,11 +14,17 @@ public class ChildConfigurationValidator : AbstractValidator<ChildConfiguration>
             .When(child => child.BirthDate is not null)
             .WithMessage("Date of birth cannot be in the future");
         RuleFor(child => child.FirstName)
-            .NotEmpty();
+            .NotEmpty()
+            .Must(name => !string.IsNullOrWhiteSpace(name));
         RuleFor(child => child.LastName)
+            .NotEmpty()
+            .Must(name => !string.IsNullOrWhiteSpace(name));
+        RuleFor(child => child.TenantId)
             .NotEmpty();
         RuleFor(child => child.RegularAllowance)
             .GreaterThan(0m);
+        RuleFor(child => child.HoldDaysRemaining)
+            .GreaterThanOrEqualTo(0);
         RuleFor(child => child.BirthdayAllowance)
             .GreaterThanOrEqualTo(0)
             .When(child => child.BirthDate is not null);

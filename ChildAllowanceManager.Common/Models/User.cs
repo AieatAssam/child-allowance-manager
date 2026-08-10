@@ -9,8 +9,8 @@ public class User : BaseItem
 
     public string Email
     {
-        get => _email?.ToLowerInvariant();
-        set => _email = value.ToLowerInvariant();
+        get => _email;
+        set => _email = value.Trim().ToLowerInvariant();
     }
 
     public string Name { get; set; } = string.Empty;

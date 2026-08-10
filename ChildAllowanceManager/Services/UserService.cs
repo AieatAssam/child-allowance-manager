@@ -46,12 +46,12 @@ public class UserService(AllowanceDbContext db) : IUserService
 
     public async ValueTask<User?> GetUserByEmailAsync(string email, CancellationToken cancellationToken) =>
         await db.Users.AsNoTracking().FirstOrDefaultAsync(
-            x => !x.Deleted && x.Email == email.Trim().ToLower(), cancellationToken);
+            x => !x.Deleted && x.Email == email.Trim().ToLowerInvariant(), cancellationToken);
 
     public async Task DeleteUserAsync(string email, CancellationToken cancellationToken)
     {
         var user = await db.Users.FirstOrDefaultAsync(
-            x => !x.Deleted && x.Email == email.Trim().ToLower(), cancellationToken);
+            x => !x.Deleted && x.Email == email.Trim().ToLowerInvariant(), cancellationToken);
         if (user is null)
             return;
         user.Deleted = true;

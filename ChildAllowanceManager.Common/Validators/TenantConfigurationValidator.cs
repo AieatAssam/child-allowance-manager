@@ -9,10 +9,13 @@ public class TenantConfigurationValidator: AbstractValidator<TenantConfiguration
     {
         RuleFor(tenant => tenant.TenantName)
             .NotEmpty()
+            .Must(name => !string.IsNullOrWhiteSpace(name))
             .MinimumLength(5);
         RuleFor(tenant => tenant.UrlSuffix)
             .NotEmpty()
-            .MinimumLength(5);
+            .MinimumLength(5)
+            .Matches("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+            .WithMessage("URL suffix may contain lowercase letters, numbers, and hyphens only");
     }
     
     public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>

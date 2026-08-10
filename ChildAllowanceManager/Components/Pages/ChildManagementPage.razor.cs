@@ -1,7 +1,7 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
@@ -24,6 +24,9 @@ public partial class ChildManagementPage : CancellableComponentBase
 
     [Parameter]
     public string? TenantSuffix { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
     
     private ChildConfiguration[]? Children { get; set; } = null;
 
@@ -46,6 +49,16 @@ public partial class ChildManagementPage : CancellableComponentBase
             {
                 Navigation.NavigateTo("/error/404");
                 return;
+            }
+
+            if (AuthenticationState is not null)
+            {
+                var user = (await AuthenticationState).User;
+                if (!user.IsInRole(ValidRoles.Admin) && !user.HasClaim(CustomClaimTypes.Tenant, tenant.Id))
+                {
+                    Navigation.NavigateTo("/");
+                    return;
+                }
             }
 
             _tenantId = tenant.Id;

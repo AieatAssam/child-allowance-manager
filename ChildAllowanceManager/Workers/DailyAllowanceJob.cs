@@ -1,16 +1,15 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Services;
-using Microsoft.AspNetCore.SignalR;
 using Quartz;
 
 namespace ChildAllowanceManager.Workers;
 
+[DisallowConcurrentExecution]
 public class DailyAllowanceJob(
     ITransactionService transactionService, 
     IChildService childService,
     ITenantService tenantService,
-    IGlobalNotificationService globalNotificationService,
     ILogger<DailyAllowanceJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
@@ -22,7 +21,7 @@ public class DailyAllowanceJob(
             var children = await childService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
             foreach (var child in children)
             {
-                var scheduledDate = (context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow).Date;
+                var scheduledDate = (context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
                 var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
                     child.Id, child.TenantId, context.CancellationToken);
                 if (child.HoldDaysRemaining > 0 ||
@@ -38,15 +37,11 @@ public class DailyAllowanceJob(
                     TenantId = child.TenantId,
                     TransactionAmount = child.NextRegularChange,
                     TransactionType = child.IsBirthday ? TransactionType.BirthdayAllowance : TransactionType.DailyAllowance,
-                    Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance"
+                    Description = child.IsBirthday ? "Birthday allowance" : "Daily allowance",
+                    AllowanceDate = scheduledDate
                 };
                 logger.LogInformation($"Adding allowance transaction for {child.Name} with type {transaction.TransactionType}");
                 await transactionService.AddTransaction(transaction, context.CancellationToken);
-                
-                // notify global notification service
-                globalNotificationService.OnChildStateChanged(child.Id, 
-                    child.TenantId, 
-                    $"Added {transaction.TransactionAmount:C} for {transaction.Description.ToLowerInvariant()}");
 
             }
             

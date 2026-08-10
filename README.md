@@ -16,7 +16,7 @@ Allowance manager is an application for tracking child allowance and managing it
 ## Requirements
 
 - .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
-- PostgreSQL 14+ database (the app creates its fresh schema on first start)
+- PostgreSQL 14+ database (the app applies EF Core migrations on start)
 - Azure App Registration for OAuth2 authentication
 - Blazor-compatible hosting (Azure App Service, etc.)
 
@@ -25,6 +25,9 @@ Allowance manager is an application for tracking child allowance and managing it
 Configuration is done via `appsettings.json` or environment variables. Main settings that need to be populated are
 * **ConnectionStrings__Postgres** - PostgreSQL connection string
 * **AzureMonitor__ConnectionString** - connection string to Azure Monitor/Application Insights for logging
+* **Authentication__Microsoft__ClientId** and **Authentication__Microsoft__ClientSecret** - Azure App Registration credentials
+
+Allowance scheduling and birthday checks use UTC; keep the deployment and household expectations aligned with that boundary.
 
 When deployed to Azure App Service, these settings are configured as Environment Variables.
 
@@ -36,4 +39,4 @@ Run the PostgreSQL-backed test suite with Docker:
 bash scripts/test-postgres.sh
 ```
 
-The script starts a fresh PostgreSQL 16 container, runs the full solution test suite, and removes the container and volume afterward.
+The script starts a fresh PostgreSQL 16 container, runs the full solution test suite, and removes the container and volume afterward. CI runs the same PostgreSQL-backed suite.

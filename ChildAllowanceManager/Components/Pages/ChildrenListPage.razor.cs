@@ -1,7 +1,7 @@
-using System.Collections.ObjectModel;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -18,7 +18,6 @@ using LegendOrientationEnum = Plotly.Blazor.LayoutLib.LegendLib.OrientationEnum;
 using Margin = Plotly.Blazor.LayoutLib.Margin;
 using Line = Plotly.Blazor.Traces.ScatterLib.Line;
 using Marker = Plotly.Blazor.Traces.ScatterLib.Marker;
-using Title = Plotly.Blazor.LayoutLib.YAxisLib.Title;
 
 namespace ChildAllowanceManager.Components.Pages;
 
@@ -26,17 +25,11 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
     private static readonly string[] ChartColors = ["#8B5CF6", "#F59E0B", "#14B8A6", "#EC4899"];
 
-    [Inject] 
-    private ITenantService TenantService { get; set; } = default!;
-    
     [Inject]
     public IChildService ChildService { get; set; } = default!;
     
     [Inject]
     private ITenantNotificationService TenantNotificationService { get; set; } = default!;
-    
-    [Inject]
-    public ITransactionService TransactionService { get; set; } = default!;
     
     [Inject]
     public NavigationManager Navigation { get; set; } = default!;
@@ -45,10 +38,10 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     public ProtectedLocalStorage LocalStorage { get; set; } = default!;
     
     [Inject]
-    public IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
-    
-    [Inject]
     public ICurrentContextService CurrentContextService { get; set; } = default!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
     
     [Inject]
     public ILogger<ChildrenListPage> Logger { get; set; } = default!;
@@ -192,7 +185,18 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                     return;
                 }
 
+                var previousTenantId = _tenantId;
                 _tenantId = tenant.Id;
+                if (!await HasTenantAccessAsync(tenant.Id))
+                {
+                    Navigation.NavigateTo("/");
+                    return;
+                }
+                if (previousTenantId != tenant.Id)
+                {
+                    _contextUpdated = false;
+                    _plotlyData.Clear();
+                }
                 await ReloadChildren();
             }
 
@@ -210,7 +214,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         if (_tenantId is not null && !_contextUpdated)
         {
             await LocalStorage.SetAsync("current_tenant", _tenantId);
-            await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix);
+            await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix!);
             CurrentContextService.SetCurrentTenant(_tenantId);
             Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
             _contextUpdated = true;
@@ -295,17 +299,12 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
             var balanceHistory = await isolatedChildService.GetChildrenWithBalanceHistory(
                 _tenantId, null, null, CancellationToken);
-            bool changesFound = false;
+            var traces = new List<ITrace>();
             foreach (var (child, index) in balanceHistory.Select((child, index) => (child, index)))
             {
                 string chartColor = ChartColors[index % ChartColors.Length];
-
-                var existingTrace = _plotlyData.Cast<Scatter>().FirstOrDefault((t) => t.Name == child.ChildName);
-                if (existingTrace is null)
+                traces.Add(new Plotly.Blazor.Traces.Scatter
                 {
-                    changesFound = true;
-                    _plotlyData.Add(new Plotly.Blazor.Traces.Scatter()
-                    {
                         Name = child.ChildName,
                         X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList(),
                         Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray(),
@@ -329,17 +328,11 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                         FillColor = index == 0 ? "rgba(139, 92, 246, .12)" : "rgba(245, 158, 11, 0)",
                         HoverTemplate = $"<b>{child.ChildName}</b><br>%{{x|%b %-d, %Y}}<br>Balance: £%{{y:,.2f}}<extra></extra>",
                         XCalendar = XCalendarEnum.Gregorian,
-                    });
-                }
-                else if (existingTrace.X.Count != child.BalanceHistory.Length)
-                {
-                    changesFound = true;
-                    existingTrace.X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList();
-                    existingTrace.Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray();
-                }
+                });
             }
 
-            if (changesFound)
+            _plotlyData = traces;
+            if (_plotlyChart is not null)
                 await _plotlyChart.React(CancellationToken);
         }
         finally
@@ -405,5 +398,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     {
         TenantNotificationService.ChildStateChanged -= ChildStateChangedNotification;
         base.Dispose();
+    }
+
+    private async Task<bool> HasTenantAccessAsync(string tenantId)
+    {
+        if (AuthenticationState is null)
+            return true;
+        var user = (await AuthenticationState).User;
+        return user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenantId);
     }
 }

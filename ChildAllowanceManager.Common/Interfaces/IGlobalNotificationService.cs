@@ -9,8 +9,8 @@ public interface IGlobalNotificationService
 
     public class ChildStateChangedEventArgs : EventArgs
     {
-        public string TenantId { get; set; }
-        public string ChildId { get; set; }
-        public string NotificationMessage { get; set; }
+        public string TenantId { get; set; } = string.Empty;
+        public string ChildId { get; set; } = string.Empty;
+        public string NotificationMessage { get; set; } = string.Empty;
     }
 }

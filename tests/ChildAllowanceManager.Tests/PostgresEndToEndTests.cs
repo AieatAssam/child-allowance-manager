@@ -11,6 +11,15 @@ namespace ChildAllowanceManager.Tests;
 public class PostgresEndToEndTests
 {
     [Fact]
+    public async Task MigrationsCreateTheFreshDatabaseSchema()
+    {
+        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
+
+        Assert.Empty(await db.Database.GetPendingMigrationsAsync());
+        Assert.True(await db.Database.CanConnectAsync());
+    }
+
+    [Fact]
     public async Task DevelopmentSeederCreatesReusableDemoWorkspace()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
@@ -74,7 +83,7 @@ public class PostgresEndToEndTests
         await children.UpdateChild(alexConfiguration);
 
         var job = new DailyAllowanceJob(
-            transactions, children, tenants, notifications,
+            transactions, children, tenants,
             NullLogger<DailyAllowanceJob>.Instance);
         await job.Execute(new TestJobExecutionContext(DateTimeOffset.UtcNow));
 
@@ -230,7 +239,7 @@ public class PostgresEndToEndTests
         });
 
         var job = new DailyAllowanceJob(
-            transactions, children, tenants, notifications,
+            transactions, children, tenants,
             NullLogger<DailyAllowanceJob>.Instance);
         var now = DateTimeOffset.UtcNow;
         await job.Execute(new TestJobExecutionContext(now));

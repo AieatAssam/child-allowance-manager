@@ -30,7 +30,11 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
         {
             entity.Property(x => x.Balance).HasPrecision(18, 2);
             entity.Property(x => x.TransactionAmount).HasPrecision(18, 2);
+            entity.Property(x => x.AllowanceDate).HasColumnType("date");
             entity.HasIndex(x => new { x.TenantId, x.ChildId, x.TransactionTimestamp });
+            entity.HasIndex(x => new { x.TenantId, x.ChildId, x.AllowanceDate })
+                .IsUnique()
+                .HasFilter("\"AllowanceDate\" IS NOT NULL");
         });
 
         modelBuilder.Entity<TenantConfiguration>(entity => entity.HasIndex(x => x.UrlSuffix).IsUnique());

@@ -19,7 +19,6 @@ public partial class ChildTransactionsTable : CancellableComponentBase
     [Inject]
     public ITransactionService TransactionService { get; set; } = default!;
 
-    private List<AllowanceTransaction> _transactions = new();
     private MudTable<AllowanceTransaction> _table = null!; // referenced in razor page
     private bool _hideRegularTransactionsLast = false;
 

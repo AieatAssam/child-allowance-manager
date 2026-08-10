@@ -1,5 +1,6 @@
 using Bunit;
 using Bunit.TestDoubles;
+using System.Security.Claims;
 using ChildAllowanceManager;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
@@ -290,6 +291,7 @@ public class UiFlowTests
         var auth = context.AddAuthorization();
         auth.SetAuthorized("Parent");
         auth.SetRoles("parent");
+        auth.SetClaims(new Claim(CustomClaimTypes.Tenant, "tenant-1"));
 
         var cut = context.Render<ChildrenListPage>(parameters => parameters
             .Add(x => x.TenantSuffix, "demo")

@@ -2,7 +2,15 @@
 <Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
-            
+            <NotAuthorized>
+                <LayoutView Layout="@typeof(Layout.MainLayout)">
+                    <div class="page-shell">
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                            You do not have access to this page. <MudLink Href="/login">Sign in</MudLink>
+                        </MudAlert>
+                    </div>
+                </LayoutView>
+            </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="@routeData" Selector="#main-content"/>
     </Found>

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Data;
 using ChildAllowanceManager.Services;
@@ -65,5 +66,32 @@ public class AccountAndTenantServiceTests
         Assert.NotNull(await service.GetTenantBySuffix("FAMILY"));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.AddTenant(new TenantConfiguration { TenantName = "Second Family", UrlSuffix = "family" }).AsTask());
+    }
+
+    [Fact]
+    public async Task ClaimsTransformationRemovesRevokedAccess()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        await new UserService(db).UpsertUserAsync(new User
+        {
+            Email = "parent@example.com",
+            Roles = [ValidRoles.Parent],
+            Tenants = ["tenant-2"]
+        }, default);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim(ClaimTypes.Email, "parent@example.com"),
+            new Claim(ClaimTypes.Role, ValidRoles.Admin),
+            new Claim(CustomClaimTypes.Tenant, "tenant-1")
+        ], "test"));
+
+        var transformed = await new ClaimEnrichmentTransformer(
+            new UserService(db),
+            NullLogger<ClaimEnrichmentTransformer>.Instance).TransformAsync(principal);
+
+        Assert.DoesNotContain(transformed.Claims, c => c.Type == ClaimTypes.Role && c.Value == ValidRoles.Admin);
+        Assert.DoesNotContain(transformed.Claims, c => c.Type == CustomClaimTypes.Tenant && c.Value == "tenant-1");
+        Assert.Contains(transformed.Claims, c => c.Type == ClaimTypes.Role && c.Value == ValidRoles.Parent);
+        Assert.Contains(transformed.Claims, c => c.Type == CustomClaimTypes.Tenant && c.Value == "tenant-2");
     }
 }

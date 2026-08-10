@@ -12,6 +12,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ConnectionStrings__Postgres: Host=localhost;Port=5432;Database=child_allowance_manager_test;Username=postgres;Password=postgres
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: child_allowance_manager_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d child_allowance_manager_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
 
     steps:
       - uses: actions/checkout@v4
@@ -19,11 +35,13 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.x'
-          include-prerelease: true
+          dotnet-version: '10.x'
 
       - name: Build with dotnet
         run: dotnet build --configuration Release
+
+      - name: Test with dotnet
+        run: dotnet test --configuration Release --no-build
 
       - name: dotnet publish
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp

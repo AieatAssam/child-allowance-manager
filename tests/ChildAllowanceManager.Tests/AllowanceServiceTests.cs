@@ -2,6 +2,7 @@ using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Data;
 using ChildAllowanceManager.Services;
+using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ChildAllowanceManager.Tests;
@@ -229,6 +230,62 @@ public class AllowanceServiceTests
         Assert.Equal(child.Id, notification.ChildId);
         Assert.Equal(child.TenantId, notification.TenantId);
         Assert.Empty(notification.NotificationMessage);
+    }
+
+    [Fact]
+    public async Task ChildUpdatesCannotMoveAChildToAnotherTenant()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var transactions = new TransactionService(db, notifications);
+        var service = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        var child = await service.AddChild(new ChildConfiguration
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            TenantId = "tenant-1"
+        });
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.UpdateChild(new ChildConfiguration
+        {
+            Id = child.Id,
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            TenantId = "tenant-2"
+        }).AsTask());
+    }
+
+    [Fact]
+    public async Task TransactionsRejectInvalidAmountsAndUnknownChildren()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var service = new TransactionService(db, new GlobalNotificationService());
+        var child = new ChildConfiguration
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            TenantId = "tenant-1"
+        };
+        db.Children.Add(child);
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = child.Id,
+            TenantId = child.TenantId,
+            TransactionType = TransactionType.Deposit,
+            TransactionAmount = -1m,
+            Description = "Invalid"
+        }).AsTask());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = "missing",
+            TenantId = child.TenantId,
+            TransactionType = TransactionType.Deposit,
+            TransactionAmount = 1m,
+            Description = "Unknown child"
+        }).AsTask());
     }
 
     private static AllowanceTransaction Transaction(

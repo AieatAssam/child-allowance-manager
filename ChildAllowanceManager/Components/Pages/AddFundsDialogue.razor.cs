@@ -1,7 +1,6 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
@@ -15,8 +14,8 @@ public partial class AddFundsDialogue : CancellableComponentBase
     [Inject] private ITransactionService TransactionService { get; set; } = default!;
     
     private decimal _amount;
-    private string _description;
-    private MudForm _form;
+    private string _description = string.Empty;
+    private MudForm _form = default!;
 
     public decimal Amount
     {
