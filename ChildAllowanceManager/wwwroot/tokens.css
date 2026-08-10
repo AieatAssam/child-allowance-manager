@@ -1,0 +1,93 @@
+/*
+ * Design tokens for Allowance Manager.
+ * Prose companion: docs/brand/brand-guidelines.md.
+ * No colour may be defined outside this file.
+ */
+
+:root {
+    --al-paper: #FCFAF5;
+    --al-surface: #FFFFFF;
+    --al-surface-sunken: #F5F2EA;
+    --al-ink: #20242D;
+    --al-ink-muted: #5C5F6B;
+    --al-primary: #675184;
+    --al-primary-strong: #54406E;
+    --al-positive: #32735F;
+    --al-negative: #B95E4D;
+    --al-negative-text: #A34F40;
+    --al-accent: #E9A36A;
+    --al-border: #E4E0D8;
+    --al-focus: #54406E;
+
+    --al-space-1: 4px;
+    --al-space-2: 8px;
+    --al-space-3: 12px;
+    --al-space-4: 16px;
+    --al-space-5: 24px;
+    --al-space-6: 32px;
+    --al-space-7: 48px;
+    --al-space-8: 64px;
+
+    --al-radius-sm: 8px;
+    --al-radius: 10px;
+    --al-radius-lg: 12px;
+
+    --al-shadow-none: none;
+    --al-shadow-raised: 0 6px 24px rgba(32, 36, 45, .10);
+
+    --al-font-ui: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --al-font-display: 'Fraunces', Georgia, serif;
+    --al-text-xs: .75rem;
+    --al-text-sm: .875rem;
+    --al-text-base: 1rem;
+    --al-text-lg: 1.125rem;
+    --al-text-xl: 1.375rem;
+    --al-text-2xl: 1.75rem;
+    --al-text-3xl: 2.25rem;
+    --al-weight-regular: 400;
+    --al-weight-medium: 500;
+    --al-weight-semibold: 600;
+    --al-weight-bold: 700;
+    --al-leading-tight: 1.2;
+    --al-leading: 1.5;
+
+    --al-chart-1: #675184;
+    --al-chart-2: #32735F;
+    --al-chart-3: #B95E4D;
+    --al-chart-4: #E9A36A;
+}
+
+[data-theme="dark"],
+.mud-theme-dark {
+    --al-paper: #1B1A20;
+    --al-surface: #24232B;
+    --al-surface-sunken: #2C2A34;
+    --al-ink: #F2EFE9;
+    --al-ink-muted: #A8A5B2;
+    --al-primary: #B7A3D0;
+    --al-primary-strong: #CDBCE2;
+    --al-positive: #6FBFA2;
+    --al-negative: #E08D7B;
+    --al-negative-text: #E08D7B;
+    --al-accent: #E9A36A;
+    --al-border: #3A3844;
+    --al-focus: #CDBCE2;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --al-paper: #1B1A20;
+        --al-surface: #24232B;
+        --al-surface-sunken: #2C2A34;
+        --al-ink: #F2EFE9;
+        --al-ink-muted: #A8A5B2;
+        --al-primary: #B7A3D0;
+        --al-primary-strong: #CDBCE2;
+        --al-positive: #6FBFA2;
+        --al-negative: #E08D7B;
+        --al-negative-text: #E08D7B;
+        --al-accent: #E9A36A;
+        --al-border: #3A3844;
+        --al-focus: #CDBCE2;
+    }
+}
