@@ -1028,10 +1028,10 @@ tasks:
     title: Token contrast test
     depends_on: [P09-T5]
     files_touched: [tests/ChildAllowanceManager.Tests/DesignTokenTests.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T00:15:00Z
+    result: "Added token palette/scale coverage for the shipped stylesheet."
 
   # ---- P10 ---------------------------------------------------------------
   - id: P10-T1
