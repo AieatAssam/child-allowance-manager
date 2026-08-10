@@ -247,7 +247,7 @@ phases:
     file: docs/plan/phase-03-schema.yaml
     title: Schema integrity — foreign keys, timezone, actor, idempotency, membership
     depends_on: [P02]
-    status: pending
+    status: done
 
   - id: P04
     file: docs/plan/phase-04-transaction-integrity.yaml
