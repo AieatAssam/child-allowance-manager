@@ -340,7 +340,7 @@ public class PostgresEndToEndTests
         var children = new ChildService(
             db, notifications, transactions, NullLogger<ChildService>.Instance);
         return (
-            new TenantService(db, children, NullLogger<TenantService>.Instance),
+            new TenantService(db, NullLogger<TenantService>.Instance),
             new UserService(db),
             children,
             transactions);

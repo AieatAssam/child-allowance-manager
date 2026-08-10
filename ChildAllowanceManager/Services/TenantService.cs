@@ -9,7 +9,6 @@ namespace ChildAllowanceManager.Services;
 
 public class TenantService(
     AllowanceDbContext db,
-    IChildService childService,
     ILogger<TenantService> logger) : ITenantService
 {
     private readonly TenantConfigurationValidator validator = new();
@@ -63,20 +62,37 @@ public class TenantService(
         if (tenant.Deleted)
             return true;
 
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
         tenant.Deleted = true;
-        tenant.UpdatedTimestamp = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
+        tenant.UpdatedTimestamp = now;
 
-        foreach (var child in await childService.GetChildren(id, cancellationToken))
-            await childService.DeleteChild(child.Id, id, cancellationToken);
+        var children = await db.Children
+            .Where(x => x.TenantId == id && !x.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var child in children)
+        {
+            child.Deleted = true;
+            child.UpdatedTimestamp = now;
+        }
+
+        var memberships = await db.TenantMemberships
+            .Where(x => x.TenantId == id && !x.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var membership in memberships)
+        {
+            membership.Deleted = true;
+            membership.UpdatedTimestamp = now;
+        }
 
         var users = await db.Users.Where(x => !x.Deleted && x.Tenants.Contains(id)).ToListAsync(cancellationToken);
         foreach (var user in users)
         {
             user.Tenants = user.Tenants.Where(x => x != id).ToArray();
-            user.UpdatedTimestamp = DateTimeOffset.UtcNow;
+            user.UpdatedTimestamp = now;
         }
         await db.SaveChangesAsync(cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
         return true;
     }
 

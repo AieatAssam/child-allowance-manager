@@ -32,7 +32,7 @@ public class AccountAndTenantServiceTests
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var childService = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
-        var tenants = new TenantService(db, childService, NullLogger<TenantService>.Instance);
+        var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
         var users = new UserService(db);
         var tenant = await tenants.AddTenant(new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" });
         var child = await childService.AddChild(new ChildConfiguration
@@ -59,7 +59,6 @@ public class AccountAndTenantServiceTests
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
         var service = new TenantService(
             db,
-            new ChildService(db, new GlobalNotificationService(), new TransactionService(db, new GlobalNotificationService()), NullLogger<ChildService>.Instance),
             NullLogger<TenantService>.Instance);
         await service.AddTenant(new TenantConfiguration { TenantName = "First Family", UrlSuffix = "family" });
 

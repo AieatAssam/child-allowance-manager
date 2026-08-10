@@ -554,10 +554,10 @@ tasks:
     title: Atomic tenant deletion
     depends_on: [P04-T1]
     files_touched: [ChildAllowanceManager/Services/TenantService.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:32:00Z
+    result: "Tenant deletion now soft-deletes the tenant, live children, memberships, and legacy user tenant entries in one transaction; build and diff checks passed."
 
   - id: P04-T3
     phase: P04
