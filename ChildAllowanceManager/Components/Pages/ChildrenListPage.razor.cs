@@ -99,10 +99,10 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 ShowTickPrefix = ShowTickPrefixEnum.All,
                 ShowTickLabels = true,
                 TickFormat = ",.0f",
-                GridColor = "rgba(148, 163, 184, .18)",
+                GridColor = "rgba(148, 163, 184, .28)",
                 GridWidth = 1,
                 ZeroLine = true,
-                ZeroLineColor = "rgba(148, 163, 184, .38)",
+                ZeroLineColor = "rgba(148, 163, 184, .48)",
                 ZeroLineWidth = 1,
                 ShowLine = false,
             }
@@ -246,11 +246,11 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             yAxis.TickColor = mutedColor;
             yAxis.GridColor = ThemeConfiguration.IsDarkMode
-                ? "rgba(255, 255, 255, .12)"
-                : "rgba(23, 32, 51, .10)";
+                ? "rgba(255, 255, 255, .20)"
+                : "rgba(23, 32, 51, .16)";
             yAxis.ZeroLineColor = ThemeConfiguration.IsDarkMode
-                ? "rgba(255, 255, 255, .32)"
-                : "rgba(23, 32, 51, .26)";
+                ? "rgba(255, 255, 255, .42)"
+                : "rgba(23, 32, 51, .36)";
         }
 
         if (_plotlyLayout.XAxis?.FirstOrDefault() is XAxis xAxis)
@@ -313,7 +313,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                         Line = new Line
                         {
                             Color = chartColor,
-                            Width = 3,
+                            Width = 4,
                         },
                         Marker = new Marker
                         {
@@ -353,7 +353,15 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     {
         var parameters = new DialogParameters<ChildTransactionsDialogue>();
         parameters.Add(x => x.Child, child);
-        await DialogService.ShowAsync<ChildTransactionsDialogue>(null, parameters);
+        var options = new DialogOptions
+        {
+            BackdropClick = true,
+            CloseOnEscapeKey = true,
+            FullScreen = true,
+            FullWidth = true,
+            BackgroundClass = "transactions-dialog-background",
+        };
+        await DialogService.ShowAsync<ChildTransactionsDialogue>(null, parameters, options);
     }
     
     private async Task ShowAddFundsForChild(ChildWithBalance child)
