@@ -366,10 +366,10 @@ tasks:
       - ChildAllowanceManager/Middleware/ResponseHeaderMiddleware.cs
       - ChildAllowanceManager/appsettings.json
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p01
+    updated: 2026-08-10T21:32:00Z
+    result: "Program pipeline now emits SAMEORIGIN and builds a deny-by-default or explicit FrameAncestors CSP policy with wildcard rejection; git diff --check passes. dotnet build could not run because dotnet is unavailable in the environment."
 
   - id: P01-T3
     phase: P01

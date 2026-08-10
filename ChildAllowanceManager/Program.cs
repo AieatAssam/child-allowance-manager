@@ -179,6 +179,12 @@ builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationServ
 
 var app = builder.Build();
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+    await next();
+});
+
 if (StartupConfiguration.ShouldMigrate(app.Environment, args))
 {
     await using var scope = app.Services.CreateAsyncScope();
@@ -210,8 +216,20 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
+var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
+foreach (var entry in frameAncestors)
+{
+    if (entry.Contains('*'))
+        throw new InvalidOperationException($"FrameAncestors entry must not contain '*': {entry}");
+}
+
+var frameAncestorsPolicy = frameAncestors.Length == 0
+    ? "'self'"
+    : string.Join(' ', new[] { "'self'" }.Concat(frameAncestors));
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    // Embedding is denied by default. Add explicit origins to the FrameAncestors
+    // configuration array to allow trusted embedders.
+    .AddInteractiveServerRenderMode(o => o.ContentSecurityFrameAncestorsPolicy = frameAncestorsPolicy);
 
 // Choose an authentication type
 app.Map("/login", signinApp =>
