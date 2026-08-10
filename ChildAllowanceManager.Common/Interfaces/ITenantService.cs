@@ -1,10 +1,15 @@
 using ChildAllowanceManager.Common.Models;
+using System.Security.Claims;
 
 namespace ChildAllowanceManager.Common.Interfaces;
 
 public interface ITenantService
 {
     ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default);
+    /// Families this principal may open, ordered by name. An admin sees every live family;
+    /// anyone else sees the families they hold a membership in.
+    ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
+        ClaimsPrincipal principal, CancellationToken cancellationToken = default);
     ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default);
 
     ValueTask<TenantConfiguration?> GetTenantBySuffix(string urlSuffix,

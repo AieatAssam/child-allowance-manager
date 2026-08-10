@@ -4,6 +4,7 @@ using ChildAllowanceManager.Common.Validators;
 using ChildAllowanceManager.Data;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ChildAllowanceManager.Services;
 
@@ -15,6 +16,22 @@ public class TenantService(
 
     public async ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().Where(x => !x.Deleted).OrderBy(x => x.TenantName).ToListAsync(cancellationToken);
+
+    public async ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
+        ClaimsPrincipal principal, CancellationToken cancellationToken = default)
+    {
+        if (principal.IsInRole(ValidRoles.Admin))
+            return await GetTenants(cancellationToken);
+
+        var tenantIds = principal.FindAll(CustomClaimTypes.Tenant).Select(c => c.Value).ToArray();
+        if (tenantIds.Length == 0)
+            return [];
+
+        return await db.Tenants.AsNoTracking()
+            .Where(x => !x.Deleted && tenantIds.Contains(x.Id))
+            .OrderBy(x => x.TenantName)
+            .ToListAsync(cancellationToken);
+    }
 
     public async ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default) =>
         await db.Tenants.AsNoTracking().Where(x => x.Deleted).OrderBy(x => x.TenantName).ToListAsync(cancellationToken);
