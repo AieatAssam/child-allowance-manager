@@ -14,4 +14,13 @@
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="@routeData" Selector="#main-content"/>
     </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <div class="page-shell">
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                    That page does not exist. <MudLink Href="/">Back to families</MudLink>
+                </MudAlert>
+            </div>
+        </LayoutView>
+    </NotFound>
 </Router>

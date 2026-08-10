@@ -11,6 +11,7 @@ public partial class MainLayout
     private bool _drawerOpen = false;
     private bool _useDarkMode;
     private MudThemeProvider _themeProvider = default!;
+    private ErrorBoundary? _errorBoundary;
     
     private ThemeConfiguration _themeConfiguration = new ThemeConfiguration();
 
@@ -22,6 +23,10 @@ public partial class MainLayout
     {
         _drawerOpen = !_drawerOpen;
     }
+
+    private void RecoverFromError() => _errorBoundary?.Recover();
+
+    protected override void OnParametersSet() => _errorBoundary?.Recover();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

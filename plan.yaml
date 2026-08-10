@@ -752,10 +752,10 @@ tasks:
       - ChildAllowanceManager/Components/Layout/MainLayout.razor
       - ChildAllowanceManager/Components/Layout/MainLayout.razor.cs
       - ChildAllowanceManager/Components/Pages/Error.razor
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p06
+    updated: 2026-08-10T23:18:15Z
+    result: "Added route fallback, application error boundary with recovery, navigation reset, and explicit error routes; diff check passed, dotnet unavailable."
 
   - id: P06-T3
     phase: P06
