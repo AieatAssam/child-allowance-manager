@@ -241,7 +241,7 @@ phases:
     file: docs/plan/phase-02-migration-baseline.yaml
     title: EF migration baseline, model snapshot, deploy-time migration
     depends_on: [P01]
-    status: pending
+    status: done
 
   - id: P03
     file: docs/plan/phase-03-schema.yaml
