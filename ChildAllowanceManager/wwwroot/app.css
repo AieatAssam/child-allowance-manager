@@ -386,10 +386,6 @@ body {
     letter-spacing: -.025em;
 }
 
-.transactions-dialog-description {
-    color: rgba(248, 250, 252, .78) !important;
-}
-
 .transactions-balance-card {
     display: flex;
     flex: 0 0 auto;
@@ -437,24 +433,17 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1rem;
-    padding: 1rem 1.15rem;
+    margin-bottom: .75rem;
+    padding: .55rem .85rem;
     border: 1px solid color-mix(in srgb, var(--app-primary) 20%, var(--app-border));
-    border-radius: 1rem;
+    border-radius: .75rem;
     background: color-mix(in srgb, #0d9488 9%, var(--mud-palette-surface, #fff));
 }
 
-.transactions-toolbar-title {
+.transactions-toolbar-label {
     color: var(--app-ink) !important;
     font-family: "Nunito", system-ui, sans-serif;
     font-weight: 800 !important;
-}
-
-.transactions-toolbar-copy,
-.transaction-time,
-.transaction-movement-label,
-.transaction-balance-caption {
-    color: var(--app-muted) !important;
 }
 
 .transactions-filter {
@@ -483,6 +472,7 @@ body {
 }
 
 .transactions-table .mud-table-body .mud-table-cell {
+    padding: .65rem .9rem;
     border-bottom-color: color-mix(in srgb, var(--app-border) 75%, transparent);
     color: var(--app-ink);
     vertical-align: middle;
@@ -497,11 +487,15 @@ body {
 }
 
 .transaction-date,
-.transaction-time,
 .transaction-amount,
 .transaction-balance,
 .transaction-description {
     display: block;
+}
+
+.transaction-amount,
+.transaction-balance {
+    white-space: nowrap;
 }
 
 .transaction-date,
@@ -517,16 +511,15 @@ body {
     color: var(--app-ink) !important;
 }
 
-.transaction-time,
-.transaction-balance-caption {
-    margin-top: .15rem;
-    font-size: .78rem !important;
+.transaction-date {
+    white-space: nowrap;
+    font-size: .85rem !important;
 }
 
 .transaction-movement {
     display: flex;
     align-items: center;
-    gap: .65rem;
+    gap: .5rem;
 }
 
 .transaction-direction {
@@ -569,22 +562,15 @@ body {
     color: var(--app-muted) !important;
 }
 
-.transaction-movement-label {
-    font-size: .75rem !important;
-    font-weight: 700 !important;
-}
-
 .transaction-details {
-    min-width: 13rem;
+    min-width: 0;
 }
 
-.transaction-type-chip {
-    height: 1.45rem;
-    margin-top: .35rem;
-    border-color: color-mix(in srgb, var(--app-primary) 36%, var(--app-border));
-    color: var(--app-primary);
-    font-size: .68rem;
-    font-weight: 800;
+.transaction-description {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .transaction-balance {
@@ -658,8 +644,7 @@ body {
         flex-direction: column;
     }
 
-    .transactions-dialog-heading,
-    .transactions-toolbar {
+    .transactions-dialog-heading {
         align-items: stretch;
         flex-direction: column;
     }
@@ -672,12 +657,46 @@ body {
         align-self: flex-start;
     }
 
+    .transactions-toolbar {
+        align-items: center;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .transactions-filter {
+        align-self: auto;
+    }
+
     .transactions-table .mud-table-cell {
-        min-height: 3.25rem;
+        min-height: 0;
+        padding: .22rem .85rem;
     }
 
     .transaction-details {
         min-width: 0;
+    }
+}
+
+@media (min-width: 641px) {
+    .transactions-table .mud-table-root {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .transactions-table .mud-table-cell:nth-child(1) {
+        width: 20%;
+    }
+
+    .transactions-table .mud-table-cell:nth-child(2) {
+        width: 22%;
+    }
+
+    .transactions-table .mud-table-cell:nth-child(3) {
+        width: 38%;
+    }
+
+    .transactions-table .mud-table-cell:nth-child(4) {
+        width: 20%;
     }
 }
 
