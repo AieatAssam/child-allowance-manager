@@ -28,8 +28,7 @@
             }
             else if (Children.Any() || AddingChild)
             {
-                @if (AddingChild)
-                {
+                <MudCollapse Expanded="AddingChild">
                     <MudCard>
                         <MudCardHeader>
                         <MudText Typo="Typo.h5">Add a child</MudText>
@@ -42,7 +41,7 @@
                             <MudButton Color="Color.Secondary" OnClick="() => NewChild = new ChildConfiguration()">Clear</MudButton>
                         </MudCardActions>
                     </MudCard>
-                }
+                </MudCollapse>
                 
                 <MudExpansionPanels MultiExpansion="true">
                     @for (int idx = 0; idx < Children.Length; idx++)

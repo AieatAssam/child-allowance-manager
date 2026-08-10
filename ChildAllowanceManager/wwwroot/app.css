@@ -6,6 +6,9 @@
     --app-primary: var(--mud-palette-primary, #4f46e5);
     --app-success: var(--mud-palette-success, #0f766e);
     --app-shadow: 0 14px 40px rgba(23, 32, 51, .08);
+    --motion-fast: 160ms;
+    --motion-smooth: 280ms;
+    --motion-ease: cubic-bezier(.22, 1, .36, 1);
 }
 
 html, body {
@@ -19,6 +22,86 @@ html, body {
 body {
     margin: 0;
     overflow-x: hidden;
+}
+
+@keyframes app-enter {
+    from {
+        opacity: 0;
+        transform: translateY(.65rem) scale(.995);
+    }
+}
+
+@keyframes item-enter {
+    from {
+        opacity: 0;
+        transform: translateY(.85rem);
+    }
+}
+
+.page-shell,
+.home-state {
+    animation: app-enter var(--motion-smooth) var(--motion-ease) both;
+}
+
+.page-heading > *,
+.dashboard-view .mud-grid > .mud-grid-item,
+.settings-card .mud-expansion-panel,
+.transactions-table .mud-table-body .mud-table-row,
+.birthday-label,
+.child-card .mud-alert,
+.empty-state {
+    animation: item-enter var(--motion-smooth) var(--motion-ease) both;
+}
+
+.page-heading > :nth-child(2),
+.dashboard-view .mud-grid > .mud-grid-item:nth-child(2),
+.settings-card .mud-expansion-panel:nth-child(2),
+.transactions-table .mud-table-body .mud-table-row:nth-child(2) {
+    animation-delay: 45ms;
+}
+
+.dashboard-view .mud-grid > .mud-grid-item:nth-child(3),
+.settings-card .mud-expansion-panel:nth-child(3),
+.transactions-table .mud-table-body .mud-table-row:nth-child(3) {
+    animation-delay: 90ms;
+}
+
+.dashboard-view .mud-grid > .mud-grid-item:nth-child(n + 4),
+.settings-card .mud-expansion-panel:nth-child(n + 4),
+.transactions-table .mud-table-body .mud-table-row:nth-child(n + 4) {
+    animation-delay: 135ms;
+}
+
+.mud-collapse-container {
+    transition: grid-template-rows var(--motion-smooth) var(--motion-ease),
+                opacity var(--motion-fast) ease !important;
+}
+
+.mud-collapse-container:not(.mud-collapse-entering):not(.mud-collapse-entered) {
+    opacity: 0;
+}
+
+.mud-dialog {
+    animation: app-enter 220ms var(--motion-ease) both;
+}
+
+.mud-popover {
+    transform: translateY(-.35rem) scale(.98);
+    transform-origin: top center;
+    transition: opacity var(--motion-fast) ease,
+                transform var(--motion-fast) var(--motion-ease) !important;
+}
+
+.mud-popover.mud-popover-open {
+    transform: translateY(0) scale(1);
+}
+
+.mud-popover:not(.mud-popover-open) {
+    transition-duration: var(--motion-fast) !important;
+}
+
+.mud-snackbar {
+    animation: item-enter var(--motion-smooth) var(--motion-ease) both;
 }
 
 button, a, input, select, textarea {
@@ -334,7 +417,8 @@ button, a, input, select, textarea {
 
 .child-card {
     height: 100%;
-    transition: transform .18s ease, box-shadow .18s ease;
+    transition: transform var(--motion-fast) var(--motion-ease),
+                box-shadow var(--motion-fast) ease;
 }
 
 .child-card:hover {
@@ -803,6 +887,9 @@ button, a, input, select, textarea {
     *, *::before, *::after {
         scroll-behavior: auto !important;
         transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
     }
 
     .dashboard-backdrop *,
