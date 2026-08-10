@@ -89,6 +89,22 @@ internal sealed class RecordingChildService : IChildService
         return ValueTask.FromResult(child);
     }
 
+    public ValueTask<ChildConfiguration> ApplyHoldAsync(string childId, string tenantId, int days,
+        string description, string? requestId, CancellationToken cancellationToken = default)
+    {
+        var child = Children.Single(x => x.Id == childId && x.TenantId == tenantId);
+        child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining + days);
+        return ValueTask.FromResult(child);
+    }
+
+    public ValueTask<ChildConfiguration> RemoveHoldDayAsync(string childId, string tenantId,
+        string? requestId, CancellationToken cancellationToken = default)
+    {
+        var child = Children.Single(x => x.Id == childId && x.TenantId == tenantId);
+        child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining - 1);
+        return ValueTask.FromResult(child);
+    }
+
     public ValueTask<bool> DeleteChild(string id, string tenantId, CancellationToken cancellationToken)
     {
         DeleteCalls++;

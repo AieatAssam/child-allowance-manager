@@ -11,6 +11,14 @@ public interface IChildService
     public ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken);
     
     public ValueTask<ChildConfiguration> UpdateChild(ChildConfiguration child, CancellationToken cancellationToken);
+
+    /// Pauses a child's allowance and writes the matching Hold audit transaction atomically.
+    ValueTask<ChildConfiguration> ApplyHoldAsync(string childId, string tenantId, int days,
+        string description, string? requestId, CancellationToken cancellationToken = default);
+
+    /// Removes one held day and writes the matching Hold audit transaction atomically.
+    ValueTask<ChildConfiguration> RemoveHoldDayAsync(string childId, string tenantId, string? requestId,
+        CancellationToken cancellationToken = default);
     
     public ValueTask<bool> DeleteChild(string id, string tenantId, CancellationToken cancellationToken);
     ValueTask<ChildConfiguration?> GetChild(string childId, string childTenantId, CancellationToken cancellationToken = default);

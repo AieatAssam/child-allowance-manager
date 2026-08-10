@@ -170,6 +170,60 @@ public class ChildService(
         return existing;
     }
 
+    public async ValueTask<ChildConfiguration> ApplyHoldAsync(
+        string childId, string tenantId, int days, string description, string? requestId,
+        CancellationToken cancellationToken = default)
+    {
+        if (days <= 0)
+            throw new ValidationException("Hold days must be greater than zero.");
+
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var child = await db.Children.FirstOrDefaultAsync(
+            x => x.Id == childId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
+            ?? throw new KeyNotFoundException($"Child {childId} was not found in tenant {tenantId}.");
+
+        child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining + days);
+        child.UpdatedTimestamp = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        await transactionService.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = childId,
+            TenantId = tenantId,
+            TransactionAmount = 0,
+            TransactionType = TransactionType.Hold,
+            Description = $"{description} ({days} days)",
+            RequestId = requestId
+        }, cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
+        globalNotificationService.OnChildStateChanged(child.Id, child.TenantId, description);
+        return child;
+    }
+
+    public async ValueTask<ChildConfiguration> RemoveHoldDayAsync(
+        string childId, string tenantId, string? requestId, CancellationToken cancellationToken = default)
+    {
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var child = await db.Children.FirstOrDefaultAsync(
+            x => x.Id == childId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
+            ?? throw new KeyNotFoundException($"Child {childId} was not found in tenant {tenantId}.");
+
+        child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining - 1);
+        child.UpdatedTimestamp = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        await transactionService.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = childId,
+            TenantId = tenantId,
+            TransactionAmount = 0,
+            TransactionType = TransactionType.Hold,
+            Description = "Hold reduced by 1 day",
+            RequestId = requestId
+        }, cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
+        globalNotificationService.OnChildStateChanged(child.Id, child.TenantId, "Hold reduced by 1 day");
+        return child;
+    }
+
     private async Task ValidateAsync(ChildConfiguration child, CancellationToken cancellationToken)
     {
         var result = await validator.ValidateAsync(child, cancellationToken);

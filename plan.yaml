@@ -544,10 +544,10 @@ tasks:
       - ChildAllowanceManager.Common/Interfaces/IChildService.cs
       - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor.cs
     mutex: child-service
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p04
+    updated: 2026-08-10T22:28:00Z
+    result: "Added atomic ApplyHoldAsync and RemoveHoldDayAsync workflows, rewired the hold dialog, and updated the recording fake; build and diff checks passed."
 
   - id: P04-T2
     phase: P04

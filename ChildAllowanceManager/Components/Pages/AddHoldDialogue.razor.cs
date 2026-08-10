@@ -11,12 +11,8 @@ public partial class AddHoldDialogue : CancellableComponentBase
     
     [Parameter] public ChildWithBalance Child { get; set; } = default!;
     
-    [Inject] private ITransactionService TransactionService { get; set; } = default!;
-    
     [Inject] private IChildService ChildService { get; set; } = default!;
     
-    [Inject] private IDialogService DialogService { get; set; } = default!;
-
     public int Days { get; set; } = 1;
     
     public string Description { get; set; } = string.Empty;
@@ -28,25 +24,7 @@ public partial class AddHoldDialogue : CancellableComponentBase
         await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
-        // update child
-        var child = await ChildService.GetChild(Child.Id, Child.TenantId);
-        if (child is null)
-        {
-            await DialogService.ShowMessageBoxAsync(title:"Error", message: "Child not found",
-                yesText: "OK");
-            MudDialog.Cancel();
-            return;
-        }
-        child.HoldDaysRemaining += Days;
-        await ChildService.UpdateChild(child, CancellationToken);
-        await TransactionService.AddTransaction(new AllowanceTransaction
-        {
-            Description = Description + $" ({Days} days)",
-            TransactionAmount = 0, // no amount
-            TenantId = Child.TenantId,
-            ChildId = Child.Id,
-            TransactionType = TransactionType.Hold
-        }, CancellationToken);
+        await ChildService.ApplyHoldAsync(Child.Id, Child.TenantId, Days, Description, null, CancellationToken);
         MudDialog.Close();
     }
 }
