@@ -881,10 +881,10 @@ tasks:
       - ChildAllowanceManager.Common/Interfaces/IMembershipService.cs
       - ChildAllowanceManager/Program.cs
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p08
+    updated: 2026-08-10T23:37:00Z
+    result: "Added membership queries, idempotent grant/restore, last-parent protection, legacy User.Tenants synchronization, and DI registration; git diff --check passes, dotnet unavailable for build."
 
   - id: P08-T2
     phase: P08

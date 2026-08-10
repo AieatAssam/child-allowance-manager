@@ -176,6 +176,7 @@ builder.Services.AddScoped<IChildService, ChildService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IMembershipService, MembershipService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
