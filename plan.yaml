@@ -738,10 +738,10 @@ tasks:
       - ChildAllowanceManager/Components/CancellableComponentBase.cs
       - ChildAllowanceManager/Program.cs
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p06
+    updated: 2026-08-10T23:16:59Z
+    result: "Added OperationRunner error handling, component busy-state guard, and scoped registration; diff check passed, dotnet unavailable."
 
   - id: P06-T2
     phase: P06

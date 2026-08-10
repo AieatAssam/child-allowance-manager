@@ -179,6 +179,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
+builder.Services.AddScoped<OperationRunner>();
 
 builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
 
