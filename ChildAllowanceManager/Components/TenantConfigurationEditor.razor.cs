@@ -25,6 +25,11 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
     [Inject] IDialogService DialogService { get; set; } = default!;
     
     public readonly TenantConfigurationValidator Validator = new();
+
+    private static readonly TimeZoneInfo[] TimeZones = TimeZoneInfo.GetSystemTimeZones()
+        .OrderBy(timeZone => timeZone.BaseUtcOffset)
+        .ThenBy(timeZone => timeZone.DisplayName)
+        .ToArray();
     
     private MudForm? _form;
     private List<User> _parents = new();

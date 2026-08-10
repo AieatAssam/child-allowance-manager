@@ -10,6 +10,16 @@
     <MudTextField @bind-Value="Tenant.UrlSuffix"
                   For="() => Tenant.UrlSuffix"
                   Label="URL Suffix" />
+    <MudSelect T="string"
+               @bind-Value="Tenant.TimeZoneId"
+               Label="Time zone"
+               HelperText="Allowances are paid just after midnight in this zone."
+               ReadOnly="@ReadOnly">
+        @foreach (var timeZone in TimeZones)
+        {
+            <MudSelectItem T="string" Value="@timeZone.Id">@timeZone.DisplayName</MudSelectItem>
+        }
+    </MudSelect>
     @if (!ReadOnly)
     {
         <MudText Typo="Typo.subtitle1" Class="mt-1 pt-1">Parents</MudText>

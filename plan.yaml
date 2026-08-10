@@ -712,10 +712,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager/Components/TenantConfigurationEditor.razor
       - ChildAllowanceManager/Components/TenantConfigurationEditor.razor.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p05
+    updated: 2026-08-10T23:06:00Z
+    result: "Added the read-only-aware timezone selector and bunit coverage for its rendering and read-only inputs; long checks skipped at user direction."
 
   - id: P05-T5
     phase: P05

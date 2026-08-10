@@ -47,6 +47,7 @@ public class ComponentRenderingTests
 
         Assert.Contains("Name", cut.Markup);
         Assert.Contains("URL Suffix", cut.Markup);
+        Assert.Contains("Time zone", cut.Markup);
         Assert.Contains("Parents", cut.Markup);
         Assert.Contains("Add parent", cut.Markup);
     }
@@ -63,6 +64,9 @@ public class ComponentRenderingTests
 
         Assert.DoesNotContain("Parents", cut.Markup);
         Assert.DoesNotContain("Add parent", cut.Markup);
+        Assert.Contains("Time zone", cut.Markup);
+        Assert.All(cut.FindAll("input"), input =>
+            Assert.True(input.HasAttribute("readonly") || input.HasAttribute("disabled")));
     }
 
     [Fact]
