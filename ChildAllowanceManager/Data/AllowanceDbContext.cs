@@ -10,6 +10,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
     public DbSet<AllowanceTransaction> Transactions => Set<AllowanceTransaction>();
     public DbSet<TenantConfiguration> Tenants => Set<TenantConfiguration>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -17,6 +18,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
         ConfigureItem(modelBuilder.Entity<AllowanceTransaction>());
         ConfigureItem(modelBuilder.Entity<TenantConfiguration>());
         ConfigureItem(modelBuilder.Entity<User>());
+        ConfigureItem(modelBuilder.Entity<TenantMembership>());
 
         modelBuilder.Entity<ChildConfiguration>(entity =>
         {
@@ -55,6 +57,14 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64).HasDefaultValue("Europe/London");
         });
         modelBuilder.Entity<User>(entity => entity.HasIndex(x => x.Email).IsUnique().HasFilter("NOT \"Deleted\""));
+        modelBuilder.Entity<TenantMembership>(entity =>
+        {
+            entity.Property(x => x.Role).IsRequired().HasMaxLength(32);
+            entity.HasIndex(x => new { x.UserId, x.TenantId }).IsUnique().HasFilter("NOT \"Deleted\"");
+            entity.HasIndex(x => x.TenantId);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureItem<T>(EntityTypeBuilder<T> entity) where T : BaseItem

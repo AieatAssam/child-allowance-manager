@@ -484,10 +484,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager.Common/Models/TenantMembership.cs
       - ChildAllowanceManager/Data/AllowanceDbContext.cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p03-t4
+    updated: 2026-08-10T22:00:57Z
+    result: "Added TenantMembership with base-item configuration, live uniqueness, tenant index and Restrict ownership FKs; git diff --check passes. Build not run."
 
   - id: P03-T5
     phase: P03
