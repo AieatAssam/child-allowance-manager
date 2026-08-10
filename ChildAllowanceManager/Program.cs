@@ -40,13 +40,19 @@ builder.Services.AddMudServices();
 builder.Services.AddHttpContextAccessor();
 
 var configuration = builder.Configuration;
-var postgresConnection = configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required.");
+var postgresConnection = configuration.GetConnectionString("Postgres");
+if (string.IsNullOrWhiteSpace(postgresConnection) || postgresConnection.StartsWith('<'))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:Postgres is required and must not be the placeholder value. " +
+        "Set ConnectionStrings__Postgres to a PostgreSQL connection string, for example " +
+        "Host=localhost;Port=5432;Database=child_allowance_manager;Username=postgres;Password=postgres");
+}
 builder.Services.AddDbContext<AllowanceDbContext>(options =>
     options.UseNpgsql(postgresConnection));
 builder.Services.AddHealthChecks().AddDbContextCheck<AllowanceDbContext>();
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var authentication = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
@@ -54,13 +60,23 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.LoginPath = "/login";
         options.LogoutPath = "/logout";
-    })
-    .AddMicrosoftAccount("Microsoft", "Microsoft", options =>
+    });
+
+if (!builder.Environment.IsDevelopment())
+{
+    authentication.AddMicrosoftAccount("Microsoft", "Microsoft", options =>
     {
-        options.ClientId = configuration["Authentication:Microsoft:ClientId"]
-            ?? throw new InvalidOperationException("Authentication:Microsoft:ClientId is required.");
-        options.ClientSecret = configuration["Authentication:Microsoft:ClientSecret"]
-            ?? throw new InvalidOperationException("Authentication:Microsoft:ClientSecret is required.");
+        var clientId = configuration["Authentication:Microsoft:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId) || clientId.StartsWith('<'))
+            throw new InvalidOperationException(
+                "Authentication:Microsoft:ClientId is required and must not be the placeholder value.");
+        options.ClientId = clientId;
+
+        var clientSecret = configuration["Authentication:Microsoft:ClientSecret"];
+        if (string.IsNullOrWhiteSpace(clientSecret) || clientSecret.StartsWith('<'))
+            throw new InvalidOperationException(
+                "Authentication:Microsoft:ClientSecret is required and must not be the placeholder value.");
+        options.ClientSecret = clientSecret;
         //options.CallbackPath = "/signin-microsoft";
         options.SaveTokens = true;
         options.Scope.Add("User.Read");
@@ -117,6 +133,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
         //options.Scope.Add("offline_access");
     });
+}
 
 builder.Services.AddHttpClient();
 
