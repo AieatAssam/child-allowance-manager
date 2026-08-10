@@ -15,7 +15,7 @@ public partial class WithdrawFundsDialogue : CancellableComponentBase
     
     private decimal _amount;
     private string _description = string.Empty;
-    private MudForm _form;
+    private MudForm _form = default!;
     
     public decimal Amount
     {

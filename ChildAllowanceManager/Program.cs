@@ -178,7 +178,10 @@ var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    await scope.ServiceProvider.GetRequiredService<AllowanceDbContext>().Database.EnsureCreatedAsync();
+    var db = scope.ServiceProvider.GetRequiredService<AllowanceDbContext>();
+    await db.Database.EnsureCreatedAsync();
+    if (app.Environment.IsDevelopment())
+        await new DevelopmentDataSeeder(db).SeedAsync();
 }
 
 app.UseResponseCompression();
@@ -214,6 +217,24 @@ app.Map("/login", signinApp =>
 {
     signinApp.Run(async context =>
     {
+        if (app.Environment.IsDevelopment())
+        {
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, DevelopmentDataSeeder.UserEmail),
+                new Claim(ClaimTypes.Name, "Local Demo Parent"),
+                new Claim(ClaimTypes.Email, DevelopmentDataSeeder.UserEmail),
+                new Claim(ClaimTypes.Role, ValidRoles.Admin),
+                new Claim(ClaimTypes.Role, ValidRoles.Parent),
+                new Claim("current_tenant", DevelopmentDataSeeder.TenantId)
+            };
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(
+                claims, CookieAuthenticationDefaults.AuthenticationScheme));
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+            context.Response.Redirect($"/{DevelopmentDataSeeder.TenantSuffix}/children");
+            return;
+        }
+
         await context.ChallengeAsync(MicrosoftAccountDefaults.AuthenticationScheme
             , new AuthenticationProperties() { RedirectUri = "/" });
     });

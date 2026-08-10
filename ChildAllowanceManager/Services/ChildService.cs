@@ -40,14 +40,14 @@ public class ChildService(
         foreach (var child in children)
         {
             var latest = await transactionService.GetLatestTransactionForChild(child.Id, tenantId, cancellationToken);
-            var latestRegular = await transactionService.GetLatestRegularTransactionForChild(child.Id, tenantId, cancellationToken);
             var now = DateTimeOffset.UtcNow;
             var balance = latest?.Balance ?? 0m;
-            var lastRegularDate = latestRegular?.TransactionTimestamp.Date ?? now.Date.AddDays(-1);
-            var baseNextDate = lastRegularDate >= now.Date ? now.AddDays(1) : now;
-            var nextDate = new DateTimeOffset(baseNextDate.AddDays(child.HoldDaysRemaining).Date, TimeSpan.Zero);
+            var nextDate = new DateTimeOffset(
+                now.Date.AddDays(1 + child.HoldDaysRemaining), TimeSpan.Zero);
             var isBirthday = child.BirthDate is not null && SameDayInYear(child.BirthDate, DateTime.Today);
-            var nextIsBirthday = child.BirthDate is not null && SameDayInYear(nextDate.Date, child.BirthDate.Value.Date);
+            var nextIsBirthday = child.BirthDate is not null &&
+                (SameDayInYear(nextDate.Date, child.BirthDate.Value.Date) ||
+                 (child.HoldDaysRemaining == 0 && isBirthday));
 
             result.Add(new ChildWithBalance
             {

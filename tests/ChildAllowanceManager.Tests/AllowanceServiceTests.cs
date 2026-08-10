@@ -180,6 +180,34 @@ public class AllowanceServiceTests
     }
 
     [Fact]
+    public async Task NextAllowanceDateIsAlwaysInTheFuture()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var service = new ChildService(
+            db,
+            new GlobalNotificationService(),
+            new TransactionService(db, new GlobalNotificationService()),
+            NullLogger<ChildService>.Instance);
+        var child = new ChildConfiguration
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            TenantId = "tenant-1",
+            RegularAllowance = 5m
+        };
+        db.Children.Add(child);
+        db.Transactions.Add(Transaction(
+            child.Id, child.TenantId, TransactionType.DailyAllowance, 5m,
+            DateTimeOffset.UtcNow.AddDays(-1), 5m));
+        await db.SaveChangesAsync();
+
+        var before = DateTimeOffset.UtcNow;
+        var result = Assert.Single(await service.GetChildrenWithBalance(child.TenantId, default));
+
+        Assert.True(result.NextRegularChangeDate > before);
+    }
+
+    [Fact]
     public async Task UpdatingChildPersistsChangesAndRaisesNotification()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();

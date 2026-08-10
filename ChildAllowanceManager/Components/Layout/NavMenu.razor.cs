@@ -1,42 +1,29 @@
 
-using ChildAllowanceManager.Common.Interfaces;
-using ChildAllowanceManager.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 
 namespace ChildAllowanceManager.Components.Layout;
 
 public partial class NavMenu
 {
-    [Inject] public ICurrentContextService CurrentContext { get; set; } = default!;
-
-    [Inject] ProtectedLocalStorage LocalStorage { get; set; } = default!;
+    [Inject] public NavigationManager Navigation { get; set; } = default!;
 
     public string? TenantSuffix { get; set; }
-    private Dictionary<string, string> _cachedTenants = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (firstRender && await LocalStorage.GetAsync<string>("current_tenant") is var currentTenant &&
-            currentTenant.Success)
+        if (firstRender)
         {
-            var tenantId = currentTenant.Value;
-            CurrentContext.SetCurrentTenant(tenantId);
-            if (_cachedTenants.TryGetValue(tenantId, out var suffix))
+            var segments = Navigation.ToBaseRelativePath(Navigation.Uri)
+                .Trim('/')
+                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 2 && segments[1] is "children" or "configuration")
             {
-                TenantSuffix = suffix;
+                TenantSuffix = segments[0];
+                StateHasChanged();
             }
-            else
-            {
-                suffix = await CurrentContext.GetCurrentTenantSuffix();
-                _cachedTenants.Add(tenantId, suffix!);
-                TenantSuffix = suffix;
-            }
-
-            StateHasChanged();
         }
     }
 }

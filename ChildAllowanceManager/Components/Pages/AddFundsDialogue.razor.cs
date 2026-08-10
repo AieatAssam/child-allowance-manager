@@ -17,7 +17,7 @@ public partial class AddFundsDialogue : CancellableComponentBase
     private decimal _amount;
     private string _description;
     private MudForm _form;
-    
+
     public decimal Amount
     {
         get => _amount;

@@ -1,21 +1,55 @@
 @using MudBlazor.Utilities;
 
-<MudDialog  Options="@(new DialogOptions()
+<MudDialog TitleClass="transactions-dialog-title"
+           ContentClass="transactions-dialog-content"
+           ActionsClass="transactions-dialog-actions"
+           Options="@(new DialogOptions()
             {
                 BackdropClick = true,
                 CloseOnEscapeKey = true,
                 FullScreen = true,
                 FullWidth = true,
+                BackgroundClass = "transactions-dialog-background",
             })"
             >
     <TitleContent>
-        Transactions
+        <div class="transactions-dialog-heading">
+            <div class="transactions-dialog-intro">
+                <MudText Typo="Typo.overline" Class="transactions-dialog-kicker">Money trail</MudText>
+                <MudText Typo="Typo.h4" Class="transactions-dialog-name">@Child.Name's transactions</MudText>
+                <MudText Typo="Typo.body2" Class="transactions-dialog-description">
+                    Every allowance, saving and spend in one easy-to-follow view.
+                </MudText>
+            </div>
+            <div class="transactions-balance-card" aria-label="Current balance">
+                <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Size="Size.Medium" aria-hidden="true" />
+                <div>
+                    <MudText Typo="Typo.caption" Class="transactions-balance-label">Current balance</MudText>
+                    <MudText Typo="Typo.h6" Class="transactions-balance-value">@Child.Balance.ToString("C2")</MudText>
+                </div>
+            </div>
+        </div>
     </TitleContent>
     <DialogContent>
-        <ChildTransactionsTable Child="Child" HideRegularTransactions="_hideRegularTransactions"></ChildTransactionsTable>
+        <div class="transactions-dialog-shell">
+            <div class="transactions-toolbar">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Class="transactions-toolbar-title">Money in and out</MudText>
+                    <MudText Typo="Typo.body2" Class="transactions-toolbar-copy">
+                        Follow the choices behind the balance.
+                    </MudText>
+                </div>
+                <MudCheckBox T="bool"
+                             @bind-Value="_hideRegularTransactions"
+                             Color="Color.Primary"
+                             Class="transactions-filter">
+                    Hide daily allowances
+                </MudCheckBox>
+            </div>
+            <ChildTransactionsTable Child="Child" HideRegularTransactions="_hideRegularTransactions"></ChildTransactionsTable>
+        </div>
     </DialogContent>
     <DialogActions>
-        <MudCheckBox T="bool" @bind-Value="_hideRegularTransactions">Hide Regular</MudCheckBox>
-        <MudButton OnClick="() => MudDialog.Close()">Close</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => MudDialog.Close()">Done</MudButton>
     </DialogActions>
 </MudDialog>

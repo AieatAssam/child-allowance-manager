@@ -81,4 +81,17 @@ public partial class ChildTransactionsTable : CancellableComponentBase
     Guid IBrowserViewportObserver.Id { get; } = Guid.NewGuid();
 
     private bool IsSmallSize { get; set; } = false;
+
+    private static string FormatTransactionType(TransactionType type) => type switch
+    {
+        TransactionType.DailyAllowance => "Allowance",
+        TransactionType.BirthdayAllowance => "Birthday bonus",
+        TransactionType.Withdrawal => "Spend",
+        TransactionType.Deposit => "Added money",
+        TransactionType.Transfer => "Transfer",
+        TransactionType.Adjustment => "Adjustment",
+        TransactionType.Interest => "Interest",
+        TransactionType.Hold => "On hold",
+        _ => "Other"
+    };
 }

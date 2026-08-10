@@ -11,6 +11,7 @@
             <MudText Typo="Typo.caption">@($"{Child.Balance:C2} + {Amount:C2} = {Child.Balance + Amount:C2}")</MudText>
             <MudTooltip Text="Round Up">
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowCircleUp"
+                               aria-label="Round up amount"
                                Color="Color.Success"
                                OnClick="RoundUp"></MudIconButton>
             </MudTooltip>

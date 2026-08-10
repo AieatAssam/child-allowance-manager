@@ -22,10 +22,13 @@ public class DailyAllowanceJob(
             var children = await childService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
             foreach (var child in children)
             {
-                if (child.NextRegularChangeDate.UtcDateTime.Date > (context.ScheduledFireTimeUtc ?? DateTime.UtcNow).Date)
+                var scheduledDate = (context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow).Date;
+                var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
+                    child.Id, child.TenantId, context.CancellationToken);
+                if (child.HoldDaysRemaining > 0 ||
+                    latestRegular?.TransactionTimestamp.UtcDateTime.Date >= scheduledDate)
                 {
-                    // in the future, skip
-                    logger.LogWarning($"Skipping daily allowance for {child.Name} as the next due date is {child.NextRegularChangeDate} and the current time is {context.ScheduledFireTimeUtc}");
+                    logger.LogWarning($"Skipping daily allowance for {child.Name} as it is held or already paid for {scheduledDate:yyyy-MM-dd}");
                     continue;
                 }
 

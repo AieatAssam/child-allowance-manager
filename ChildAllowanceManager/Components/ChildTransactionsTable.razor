@@ -2,8 +2,9 @@
 @implements IBrowserViewportObserver
 
 
-<div>
-<MudTable @ref="@_table" 
+<div class="transactions-table-shell">
+<MudTable @ref="@_table"
+          Class="transactions-table"
           RowsPerPage="25" 
           Hover="true" 
           Breakpoint="Breakpoint.Sm" 
@@ -12,45 +13,41 @@
           ServerData="RetrievePage"
 >
     <HeaderContent>
-        <MudTh>Date</MudTh>
-        <MudTh>Time</MudTh>
-        <MudTh>Amount</MudTh>
-        <MudTh>Description</MudTh>
-        <MudTh>Balance After</MudTh>
+        <MudTh>When</MudTh>
+        <MudTh>Movement</MudTh>
+        <MudTh>Details</MudTh>
+        <MudTh>Balance after</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Date">@context.TransactionTimestamp.Date.ToString("d")</MudTd>
-        <MudTd DataLabel="Time">@context.TransactionTimestamp.ToString("t")</MudTd>
-        <MudTd DataLabel="Amount">
-            @if (context.TransactionAmount == 0m)
-            {
-                <MudText Color="Color.Error" Style="text-align: right;">--</MudText>
-            }
-            else
-            {
-                <MudNumericField
-                    Format="C2"
-                    ReadOnly="true"
-                    HideSpinButtons="true"
-                    Underline="false"
-                    Value="@context.TransactionAmount"
-                    Variant="Variant.Text"
-                    Style="font-size: 0.875rem; font-weight: bold;"
-                    Class="@(context.TransactionAmount > 0 ? "positive-amount" : "negative-amount")"/>
-                
-            }
+        @{ var localTime = context.TransactionTimestamp.ToLocalTime(); }
+        <MudTd DataLabel="When" Class="transaction-when">
+            <MudText Class="transaction-date">@localTime.ToString("ddd, d MMM")</MudText>
+            <MudText Class="transaction-time">@localTime.ToString("t")</MudText>
         </MudTd>
-        <MudTd DataLabel="Description">@context.Description</MudTd>
-        <MudTd DataLabel="Balance">
-            <MudNumericField Format="C2" 
-                             ReadOnly="true" 
-                             HideSpinButtons="true" 
-                             Underline="false"
-                             Value="@context.Balance" 
-                             Variant="Variant.Text"
-                             Style="font-size: 0.875rem"
-                             Class="@(context.Balance > 0 ? "positive-amount" : "negative-amount")"
-            />
+        <MudTd DataLabel="Movement" Class="transaction-movement-cell">
+            <div class="transaction-movement @(context.TransactionAmount > 0 ? "transaction-in" : context.TransactionAmount < 0 ? "transaction-out" : "transaction-neutral")">
+                <span class="transaction-direction" aria-hidden="true">
+                    <MudIcon Icon="@(context.TransactionAmount > 0 ? Icons.Material.Filled.ArrowUpward : context.TransactionAmount < 0 ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.Remove)" Size="Size.Small" />
+                </span>
+                <div>
+                    <MudText Class="transaction-amount">
+                        @(context.TransactionAmount > 0 ? "+" : "")@context.TransactionAmount.ToString("C2")
+                    </MudText>
+                    <MudText Class="transaction-movement-label">
+                        @(context.TransactionAmount > 0 ? "Money in" : context.TransactionAmount < 0 ? "Money out" : "No change")
+                    </MudText>
+                </div>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Details" Class="transaction-details">
+            <MudText Class="transaction-description">@context.Description</MudText>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="transaction-type-chip">
+                @FormatTransactionType(context.TransactionType)
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Balance after" Class="transaction-balance-cell">
+            <MudText Class="transaction-balance">@context.Balance.ToString("C2")</MudText>
+            <MudText Class="transaction-balance-caption">after this</MudText>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>

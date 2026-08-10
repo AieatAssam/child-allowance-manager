@@ -7,7 +7,17 @@
 }
 else
 {
-    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">Please log in or use your secret link to access</MudAlert>
+    <div class="home-state">
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="home-alert">
+            <MudText Typo="Typo.body1">Please log in or use your secret link to access.</MudText>
+            @if (Environment.IsDevelopment())
+            {
+                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-3">
+                    Use local demo account
+                </MudButton>
+            }
+        </MudAlert>
+    </div>
 }
 
 @code {

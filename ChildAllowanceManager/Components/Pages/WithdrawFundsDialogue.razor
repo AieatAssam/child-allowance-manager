@@ -6,10 +6,12 @@
                              @bind-Value="Amount"
                              Min="0.1m"
                              InputMode="@(InputMode.@decimal)"
-                             Required="true"/>
+                             Required="true"
+                             Immediate="true"/>
             <MudTextField Label="Description"
                           @bind-Value="Description"
-                          Required="true"/>
+                          Required="true"
+                          Immediate="true"/>
         </MudForm>
     </DialogContent>
     <DialogActions>

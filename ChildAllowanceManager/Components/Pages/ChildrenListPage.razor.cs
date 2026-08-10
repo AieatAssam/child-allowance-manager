@@ -12,14 +12,19 @@ using Plotly.Blazor.LayoutLib.YAxisLib;
 using Plotly.Blazor.Traces;
 using Plotly.Blazor.Traces.ScatterLib;
 using Font = Plotly.Blazor.LayoutLib.Font;
+using HoverModeEnum = Plotly.Blazor.LayoutLib.HoverModeEnum;
+using LegendOrientationEnum = Plotly.Blazor.LayoutLib.LegendLib.OrientationEnum;
 using Margin = Plotly.Blazor.LayoutLib.Margin;
-using OrientationEnum = Plotly.Blazor.Traces.ScatterLib.OrientationEnum;
+using Line = Plotly.Blazor.Traces.ScatterLib.Line;
+using Marker = Plotly.Blazor.Traces.ScatterLib.Marker;
 using Title = Plotly.Blazor.LayoutLib.YAxisLib.Title;
 
 namespace ChildAllowanceManager.Components.Pages;
 
 public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
+    private static readonly string[] ChartColors = ["#8B5CF6", "#F59E0B", "#14B8A6", "#EC4899"];
+
     [Inject] 
     private ITenantService TenantService { get; set; } = default!;
     
@@ -61,6 +66,12 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private string? _tenantId = null;
     private ChildWithBalance[]? Children = null;
+    private readonly SemaphoreSlim _dataGate = new(1, 1);
+    private readonly SemaphoreSlim _parametersGate = new(1, 1);
+    private bool _balanceHistoryNeedsSync = true;
+    private bool _plotlyThemeNeedsSync;
+    private bool _plotlyThemeIsDarkMode;
+    private string _plotlySurfaceColor = "#FFFFFF";
 
     #region Plotly
     private Config _plotlyConfig = new()
@@ -77,15 +88,31 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     private Plotly.Blazor.Layout _plotlyLayout = new()
     {
         ShowLegend = true,
+        HoverMode = HoverModeEnum.XUnified,
         YAxis = new List<YAxis>(){ new Plotly.Blazor.LayoutLib.YAxis()
             {
                 TickPrefix = "£",
                 ShowTickPrefix = ShowTickPrefixEnum.All,
                 ShowTickLabels = true,
+                TickFormat = ",.0f",
+                GridColor = "rgba(148, 163, 184, .18)",
+                GridWidth = 1,
+                ZeroLine = true,
+                ZeroLineColor = "rgba(148, 163, 184, .38)",
+                ZeroLineWidth = 1,
+                ShowLine = false,
+            }
+        },
+        XAxis = new List<XAxis>(){ new Plotly.Blazor.LayoutLib.XAxis()
+            {
+                ShowGrid = false,
+                ShowLine = false,
+                TickFormat = "%b %-d",
+                TickAngle = 0,
             }
         },
         AutoSize = true,
-        Margin = new Margin() { T = 40, R = 40, B = 40, L = 40},
+        Margin = new Margin() { T = 24, R = 24, B = 52, L = 58},
         Legend = new List<Legend>()
         {
             new Legend()
@@ -93,7 +120,8 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 X = 0,
                 Y = 1,
                 XAnchor = XAnchorEnum.Left,
-                YAnchor = YAnchorEnum.Top
+                YAnchor = YAnchorEnum.Top,
+                Orientation = LegendOrientationEnum.H,
             }
         },
     };
@@ -106,15 +134,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     protected override async Task OnInitializedAsync()
     {
         
-        Palette palette = ThemeConfiguration.IsDarkMode
-            ? ThemeConfiguration.Theme.PaletteDark
-            : ThemeConfiguration.Theme.PaletteLight;
-        _plotlyLayout.PaperBgColor = palette.Surface.ToString();
-        _plotlyLayout.PlotBgColor = palette.Surface.ToString();
-        _plotlyLayout.Font = new Font
-        {
-            Color = palette.TextPrimary.ToString()
-        };
+        ApplyPlotlyTheme();
         
         TenantNotificationService.ChildStateChanged += ChildStateChangedNotification;
 
@@ -137,21 +157,45 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!string.IsNullOrWhiteSpace(TenantSuffix))
+        if (_plotlyThemeIsDarkMode != ThemeConfiguration.IsDarkMode)
         {
-            var tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
-            if (tenant is null)
-            {
-                Navigation.NavigateTo("/error/404");
-                return;
-            }
-
-            _tenantId = tenant.Id;
-            
-            await ReloadChildren();
+            ApplyPlotlyTheme();
+            _plotlyThemeIsDarkMode = ThemeConfiguration.IsDarkMode;
+            _plotlyThemeNeedsSync = true;
         }
 
-        await base.OnParametersSetAsync();
+        await _parametersGate.WaitAsync(CancellationToken);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(TenantSuffix))
+            {
+                TenantConfiguration? tenant;
+                await _dataGate.WaitAsync(CancellationToken);
+                try
+                {
+                    tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+                }
+                finally
+                {
+                    _dataGate.Release();
+                }
+
+                if (tenant is null)
+                {
+                    Navigation.NavigateTo("/error/404");
+                    return;
+                }
+
+                _tenantId = tenant.Id;
+                await ReloadChildren();
+            }
+
+            await base.OnParametersSetAsync();
+        }
+        finally
+        {
+            _parametersGate.Release();
+        }
     }
 
     private bool _contextUpdated = false;
@@ -160,12 +204,53 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         if (_tenantId is not null && !_contextUpdated)
         {
             await LocalStorage.SetAsync("current_tenant", _tenantId);
+            await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix);
             CurrentContextService.SetCurrentTenant(_tenantId);
             Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
             _contextUpdated = true;
         }
 
-        await SyncChildBalanceHistorySeries();
+        if (_balanceHistoryNeedsSync)
+        {
+            _balanceHistoryNeedsSync = false;
+            await SyncChildBalanceHistorySeries();
+        }
+
+        if (_plotlyThemeNeedsSync && _plotlyData.Count > 0)
+        {
+            _plotlyThemeNeedsSync = false;
+            await _plotlyChart.React(CancellationToken);
+        }
+    }
+
+    private void ApplyPlotlyTheme()
+    {
+        Palette palette = ThemeConfiguration.IsDarkMode
+            ? ThemeConfiguration.Theme.PaletteDark
+            : ThemeConfiguration.Theme.PaletteLight;
+        string surfaceColor = palette.Surface.ToString();
+        string textColor = palette.TextPrimary.ToString();
+        string mutedColor = palette.TextSecondary.ToString();
+        _plotlyLayout.PaperBgColor = surfaceColor;
+        _plotlyLayout.PlotBgColor = surfaceColor;
+        _plotlyLayout.Font = new Font { Color = textColor };
+        _plotlySurfaceColor = surfaceColor;
+
+        if (_plotlyLayout.YAxis?.FirstOrDefault() is YAxis yAxis)
+        {
+            yAxis.TickColor = mutedColor;
+            yAxis.GridColor = ThemeConfiguration.IsDarkMode
+                ? "rgba(255, 255, 255, .12)"
+                : "rgba(23, 32, 51, .10)";
+            yAxis.ZeroLineColor = ThemeConfiguration.IsDarkMode
+                ? "rgba(255, 255, 255, .32)"
+                : "rgba(23, 32, 51, .26)";
+        }
+
+        if (_plotlyLayout.XAxis?.FirstOrDefault() is XAxis xAxis)
+        {
+            xAxis.TickColor = mutedColor;
+        }
     }
 
     private async Task ReloadChildren()
@@ -174,8 +259,18 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             return;
         }
-        Children = (await ChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
-        StateHasChanged();
+
+        await _dataGate.WaitAsync(CancellationToken);
+        try
+        {
+            Children = (await ChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray();
+            _balanceHistoryNeedsSync = true;
+            StateHasChanged();
+        }
+        finally
+        {
+            _dataGate.Release();
+        }
     }
 
     async Task SyncChildBalanceHistorySeries()
@@ -185,34 +280,61 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             return;
         }
 
-        var balanceHistory = await ChildService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
-        bool changesFound = false;
-        foreach (var child in balanceHistory)
+        await _dataGate.WaitAsync(CancellationToken);
+        try
         {
+            var balanceHistory = await ChildService.GetChildrenWithBalanceHistory(_tenantId, null, null, CancellationToken);
+            bool changesFound = false;
+            foreach (var (child, index) in balanceHistory.Select((child, index) => (child, index)))
+            {
+                string chartColor = ChartColors[index % ChartColors.Length];
 
-            var existingTrace = _plotlyData.Cast<Scatter>().FirstOrDefault((t) => t.Name == child.ChildName);
-            if (existingTrace is null)
-            {
-                changesFound = true;
-                _plotlyData.Add(new Plotly.Blazor.Traces.Scatter()
+                var existingTrace = _plotlyData.Cast<Scatter>().FirstOrDefault((t) => t.Name == child.ChildName);
+                if (existingTrace is null)
                 {
-                    Name = child.ChildName,
-                    X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList(),
-                    Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray(),
-                    Mode = ModeFlag.Lines,
-                    Fill = FillEnum.ToZeroY,
-                    XCalendar = XCalendarEnum.Gregorian,
-                });
+                    changesFound = true;
+                    _plotlyData.Add(new Plotly.Blazor.Traces.Scatter()
+                    {
+                        Name = child.ChildName,
+                        X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList(),
+                        Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray(),
+                        Mode = ModeFlag.Lines | ModeFlag.Markers,
+                        Line = new Line
+                        {
+                            Color = chartColor,
+                            Width = 3,
+                        },
+                        Marker = new Marker
+                        {
+                            Color = chartColor,
+                            Size = 8,
+                            Line = new Plotly.Blazor.Traces.ScatterLib.MarkerLib.Line
+                            {
+                                Color = _plotlySurfaceColor,
+                                Width = 2,
+                            }
+                        },
+                        Fill = index == 0 ? FillEnum.ToZeroY : FillEnum.None,
+                        FillColor = index == 0 ? "rgba(139, 92, 246, .12)" : "rgba(245, 158, 11, 0)",
+                        HoverTemplate = $"<b>{child.ChildName}</b><br>%{{x|%b %-d, %Y}}<br>Balance: £%{{y:,.2f}}<extra></extra>",
+                        XCalendar = XCalendarEnum.Gregorian,
+                    });
+                }
+                else if (existingTrace.X.Count != child.BalanceHistory.Length)
+                {
+                    changesFound = true;
+                    existingTrace.X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList();
+                    existingTrace.Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray();
+                }
             }
-            else if (existingTrace.X.Count != child.BalanceHistory.Length)
-            {
-                changesFound = true;
-                existingTrace.X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList();
-                existingTrace.Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray();
-            }
+
+            if (changesFound)
+                await _plotlyChart.React(CancellationToken);
         }
-        if (changesFound)
-            await _plotlyChart.React(CancellationToken);
+        finally
+        {
+            _dataGate.Release();
+        }
     }
     
     

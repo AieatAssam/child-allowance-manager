@@ -37,11 +37,7 @@ public partial class MainLayout
             _user = authState.User;
         }
 
-        _themeConfiguration = new ThemeConfiguration
-        {
-            IsDarkMode = _useDarkMode,
-            Theme = _themeProvider?.Theme ?? new()
-        };
+        _themeConfiguration.IsDarkMode = _useDarkMode;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -64,11 +60,7 @@ public partial class MainLayout
             // system light/dark theme support,
             // based on example from https://crispycode.net/exploring-the-mudthemeprovider-in-mudblazor/
             _useDarkMode = await _themeProvider.GetSystemDarkModeAsync();
-            _themeConfiguration = new ThemeConfiguration
-            {
-                IsDarkMode = _useDarkMode,
-                Theme = _themeProvider.Theme ?? new()
-            };
+            _themeConfiguration.IsDarkMode = _useDarkMode;
             await _themeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
             StateHasChanged();
         }
@@ -77,11 +69,7 @@ public partial class MainLayout
     private Task OnSystemPreferenceChanged(bool newValue)
     {
         _useDarkMode = newValue;
-        _themeConfiguration = new ThemeConfiguration
-        {
-            IsDarkMode = _useDarkMode,
-            Theme = _themeProvider.Theme ?? new()
-        };
+        _themeConfiguration.IsDarkMode = _useDarkMode;
         StateHasChanged();
         return Task.CompletedTask;
     }

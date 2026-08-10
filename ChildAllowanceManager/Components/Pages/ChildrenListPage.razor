@@ -6,19 +6,30 @@
 
 <PageTitle>Allowance dashboard</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
-    <div class="page-heading">
-        <div>
-            <MudText Typo="Typo.overline" Class="page-kicker">Allowance dashboard</MudText>
-            <MudText Typo="Typo.h3" Class="page-title">Your money, your goals</MudText>
-            <MudText Color="Color.Secondary">See what you have saved and what is coming next.</MudText>
-        </div>
-        <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.AutoAwesome">
-            Small steps add up
-        </MudChip>
+<div class="dashboard-view">
+    <div class="dashboard-backdrop" aria-hidden="true">
+        <span class="dashboard-ribbon dashboard-ribbon-one"></span>
+        <span class="dashboard-ribbon dashboard-ribbon-two"></span>
+        <span class="dashboard-ribbon dashboard-ribbon-three"></span>
+        <span class="dashboard-orb dashboard-orb-one"></span>
+        <span class="dashboard-orb dashboard-orb-two"></span>
+        <span class="dashboard-spark dashboard-spark-one"></span>
+        <span class="dashboard-spark dashboard-spark-two"></span>
     </div>
 
-    <MudGrid Spacing="3">
+    <MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
+        <div class="page-heading">
+            <div class="page-heading-copy">
+                <MudText Typo="Typo.overline" Class="page-kicker">Pocket money</MudText>
+                <MudText Typo="Typo.h3" Class="page-title">Money in. Money out.</MudText>
+                <MudText Color="Color.Secondary">See what’s saved, what’s spent, and what’s next.</MudText>
+            </div>
+            <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WbSunny">
+                Today at a glance
+            </MudChip>
+        </div>
+
+        <MudGrid Spacing="3">
         @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
         {
             <MudItem xs="12" sm="6" lg="4">
@@ -66,7 +77,7 @@
                         </div>
                     </MudCardContent>
                     <MudCardActions Class="child-card-actions">
-                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ReceiptLong"
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ReceiptLong"
                                    OnClick="() => ShowTransactionsForChild(child)">
                             History
                         </MudButton>
@@ -98,14 +109,18 @@
                     <div>
                         <MudText Typo="Typo.h5">Balance over time</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            Follow each balance and spot progress at a glance.
+                            Follow the ups, downs, and spending choices behind each balance.
                         </MudText>
                     </div>
-                    <MudTooltip Text="Lines show the balance after each recorded change. A flat section means no money moved.">
-                        <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Primary" aria-label="Explain the chart" />
-                    </MudTooltip>
+                    <MudChip T="string" Color="Color.Tertiary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Insights">
+                        Compare balances
+                    </MudChip>
                 </div>
-                <div class="chart-frame">
+                <div class="chart-note" id="balance-chart-description">
+                    <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
+                    <span>Hover a point to compare balances on the same day.</span>
+                </div>
+                <div class="chart-frame" role="img" aria-label="Balance over time chart" aria-describedby="balance-chart-description">
                     <PlotlyChart @bind-Config="_plotlyConfig"
                                  @bind-Layout="_plotlyLayout"
                                  @bind-Data="_plotlyData"
@@ -113,5 +128,6 @@
                 </div>
             </MudPaper>
         </MudItem>
-    </MudGrid>
-</MudContainer>
+        </MudGrid>
+    </MudContainer>
+</div>

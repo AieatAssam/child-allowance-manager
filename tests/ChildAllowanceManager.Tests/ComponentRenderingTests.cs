@@ -78,6 +78,10 @@ public class ComponentRenderingTests
         Assert.Equal(1, transactions.LastPage);
         Assert.Equal(25, transactions.LastPageSize);
         Assert.False(transactions.LastIgnoreDailyAllowance);
+        Assert.Contains("Money in", cut.Markup);
+        Assert.Contains("Added money", cut.Markup);
+        Assert.DoesNotContain("positive-amount", cut.Markup);
+        Assert.DoesNotContain("negative-amount", cut.Markup);
     }
 
     private sealed class FakeUserService : IUserService

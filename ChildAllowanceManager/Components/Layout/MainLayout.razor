@@ -4,19 +4,20 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inherits LayoutComponentBase
 
-<MudThemeProvider @ref="@_themeProvider" @bind-IsDarkMode="@_useDarkMode"/>
+<MudThemeProvider @ref="@_themeProvider" Theme="@_themeConfiguration.Theme" @bind-IsDarkMode="@_useDarkMode"/>
 <MudPopoverProvider/>
 <MudDialogProvider/>
 <MudSnackbarProvider/>
 
 <MudLayout>
     <MudAppBar Elevation="0" Class="app-bar">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())"/>
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       aria-label="Toggle navigation" OnClick="@((e) => DrawerToggle())"/>
         <MudText Typo="Typo.h5" Class="ml-3 app-brand">Allowance Manager</MudText>
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>
-                <MudMenu Icon="fa-solid fa-user" Color="Color.Inherit">
+                <MudMenu Icon="fa-solid fa-user" Color="Color.Inherit" aria-label="Account menu">
                     <MudMenuItem Icon="@Icons.Material.Filled.VerifiedUser">
                         @context.User.Identity?.Name
                     </MudMenuItem>
