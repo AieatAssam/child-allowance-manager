@@ -323,10 +323,10 @@ tasks:
     title: Add dotnet-ef local tool manifest
     depends_on: []
     files_touched: [.config/dotnet-tools.json]
-    status: blocked
+    status: done
     owner: cavecrew-builder
-    updated: 2026-08-10T21:18:35Z
-    result: "Blocked: uncommitted P00-T2 files are outside P00-T1 files_touched."
+    updated: 2026-08-10T21:22:36Z
+    result: "Manifest JSON/pin and .gitignore checks pass; dotnet restore/version unavailable because dotnet is not installed."
 
   - id: P00-T2
     phase: P00
