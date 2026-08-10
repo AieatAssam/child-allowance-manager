@@ -910,10 +910,10 @@ tasks:
       - ChildAllowanceManager/Components/Pages/Home.razor.cs
       - ChildAllowanceManager/Program.cs
     mutex: [program-cs, children-list-page]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p08
+    updated: 2026-08-10T23:39:17Z
+    result: "Added stateless tenant authorization and replaced page/Program claim arithmetic; Home's stale P07 anchor was already absent, and TenantService's existing service-level admin filter remains for T5 verification. git diff --check passes; dotnet unavailable for build."
 
   - id: P08-T4
     phase: P08

@@ -20,6 +20,9 @@ public partial class ChildManagementPage : CancellableComponentBase
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
 
+    [Inject]
+    private ITenantAuthorizationService TenantAuthorization { get; set; } = default!;
+
     private string? _tenantId { get; set; }
 
     [Parameter]
@@ -59,7 +62,7 @@ public partial class ChildManagementPage : CancellableComponentBase
             if (AuthenticationState is not null)
             {
                 var user = (await AuthenticationState).User;
-                if (!user.IsInRole(ValidRoles.Admin) && !user.HasClaim(CustomClaimTypes.Tenant, tenant.Id))
+                if (!TenantAuthorization.CanManage(user, tenant.Id))
                 {
                     Navigation.NavigateTo("/");
                     return;

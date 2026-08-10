@@ -119,9 +119,12 @@ if (!builder.Environment.IsDevelopment())
         options.Events.OnTicketReceived += async context =>
         {
             var tenant = context.Request.Cookies.TryGetValue("current_tenant", out var currentTenant) ? currentTenant : null;
+            var canViewTenant = tenant is not null && context.Principal is not null &&
+                context.HttpContext.RequestServices.GetRequiredService<ITenantAuthorizationService>()
+                    .CanView(context.Principal, tenant);
 
             if (!string.IsNullOrEmpty(tenant) &&
-                context.Principal?.HasClaim(CustomClaimTypes.Tenant, tenant) == true &&
+                canViewTenant &&
                 string.IsNullOrEmpty(context.ReturnUri?.Trim('/')))
             {
                 // no return uri specified, so set one for user's tenant
@@ -177,6 +180,7 @@ builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();

@@ -55,6 +55,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     [Inject]
     private IServiceScopeFactory ServiceScopeFactory { get; set; } = default!;
 
+    [Inject]
+    private ITenantAuthorizationService TenantAuthorization { get; set; } = default!;
+
     [Parameter]
     public string? TenantSuffix { get; set; }
 
@@ -62,6 +65,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     public ThemeConfiguration ThemeConfiguration { get; set; } = default!;
     
     private string? _tenantId = null;
+    private bool CanManageCurrentTenant;
     private ChildWithBalance[]? Children = null;
     private readonly SemaphoreSlim _dataGate = new(1, 1);
     private readonly SemaphoreSlim _parametersGate = new(1, 1);
@@ -198,6 +202,8 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                     Navigation.NavigateTo("/");
                     return;
                 }
+                CanManageCurrentTenant = AuthenticationState is null ||
+                    TenantAuthorization.CanManage((await AuthenticationState).User, tenant.Id);
                 if (previousTenantId != tenant.Id)
                 {
                     _contextUpdated = false;
@@ -414,7 +420,6 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     {
         if (AuthenticationState is null)
             return true;
-        var user = (await AuthenticationState).User;
-        return user.IsInRole(ValidRoles.Admin) || user.HasClaim(CustomClaimTypes.Tenant, tenantId);
+        return TenantAuthorization.CanView((await AuthenticationState).User, tenantId);
     }
 }
