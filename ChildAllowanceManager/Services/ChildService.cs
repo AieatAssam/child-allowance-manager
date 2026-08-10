@@ -191,7 +191,7 @@ public class ChildService(
             TenantId = tenantId,
             TransactionAmount = 0,
             TransactionType = TransactionType.Hold,
-            Description = $"{description} ({days} days)",
+            Description = string.IsNullOrWhiteSpace(description) ? string.Empty : $"{description} ({days} days)",
             RequestId = requestId
         }, cancellationToken);
         await dbTransaction.CommitAsync(cancellationToken);
