@@ -378,10 +378,10 @@ tasks:
     files_touched:
       - ChildAllowanceManager/appsettings.json
       - ChildAllowanceManager/appsettings.Development.json
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p01
+    updated: 2026-08-10T21:34:00Z
+    result: "Production AllowedHosts is allowance-manager.azurewebsites.net and development retains '*'; verification confirms no production wildcard. Configuration was included in the T1 appsettings change."
 
   - id: P01-T4
     phase: P01
