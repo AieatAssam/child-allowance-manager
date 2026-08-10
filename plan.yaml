@@ -265,7 +265,7 @@ phases:
     file: docs/plan/phase-06-ui-resilience.yaml
     title: Error containment, busy states, success confirmations, preserved input
     depends_on: [P04]
-    status: pending
+    status: done
 
   - id: P07
     file: docs/plan/phase-07-tenant-switcher.yaml
