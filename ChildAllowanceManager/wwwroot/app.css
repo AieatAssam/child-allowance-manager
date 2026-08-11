@@ -1,4 +1,7 @@
 :root {
+    --app-background: var(--color-paper, #f7f8fc);
+    --app-foreground: var(--color-ink, #172033);
+    --app-accent: var(--color-accent, #1f6f5b);
     --app-bg: var(--mud-palette-background, #f7f8fc);
     --app-ink: var(--mud-palette-text-primary, #172033);
     --app-muted: var(--mud-palette-text-secondary, #5b657a);
@@ -9,6 +12,11 @@
     --motion-fast: 160ms;
     --motion-smooth: 280ms;
     --motion-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+body {
+    background: var(--app-background);
+    color: var(--app-foreground);
 }
 
 html, body {
