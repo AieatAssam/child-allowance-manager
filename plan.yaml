@@ -1189,10 +1189,10 @@ tasks:
       - ChildAllowanceManager/Components/Layout/MainLayout.razor
       - ChildAllowanceManager/Components/Layout/NavMenu.razor
     mutex: children-list-page
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T01:25:00Z
+    result: "Marked decorative standalone icons and avatars hidden, corrected the add-family label, and replaced the malformed login icon markup with an accessible Sign in button."
 
   - id: P11-T4
     phase: P11

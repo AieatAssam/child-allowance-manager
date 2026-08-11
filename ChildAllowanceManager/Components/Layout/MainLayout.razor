@@ -28,12 +28,8 @@
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
-                <MudLink Color="Color.Inherit"
-                         Typo="Typo.inherit"
-                         Class="mr-2"
-                         Href="/login">
-                    <MudIcon Icon="@Icons.Material.Filled.Login">Login</MudIcon>
-                </MudLink>
+                <MudButton Color="Color.Inherit" Variant="Variant.Text" Class="mr-2" Href="/login"
+                           StartIcon="@Icons.Material.Filled.Login" aria-label="Sign in">Sign in</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>

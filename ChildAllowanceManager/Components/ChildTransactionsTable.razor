@@ -27,7 +27,7 @@
             <div class="transaction-movement @(context.TransactionAmount > 0 ? "transaction-in" : context.TransactionAmount < 0 ? "transaction-out" : "transaction-neutral")"
                  aria-label="@(context.TransactionAmount > 0 ? "Money in" : context.TransactionAmount < 0 ? "Money out" : "No change")">
                 <span class="transaction-direction" aria-hidden="true">
-                    <MudIcon Icon="@(context.TransactionAmount > 0 ? Icons.Material.Filled.ArrowUpward : context.TransactionAmount < 0 ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.Remove)" Size="Size.Small" />
+                    <MudIcon Icon="@(context.TransactionAmount > 0 ? Icons.Material.Filled.ArrowUpward : context.TransactionAmount < 0 ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.Remove)" Size="Size.Small" aria-hidden="true" />
                 </span>
                 <MudText Class="transaction-amount">
                     @(context.TransactionAmount > 0 ? "+" : "")@context.TransactionAmount.ToString("C2")

@@ -29,7 +29,7 @@
             <MudItem xs="12" sm="6" lg="4">
                 <MudCard Class="child-card" Elevation="0" Outlined="true">
                     <MudCardHeader>
-                        <MudAvatar Class="child-avatar" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Primary)">
+                        <MudAvatar Class="child-avatar" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Primary)" aria-hidden="true">
                             @child.Name[0]
                         </MudAvatar>
                         <div class="child-card-heading">
@@ -63,7 +63,7 @@
                         }
 
                         <div class="next-allowance">
-                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Success" />
+                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Success" aria-hidden="true" />
                             <div>
                                 <MudText Typo="Typo.body2">Next allowance</MudText>
                                 <MudText Typo="Typo.body2">
