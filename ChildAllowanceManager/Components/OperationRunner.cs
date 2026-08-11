@@ -44,26 +44,26 @@ public sealed class OperationRunner(ISnackbar snackbar, ILogger<OperationRunner>
         {
             var value = await action();
             if (successMessage is not null)
-                snackbar.Add(successMessage, Severity.Success);
+                snackbar.Add(successMessage, MudBlazor.Severity.Success);
             return (OperationOutcome.Success, value);
         }
         catch (ValidationException ex)
         {
             var message = string.Join(" ", ex.Errors.Select(error => error.ErrorMessage));
             logger.LogInformation(ex, "Validation failed while running an operation.");
-            snackbar.Add(message, Severity.Warning);
+            snackbar.Add(message, MudBlazor.Severity.Warning);
             return (new OperationOutcome(false, message), default);
         }
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "Invalid operation while running an operation.");
-            snackbar.Add(ex.Message, Severity.Warning);
+            snackbar.Add(ex.Message, MudBlazor.Severity.Warning);
             return (new OperationOutcome(false, ex.Message), default);
         }
         catch (KeyNotFoundException ex)
         {
             logger.LogWarning(ex, "Missing item while running an operation.");
-            snackbar.Add(ex.Message, Severity.Warning);
+            snackbar.Add(ex.Message, MudBlazor.Severity.Warning);
             return (new OperationOutcome(false, ex.Message), default);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -73,7 +73,7 @@ public sealed class OperationRunner(ISnackbar snackbar, ILogger<OperationRunner>
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected failure while running an operation.");
-            snackbar.Add(failureMessage, Severity.Error);
+            snackbar.Add(failureMessage, MudBlazor.Severity.Error);
             return (new OperationOutcome(false, failureMessage), default);
         }
     }

@@ -90,7 +90,7 @@ public partial class PeoplePage : CancellableComponentBase
             return;
 
         var outcome = await RunAsync(
-            () => MembershipService.RevokeAsync(membership.UserId, _tenantId, CancellationToken),
+            async () => await MembershipService.RevokeAsync(membership.UserId, _tenantId, CancellationToken),
             successMessage: "Person removed from this family.");
         if (outcome.Succeeded)
             await ReloadAsync();
@@ -102,7 +102,7 @@ public partial class PeoplePage : CancellableComponentBase
             return;
 
         var outcome = await RunAsync(
-            () => InvitationService.RevokeAsync(invitation.Id, _tenantId, CancellationToken),
+            async () => await InvitationService.RevokeAsync(invitation.Id, _tenantId, CancellationToken),
             successMessage: "Invitation withdrawn.");
         if (outcome.Succeeded)
             await ReloadAsync();

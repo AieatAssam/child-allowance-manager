@@ -11,13 +11,15 @@ else if (_tenants.Length > 1)
                 <span class="ml-1">@(_activeTenant?.TenantName ?? "Choose a family")</span>
             </MudButton>
         </ActivatorContent>
-        @foreach (var tenant in _tenants)
-        {
-            <MudMenuItem OnClick="@(() => SelectFamilyAsync(tenant))"
-                         Icon="@(tenant.Id == _activeTenant?.Id ? Icons.Material.Filled.Check : null)"
-                         aria-current="@(tenant.Id == _activeTenant?.Id ? "true" : null)">
-                @tenant.TenantName
-            </MudMenuItem>
-        }
+        <ChildContent>
+            @foreach (var tenant in _tenants)
+            {
+                <MudMenuItem OnClick="@(() => SelectFamilyAsync(tenant))"
+                             Icon="@(tenant.Id == _activeTenant?.Id ? Icons.Material.Filled.Check : null)"
+                             aria-current="@(tenant.Id == _activeTenant?.Id ? "true" : null)">
+                    @tenant.TenantName
+                </MudMenuItem>
+            }
+        </ChildContent>
     </MudMenu>
 }

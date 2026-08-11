@@ -46,8 +46,7 @@ public class ThemeConfiguration
             Warning = "#E9A36A",
             Error = "#E08D7B",
             Info = "#CDBCE2"
-        }
-    },
+        },
     Typography = new Typography
     {
         Default = new DefaultTypography
@@ -70,5 +69,6 @@ public class ThemeConfiguration
         {
             FontFamily = new[] { "Fraunces", "Georgia", "serif" }
         }
+    }
     };
 }

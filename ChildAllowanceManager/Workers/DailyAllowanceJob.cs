@@ -74,6 +74,7 @@ public class DailyAllowanceJob(
         {
             await childService.RemoveHoldDayAsync(
                 child.Id,
+                tenantId,
                 $"hold-decrement:{child.Id}:{scheduledDate:yyyy-MM-dd}",
                 cancellationToken);
         }
