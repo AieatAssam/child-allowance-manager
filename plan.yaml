@@ -1327,10 +1327,10 @@ tasks:
     title: README and configuration documentation refresh
     depends_on: [P12-T5]
     files_touched: [README.md]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p12-t6
+    updated: 2026-08-11T02:28:29Z
+    result: "Refreshed README documentation for deploy-time migrations, configuration, per-family time zones, product rules, tests, features, and brand token policy; avoided migration-on-start wording."
 
   # ---- P13 ---------------------------------------------------------------
   - id: P13-T1

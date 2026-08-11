@@ -1,38 +1,62 @@
 # Allowance Manager
 
-Allowance manager is an application for tracking child allowance and managing it semi-autonomously.
+Allowance Manager is an application for tracking child allowance and managing it semi-autonomously.
 
 ## Features
 
-- Multi-tenancy for independent tracking of multiple households
+- Family switcher for people who belong to more than one family
+- Invitations and family access management
 - Allowance tracking for multiple children
-- Support for parent actions
 - Configurable automatic daily allowance top-up
-- (_Optional_) Configurable birthday bonus allowance top-up
-- Allowance suspension for _n_-days
-- Visibility of all transactions
-- Parent login via existing Microsoft account (personal or work)
+- Optional configurable birthday bonus allowance top-up
+- Per-family time zone scheduling
+- Allowance suspension for _n_ days
+- Transaction history, export and correction
+- Reversible restore for deleted families and children
+- Parent login via an existing Microsoft account (personal or work)
 
 ## Requirements
 
 - .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
-- PostgreSQL 14+ database
+- PostgreSQL 14 or later
 - Azure App Registration for OAuth2 authentication
-- Blazor-compatible hosting (Azure App Service, etc.)
+- Blazor-compatible hosting (Azure App Service, for example)
+- Migrations are applied by a deploy step - see [Database](#database)
+
+## Database
+
+Apply database migrations explicitly with:
+
+```bash
+dotnet run --project ChildAllowanceManager -- --migrate
+```
+
+The command applies pending EF Core migrations and exits. The deployment workflow runs it before the production app deploy and then checks `/health/ready`; a pending migration or unavailable database leaves the app not ready. The regular `/health` endpoint is a database-free liveness probe.
+
+When `ASPNETCORE_ENVIRONMENT=Development`, the application applies migrations and seeds the local demo data automatically. The explicit `--migrate` command does not seed demo data.
 
 ## Configuration
 
-Configuration is done via `appsettings.json` or environment variables. Main settings that need to be populated are
-* **ConnectionStrings__Postgres** - PostgreSQL connection string
-* **AzureMonitor__ConnectionString** - connection string to Azure Monitor/Application Insights for logging
-* **AzureMonitor__Enabled** - set to `true` to enable Azure Monitor outside production
-* **Authentication__Microsoft__ClientId** and **Authentication__Microsoft__ClientSecret** - Azure App Registration credentials
+Configuration is read from `appsettings.json` and environment variables. Nested settings use `__` in environment variable names.
 
-The default allowed hosts are `localhost;127.0.0.1`; production deployments should override `AllowedHosts` with their real host names. Production database migrations run only when the app is started with `--migrate`; development applies migrations and seeds the local demo data automatically.
+- **ConnectionStrings__Postgres** - required PostgreSQL connection string.
+- **AzureMonitor__ConnectionString** - required in Production and optional in local Development. When supplied, it enables Azure Monitor/Application Insights. Other non-Development environments use the production startup validation and should set it too.
+- **Authentication__Microsoft__ClientId** and **Authentication__Microsoft__ClientSecret** - required outside Development for Microsoft account sign-in.
+- **FrameAncestors** - a JSON array of trusted embedding origins. The default empty array allows only `'self'`; add explicit origins when trusted embedding is needed. Wildcards are not allowed.
+- **AllowedHosts** - production defaults to `allowance-manager.azurewebsites.net`; override it with the deployed host names. Development uses `*` for local hostnames.
 
-Allowance scheduling and birthday checks use UTC; keep the deployment and household expectations aligned with that boundary.
+For example, an environment variable named `FrameAncestors__0` adds the first allowed origin. When deployed to Azure App Service, configure these values as application settings (environment variables).
 
-When deployed to Azure App Service, these settings are configured as Environment Variables.
+## Allowance schedule and family time zones
+
+Set each family's time zone in **Family settings**. The allowance job wakes hourly and checks each family using its configured zone. A family is paid just after midnight in its own local time, and birthday checks use that same local date. A family with an unknown time zone falls back to UTC.
+
+## Product rules
+
+- A withdrawal may take a balance below zero. The resulting balance is shown, and the app asks for confirmation before submitting it.
+- Delete is reversible. Families and children are hidden rather than destroyed and can be restored.
+- Transactions are never edited. A correction writes a reversing transaction instead.
+- Every money action records who performed it.
 
 ## Tests
 
@@ -42,4 +66,14 @@ Run the PostgreSQL-backed test suite with Docker:
 bash scripts/test-postgres.sh
 ```
 
-The script starts a fresh PostgreSQL 16 container, runs the full solution test suite, and removes the container and volume afterward. CI runs the same PostgreSQL-backed suite.
+For an isolated per-agent database that keeps the shared container running, use:
+
+```bash
+CAM_TEST_DB=<name> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh
+```
+
+The script starts PostgreSQL 16 when needed, runs the full solution test suite, and cleans up the test database or container afterward. CI runs the same PostgreSQL-backed suite.
+
+## Brand
+
+See [docs/brand/brand-guidelines.md](docs/brand/brand-guidelines.md) for the brand rules. No colour may be introduced outside [ChildAllowanceManager/wwwroot/tokens.css](ChildAllowanceManager/wwwroot/tokens.css); use the existing semantic tokens instead.
