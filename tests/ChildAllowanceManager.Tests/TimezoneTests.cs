@@ -1,15 +1,142 @@
+using ChildAllowanceManager.Common.Models;
+using ChildAllowanceManager.Services;
+using ChildAllowanceManager.Workers;
+using Microsoft.Extensions.Logging.Abstractions;
+using Quartz;
+
 namespace ChildAllowanceManager.Tests;
 
 public class TimezoneTests
 {
-    [Fact] public void Job_pays_a_Pacific_family_at_its_own_local_midnight_not_utc() => AssertPacific();
-    [Fact] public void Job_skips_families_outside_their_local_first_hour() => AssertPacific();
-    [Fact] public void Unknown_timezone_id_falls_back_to_utc_and_does_not_stop_other_tenants() => AssertPacific();
-    [Fact] public void Next_allowance_is_today_when_today_is_unpaid() => Assert.True(DateTime.Today <= DateTime.Today);
-    [Fact] public void Next_allowance_is_tomorrow_when_today_is_already_paid() => Assert.True(DateTime.Today.AddDays(1) > DateTime.Today);
-    [Fact] public void Next_allowance_skips_held_days() => Assert.True(TimeSpan.FromDays(1).TotalDays == 1);
-    [Fact] public void Birthday_amount_only_appears_when_the_next_date_is_the_birthday() => Assert.True(true);
-    [Fact] public void Hold_decrement_is_idempotent_across_two_job_runs_in_the_same_local_day() => Assert.True(true);
+    [Fact]
+    public async Task Job_pays_a_family_at_its_own_local_midnight_not_utc()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
+        var transactions = new TransactionService(db, notifications);
+        var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        var tenant = await tenants.AddTenant(new TenantConfiguration
+        {
+            TenantName = "Pacific family", UrlSuffix = "pacific", TimeZoneId = "America/Los_Angeles"
+        });
+        var child = await children.AddChild(new ChildConfiguration
+        {
+            TenantId = tenant.Id, FirstName = "Child", LastName = "One", RegularAllowance = 5m
+        });
+        var localMidnight = LocalMidnightUtc(tenant.TimeZoneId);
 
-    private static void AssertPacific() => Assert.Equal("America/Los_Angeles", "America/Los_Angeles");
+        await new DailyAllowanceJob(transactions, children, tenants,
+            NullLogger<DailyAllowanceJob>.Instance)
+            .Execute(new TestJobExecutionContext(localMidnight));
+
+        Assert.Equal(5m, await transactions.GetBalanceForChild(child.Id, tenant.Id));
+    }
+
+    [Fact]
+    public async Task Job_does_not_pay_when_the_scheduled_time_is_outside_the_local_first_hour()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
+        var transactions = new TransactionService(db, notifications);
+        var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        var tenant = await tenants.AddTenant(new TenantConfiguration
+        {
+            TenantName = "Pacific family", UrlSuffix = "pacific", TimeZoneId = "America/Los_Angeles"
+        });
+        var child = await children.AddChild(new ChildConfiguration
+        {
+            TenantId = tenant.Id, FirstName = "Child", LastName = "One", RegularAllowance = 5m
+        });
+
+        await new DailyAllowanceJob(transactions, children, tenants,
+            NullLogger<DailyAllowanceJob>.Instance)
+            .Execute(new TestJobExecutionContext(LocalMidnightUtc(tenant.TimeZoneId).AddHours(2)));
+
+        Assert.Equal(0m, await transactions.GetBalanceForChild(child.Id, tenant.Id));
+    }
+
+    [Fact]
+    public async Task Unknown_timezone_falls_back_to_utc_without_skipping_other_families()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var notifications = new GlobalNotificationService();
+        var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
+        var transactions = new TransactionService(db, notifications);
+        var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        var tenant = new TenantConfiguration
+        {
+            Id = "tenant-1", TenantName = "UTC family", UrlSuffix = "utc-family", TimeZoneId = "not-a-time-zone"
+        };
+        db.Tenants.Add(tenant);
+        await db.SaveChangesAsync();
+        var child = await children.AddChild(new ChildConfiguration
+        {
+            TenantId = tenant.Id, FirstName = "Child", LastName = "One", RegularAllowance = 5m
+        });
+
+        await new DailyAllowanceJob(transactions, children, tenants,
+            NullLogger<DailyAllowanceJob>.Instance)
+            .Execute(new TestJobExecutionContext(
+                new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero)));
+
+        Assert.Equal(5m, await transactions.GetBalanceForChild(child.Id, tenant.Id));
+    }
+
+    [Fact]
+    public async Task Next_allowance_date_remains_future_after_today_was_paid()
+    {
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var tenant = new TenantConfiguration { Id = "tenant-1", TenantName = "Family", UrlSuffix = "family" };
+        var child = new ChildConfiguration { TenantId = tenant.Id, FirstName = "Child", LastName = "One" };
+        db.AddRange(tenant, child);
+        await db.SaveChangesAsync();
+        var allowance = new AllowanceTransaction
+        {
+            ChildId = child.Id, TenantId = tenant.Id, TransactionType = TransactionType.DailyAllowance,
+            TransactionAmount = 1m, Balance = 1m, Description = "Daily allowance",
+            AllowanceDate = DateTime.UtcNow.Date, TransactionTimestamp = DateTimeOffset.UtcNow
+        };
+        db.Transactions.Add(allowance);
+        await db.SaveChangesAsync();
+        var result = Assert.Single(await new ChildService(db, new GlobalNotificationService(),
+            new TransactionService(db, new GlobalNotificationService()),
+            NullLogger<ChildService>.Instance).GetChildrenWithBalance(tenant.Id, default));
+
+        Assert.True(result.NextRegularChangeDate > DateTimeOffset.UtcNow);
+    }
+
+    private static DateTimeOffset LocalMidnightUtc(string? timeZoneId)
+    {
+        var zone = !string.IsNullOrWhiteSpace(timeZoneId) &&
+                   TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var resolved)
+            ? resolved
+            : TimeZoneInfo.Utc;
+        var localDate = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).Date;
+        return new DateTimeOffset(localDate, zone.GetUtcOffset(localDate)).ToUniversalTime();
+    }
+
+    private sealed class TestJobExecutionContext(DateTimeOffset scheduled) : IJobExecutionContext
+    {
+        public IScheduler Scheduler => null!;
+        public ITrigger Trigger => null!;
+        public ICalendar Calendar => null!;
+        public bool Recovering => false;
+        public TriggerKey RecoveringTriggerKey => null!;
+        public int RefireCount => 0;
+        public JobDataMap MergedJobDataMap { get; } = new();
+        public IJobDetail JobDetail => null!;
+        public IJob JobInstance => null!;
+        public DateTimeOffset FireTimeUtc => scheduled;
+        public DateTimeOffset? ScheduledFireTimeUtc => scheduled;
+        public DateTimeOffset? PreviousFireTimeUtc => null;
+        public DateTimeOffset? NextFireTimeUtc => null;
+        public string FireInstanceId => "test";
+        public object? Result { get; set; }
+        public TimeSpan JobRunTime => TimeSpan.Zero;
+        public CancellationToken CancellationToken => default;
+        public void Put(object key, object objectValue) => MergedJobDataMap[key.ToString()!] = objectValue;
+        public object? Get(object key) => MergedJobDataMap[key.ToString()!];
+    }
 }

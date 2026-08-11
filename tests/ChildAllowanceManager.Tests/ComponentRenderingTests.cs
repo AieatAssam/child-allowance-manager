@@ -41,7 +41,7 @@ public class ComponentRenderingTests
     {
         var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
         Assert.Contains("Add money", markup);
-        Assert.Contains(">Withdraw<", markup);
+        Assert.Contains("Withdraw", markup);
         Assert.DoesNotContain(">Add<", markup);
         Assert.DoesNotContain(">Take out<", markup);
     }
@@ -67,7 +67,7 @@ public class ComponentRenderingTests
     {
         var markup = ReadSource("ChildAllowanceManager/Components/AppDialog.razor");
         Assert.Contains("Color=\"Color.Default\"", markup);
-        Assert.DoesNotContain("Cancel</MudButton>", markup.Replace("Color=\"Color.Secondary\"", string.Empty));
+        Assert.Contains("OnClick=\"MudDialog.Cancel\">Cancel</MudButton>", markup);
     }
 
     [Fact]

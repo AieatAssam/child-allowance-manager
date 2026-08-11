@@ -3,6 +3,7 @@ using ChildAllowanceManager.Data;
 using ChildAllowanceManager.Migrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace ChildAllowanceManager.Tests;
@@ -31,16 +32,21 @@ public class MigrationTests
         var lastMigration = migrations.Migrations.Last();
         var migration = migrations.CreateMigration(lastMigration.Value, db.Database.ProviderName!);
         var differ = db.GetService<IMigrationsModelDiffer>();
+        var targetModel = db.GetService<IModelRuntimeInitializer>()
+            .Initialize(migration.TargetModel, designTime: true, validationLogger: null);
 
         Assert.False(differ.HasDifferences(
-            migration.TargetModel.GetRelationalModel(),
-            db.Model.GetRelationalModel()));
+            targetModel.GetRelationalModel(),
+            db.GetService<IDesignTimeModel>().Model.GetRelationalModel()));
     }
 
     [Fact]
-    public async Task EnsureCreated_database_can_be_migrated_after_baseline_compatibility()
+    public async Task Legacy_initial_schema_can_be_migrated_after_baseline_compatibility()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync("20260810214537_Initial");
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE \"__EFMigrationsHistory\"");
         var tenant = new TenantConfiguration
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -49,8 +55,10 @@ public class MigrationTests
             CreatedTimestamp = DateTimeOffset.UtcNow,
             UpdatedTimestamp = DateTimeOffset.UtcNow
         };
-        db.Tenants.Add(tenant);
-        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "Tenants" ("Id", "TenantName", "UrlSuffix", "Deleted", "CreatedTimestamp", "UpdatedTimestamp")
+            VALUES ({tenant.Id}, {tenant.TenantName}, {tenant.UrlSuffix}, FALSE, {tenant.CreatedTimestamp}, {tenant.UpdatedTimestamp});
+            """);
 
         await BaselineCompatibility.EnsureBaselineRecordedAsync(db, CancellationToken.None);
         await db.Database.MigrateAsync();

@@ -7,7 +7,7 @@ else if (_tenants.Length > 1)
     <MudMenu aria-label="Switch family">
         <ActivatorContent>
             <MudButton Color="Color.Inherit" Variant="Variant.Text" aria-label="Switch family">
-                <MudIcon Icon="@Icons.Material.Filled.Home" />
+                <MudIcon Icon="@Icons.Material.Filled.Home" aria-hidden="true" />
                 <span class="ml-1">@(_activeTenant?.TenantName ?? "Choose a family")</span>
             </MudButton>
         </ActivatorContent>

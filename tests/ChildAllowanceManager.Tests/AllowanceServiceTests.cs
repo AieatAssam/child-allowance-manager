@@ -13,6 +13,8 @@ public class AllowanceServiceTests
     public async Task AddingChildCreatesInitialBalanceAndTransactionsUpdateIt()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        db.Tenants.Add(Tenant("tenant-1"));
+        await db.SaveChangesAsync();
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
@@ -55,6 +57,8 @@ public class AllowanceServiceTests
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-5);
+        db.AddRange(Tenant(tenantId), Child(childId, tenantId));
+        await db.SaveChangesAsync();
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.DailyAllowance, 1m, timestamp),
             Transaction(childId, tenantId, TransactionType.Deposit, 2m, timestamp.AddMinutes(1)),
@@ -80,6 +84,8 @@ public class AllowanceServiceTests
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var first = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
+        db.AddRange(Tenant(tenantId), Child(childId, tenantId));
+        await db.SaveChangesAsync();
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first, 1m),
             Transaction(childId, tenantId, TransactionType.Deposit, 2m, first.AddDays(2), 3m));
@@ -108,6 +114,7 @@ public class AllowanceServiceTests
             LastName = "Lovelace",
             TenantId = "tenant-1"
         };
+        db.Tenants.Add(Tenant(child.TenantId));
         var first = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
         db.Children.Add(child);
         db.Transactions.AddRange(
@@ -128,6 +135,7 @@ public class AllowanceServiceTests
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        db.Tenants.Add(Tenant("tenant-1"));
         var child = new ChildConfiguration { FirstName = "Ada", LastName = "Lovelace", TenantId = "tenant-1" };
         await children.AddChild(child);
 
@@ -142,6 +150,10 @@ public class AllowanceServiceTests
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
         var service = new TransactionService(db, new GlobalNotificationService());
         var timestamp = DateTimeOffset.UtcNow;
+        db.AddRange(
+            Tenant("tenant-1"), Tenant("tenant-2"),
+            Child("child-1", "tenant-1"), Child("child-2", "tenant-1"));
+        await db.SaveChangesAsync();
         db.Transactions.AddRange(
             Transaction("child-1", "tenant-1", TransactionType.Deposit, 1m, timestamp),
             Transaction("child-2", "tenant-1", TransactionType.Deposit, 2m, timestamp.AddMinutes(1)),
@@ -162,6 +174,8 @@ public class AllowanceServiceTests
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var first = new DateTimeOffset(2026, 2, 1, 12, 0, 0, TimeSpan.Zero);
+        db.AddRange(Tenant(tenantId), Child(childId, tenantId));
+        await db.SaveChangesAsync();
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first, 1m),
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first.AddDays(1), 2m),
@@ -195,6 +209,7 @@ public class AllowanceServiceTests
             RegularAllowance = 5m,
             BirthdayAllowance = 25m
         };
+        db.Tenants.Add(Tenant(child.TenantId));
         var timestamp = DateTimeOffset.UtcNow.AddDays(-1);
         db.Children.Add(child);
         db.Transactions.Add(Transaction(child.Id, child.TenantId, TransactionType.Adjustment, 2m, timestamp, 2m));
@@ -223,10 +238,14 @@ public class AllowanceServiceTests
             TenantId = "tenant-1",
             RegularAllowance = 5m
         };
+        db.Tenants.Add(Tenant(child.TenantId));
         db.Children.Add(child);
-        db.Transactions.Add(Transaction(
+        var allowanceTimestamp = DateTimeOffset.UtcNow.AddDays(-1);
+        var allowance = Transaction(
             child.Id, child.TenantId, TransactionType.DailyAllowance, 5m,
-            DateTimeOffset.UtcNow.AddDays(-1), 5m));
+            allowanceTimestamp, 5m);
+        allowance.AllowanceDate = allowanceTimestamp.Date;
+        db.Transactions.Add(allowance);
         await db.SaveChangesAsync();
 
         var before = DateTimeOffset.UtcNow;
@@ -244,6 +263,7 @@ public class AllowanceServiceTests
         notifications.ChildStateChanged += (_, args) => notification = args;
         var service = new ChildService(
             db, notifications, new TransactionService(db, notifications), NullLogger<ChildService>.Instance);
+        db.Tenants.Add(Tenant("tenant-1"));
         var child = new ChildConfiguration { FirstName = "Ada", LastName = "Lovelace", TenantId = "tenant-1" };
         db.Children.Add(child);
         await db.SaveChangesAsync();
@@ -266,6 +286,7 @@ public class AllowanceServiceTests
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var service = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
+        db.Tenants.Add(Tenant("tenant-1"));
         var child = await service.AddChild(new ChildConfiguration
         {
             FirstName = "Ada",
@@ -293,6 +314,7 @@ public class AllowanceServiceTests
             LastName = "Lovelace",
             TenantId = "tenant-1"
         };
+        db.Tenants.Add(Tenant(child.TenantId));
         db.Children.Add(child);
         await db.SaveChangesAsync();
 
@@ -328,5 +350,20 @@ public class AllowanceServiceTests
         CreatedTimestamp = timestamp,
         UpdatedTimestamp = timestamp,
         Description = type.ToString()
+    };
+
+    private static TenantConfiguration Tenant(string id) => new()
+    {
+        Id = id,
+        TenantName = id,
+        UrlSuffix = id
+    };
+
+    private static ChildConfiguration Child(string id, string tenantId) => new()
+    {
+        Id = id,
+        FirstName = id,
+        LastName = "Test",
+        TenantId = tenantId
     };
 }

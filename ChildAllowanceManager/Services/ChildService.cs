@@ -88,14 +88,8 @@ public class ChildService(
             var balance = latestBalances.GetValueOrDefault(child.Id);
             var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
             var today = localNow.Date;
-            var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
-                child.Id, tenantId, cancellationToken);
-            var paidToday = (latestRegular?.AllowanceDate >= today) == true;
-            var firstEligible = paidToday ? today.AddDays(1) : today;
-            var nextLocalDate = firstEligible.AddDays(child.HoldDaysRemaining);
+            var nextLocalDate = today.AddDays(1 + child.HoldDaysRemaining);
 
-            var nextIsBirthday = child.BirthDate is not null &&
-                SameDayInYear(nextLocalDate, child.BirthDate.Value.Date);
             var isBirthday = child.BirthDate is not null &&
                 SameDayInYear(today, child.BirthDate.Value.Date);
 
@@ -107,7 +101,7 @@ public class ChildService(
                 Name = $"{child.FirstName} {child.LastName}",
                 HoldDaysRemaining = child.HoldDaysRemaining,
                 IsBirthday = isBirthday,
-                NextRegularChange = nextIsBirthday && child.BirthdayAllowance is not null
+                NextRegularChange = isBirthday && child.BirthdayAllowance is not null
                     ? child.BirthdayAllowance.Value
                     : child.RegularAllowance,
                 NextRegularChangeDate = new DateTimeOffset(nextLocalDate, zone.GetUtcOffset(nextLocalDate)),

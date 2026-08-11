@@ -1,4 +1,5 @@
 using Xunit;
+using System.Text.RegularExpressions;
 
 namespace ChildAllowanceManager.Tests;
 
@@ -34,15 +35,17 @@ public sealed class AccessibilityTests
         var files = new[]
         {
             "ChildrenListPage.razor", "AdministrationPage.razor", "ChildManagementPage.razor",
-            "ChildTransactionsDialog.razor", "ChildTransactionsTable.razor"
+            "ChildTransactionsDialog.razor", "ChildTransactionsTable.razor", "../Layout/FamilySwitcher.razor"
         };
         foreach (var file in files)
         {
-            var source = Source($"ChildAllowanceManager/Components/Pages/{file}");
-            if (file == "ChildTransactionsTable.razor")
-                source = Source($"ChildAllowanceManager/Components/{file}");
-            Assert.All(source.Split('\n').Where(line => line.Contains("<MudIcon ", StringComparison.Ordinal)),
-                line => Assert.Contains("aria-hidden=\"true\"", line));
+            var source = file.StartsWith("../", StringComparison.Ordinal)
+                ? Source($"ChildAllowanceManager/Components/{file[3..]}")
+                : file == "ChildTransactionsTable.razor"
+                    ? Source($"ChildAllowanceManager/Components/{file}")
+                    : Source($"ChildAllowanceManager/Components/Pages/{file}");
+            var iconTags = Regex.Matches(source, "<MudIcon\\b[\\s\\S]*?(?:/>|></MudIcon>)");
+            Assert.All(iconTags, tag => Assert.Contains("aria-hidden=\"true\"", tag.Value));
         }
     }
 
@@ -92,11 +95,15 @@ public sealed class AccessibilityTests
     [Fact]
     public void Page_has_exactly_one_h1_contract()
     {
-        foreach (var file in new[] { "Home.razor", "ChildrenListPage.razor", "ChildManagementPage.razor", "AdministrationPage.razor", "PeoplePage.razor" })
+        foreach (var file in new[] { "ChildrenListPage.razor", "ChildManagementPage.razor", "AdministrationPage.razor", "PeoplePage.razor" })
         {
             var source = Source($"ChildAllowanceManager/Components/Pages/{file}");
             Assert.Equal(1, Count(source, "HtmlTag=\"h1\""));
         }
+
+        // Home has one h1 in each mutually exclusive signed-out, family-picker,
+        // and no-family state; the rendered state still contains exactly one.
+        Assert.Equal(3, Count(Source("ChildAllowanceManager/Components/Pages/Home.razor"), "HtmlTag=\"h1\""));
     }
 
     [Fact]

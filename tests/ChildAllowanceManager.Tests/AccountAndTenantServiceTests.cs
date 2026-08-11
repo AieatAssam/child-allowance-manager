@@ -12,6 +12,8 @@ public class AccountAndTenantServiceTests
     public async Task FirstUserIsAdminAndTenantMembershipIsIdempotent()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        db.Tenants.Add(new TenantConfiguration { Id = "tenant-1", TenantName = "Family", UrlSuffix = "family" });
+        await db.SaveChangesAsync();
         var service = new UserService(db, new MembershipService(db));
 
         var first = await service.InitializeUserAsync(" Parent@Example.COM ", "Parent", "tenant-1", default);
@@ -21,7 +23,7 @@ public class AccountAndTenantServiceTests
         Assert.Contains(ValidRoles.Admin, first.Roles);
         Assert.Equal("parent@example.com", stored!.Email);
         Assert.Equal(["tenant-1"], stored.Tenants);
-        Assert.Contains(ValidRoles.Parent, stored.Roles);
+        Assert.Single(await service.GetTenantUsersInRole("tenant-1", ValidRoles.Parent, default));
         Assert.Equal("Parent Updated", stored.Name);
     }
 
@@ -71,6 +73,8 @@ public class AccountAndTenantServiceTests
     public async Task ClaimsTransformationRemovesRevokedAccess()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        db.Tenants.Add(new TenantConfiguration { Id = "tenant-2", TenantName = "Family", UrlSuffix = "family" });
+        await db.SaveChangesAsync();
         var userService = new UserService(db, new MembershipService(db));
         await userService.UpsertUserAsync(new User
         {
@@ -78,6 +82,8 @@ public class AccountAndTenantServiceTests
             Roles = [ValidRoles.Parent],
             Tenants = ["tenant-2"]
         }, default);
+        var user = await userService.GetUserByEmailAsync("parent@example.com", default);
+        await new MembershipService(db).GrantAsync(user!.Id, "tenant-2", ValidRoles.Parent, default);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.Email, "parent@example.com"),

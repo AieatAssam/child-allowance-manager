@@ -85,7 +85,7 @@ public class PostgresEndToEndTests
         var job = new DailyAllowanceJob(
             transactions, children, tenants,
             NullLogger<DailyAllowanceJob>.Instance);
-        await job.Execute(new TestJobExecutionContext(DateTimeOffset.UtcNow));
+        await job.Execute(new TestJobExecutionContext(LocalMidnightUtc(demo.TimeZoneId)));
 
         Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id));
         Assert.Equal(5m, await transactions.GetBalanceForChild(sam.Id, demo.Id));
@@ -117,7 +117,7 @@ public class PostgresEndToEndTests
         parent!.Name = "Charles Babbage";
         await users.UpsertUserAsync(parent, default);
         Assert.Contains(ValidRoles.Admin, admin.Roles);
-        Assert.Single(await users.GetTenantUsersInRole(tenant.Id, ValidRoles.Parent, default));
+        Assert.Equal(2, (await users.GetTenantUsersInRole(tenant.Id, ValidRoles.Parent, default)).Count());
         Assert.Equal(2, (await users.GetUsersAsync(default)).Count());
 
         var child = await children.AddChild(new ChildConfiguration
@@ -241,8 +241,7 @@ public class PostgresEndToEndTests
         var job = new DailyAllowanceJob(
             transactions, children, tenants,
             NullLogger<DailyAllowanceJob>.Instance);
-        var now = DateTimeOffset.UtcNow;
-        await job.Execute(new TestJobExecutionContext(now));
+        await job.Execute(new TestJobExecutionContext(LocalMidnightUtc(tenant.TimeZoneId)));
 
         Assert.Equal(TransactionType.DailyAllowance,
             (await transactions.GetLatestTransactionForChild(due.Id, tenant.Id))!.TransactionType);
@@ -251,9 +250,10 @@ public class PostgresEndToEndTests
         Assert.Equal(20m, birthdayTransaction.TransactionAmount);
         Assert.Equal(5m, await transactions.GetBalanceForChild(due.Id, tenant.Id));
         Assert.Equal(20m, await transactions.GetBalanceForChild(birthday.Id, tenant.Id));
-        Assert.DoesNotContain(
-            (await transactions.GetTransactionsForChild(held.Id, tenant.Id)),
-            x => x.TransactionType != TransactionType.Adjustment);
+        var heldTransactions = await transactions.GetTransactionsForChild(held.Id, tenant.Id);
+        Assert.Contains(heldTransactions, x => x.TransactionType == TransactionType.Hold);
+        Assert.DoesNotContain(heldTransactions,
+            x => x.TransactionType is TransactionType.DailyAllowance or TransactionType.BirthdayAllowance);
         Assert.Equal(0, (await children.GetChild(held.Id, tenant.Id))!.HoldDaysRemaining);
         Assert.Contains(messages, message => message.Contains("daily allowance"));
         Assert.Contains(messages, message => message.Contains("birthday allowance"));
@@ -344,6 +344,16 @@ public class PostgresEndToEndTests
             new UserService(db, new MembershipService(db)),
             children,
             transactions);
+    }
+
+    private static DateTimeOffset LocalMidnightUtc(string? timeZoneId)
+    {
+        var zone = !string.IsNullOrWhiteSpace(timeZoneId) &&
+                   TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var resolved)
+            ? resolved
+            : TimeZoneInfo.Utc;
+        var localDate = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).Date;
+        return new DateTimeOffset(localDate, zone.GetUtcOffset(localDate)).ToUniversalTime();
     }
 
     private sealed class TestJobExecutionContext(DateTimeOffset scheduled) : IJobExecutionContext

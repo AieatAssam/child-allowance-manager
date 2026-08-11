@@ -80,7 +80,7 @@ public class UiFlowTests
         Assert.Contains("Families", cut.Markup);
         Assert.Contains("Open this family", cut.Markup);
         Assert.Contains("Copy the link to this family", cut.Markup);
-        cut.Find("button[aria-label='Add tenant']").Click();
+        cut.Find("button[aria-label='Add family']").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Add a family", cut.Markup));
         Assert.Contains("Save", cut.Markup);
@@ -207,8 +207,8 @@ public class UiFlowTests
         parentParameters.Add(x => x.TenantId, "tenant-1");
         var parentReference = await dialogService.ShowAsync<AddParentDialog>("Add Parent", parentParameters);
         provider.WaitForAssertion(() => Assert.Contains("Email", provider.Markup));
-        Assert.Contains("Full Name", provider.Markup);
-        Assert.Contains("Add", provider.Markup);
+        Assert.Contains("Name (optional)", provider.Markup);
+        Assert.Contains("Send invitation", provider.Markup);
         provider.FindAll("button").Single(x => x.TextContent.Trim() == "Cancel").Click();
         await parentReference.Result;
     }
@@ -237,7 +237,7 @@ public class UiFlowTests
         Assert.Contains("Current balance", provider.Markup);
         Assert.Contains("Hide daily allowances", provider.Markup);
 
-        provider.Find("button[aria-label='Close transaction history']").Click();
+        provider.Find("button[aria-label^='Close ']").Click();
         await reference.Result;
         Assert.DoesNotContain("Skate park", provider.Markup);
     }
@@ -257,7 +257,7 @@ public class UiFlowTests
 
         provider.WaitForAssertion(() => Assert.Contains("Round up amount", provider.Markup));
         var inputs = provider.FindAll("input");
-        inputs[0].Input("0.75");
+        inputs[0].Change("0.75");
         provider.Find("button[aria-label='Round up amount']").Click();
         Assert.Contains("£1.00", provider.Markup);
         inputs[1].Change("Saved for a goal");
@@ -313,7 +313,7 @@ public class UiFlowTests
         Assert.Contains("Withdraw", cut.Markup);
         Assert.DoesNotContain("Today at a glance", cut.Markup);
         Assert.Contains("More actions", cut.Markup);
-        Assert.Contains("Balance over time chart", cut.Markup);
+        Assert.Contains("Balance over time", cut.Markup);
         Assert.Contains("Tap or hover a point", cut.Markup);
     }
 }

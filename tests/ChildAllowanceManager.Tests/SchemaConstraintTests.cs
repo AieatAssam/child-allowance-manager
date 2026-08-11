@@ -11,7 +11,6 @@ public class SchemaConstraintTests
         await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
         db.Tenants.Add(Tenant("tenant-fk"));
         db.Transactions.Add(Transaction("missing-child", "tenant-fk"));
-        await db.SaveChangesAsync();
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
@@ -55,11 +54,12 @@ public class SchemaConstraintTests
     public async Task Duplicate_request_id_within_a_tenant_is_rejected()
     {
         await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
-        db.Tenants.Add(Tenant("request"));
-        var child = new ChildConfiguration { FirstName = "A", LastName = "B", TenantId = "request" };
+        var tenant = Tenant("request");
+        db.Tenants.Add(tenant);
+        var child = new ChildConfiguration { FirstName = "A", LastName = "B", TenantId = tenant.Id };
         db.Children.Add(child);
         await db.SaveChangesAsync();
-        db.Transactions.AddRange(Transaction(child.Id, "request", "same"), Transaction(child.Id, "request", "same"));
+        db.Transactions.AddRange(Transaction(child.Id, tenant.Id, "same"), Transaction(child.Id, tenant.Id, "same"));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
@@ -67,11 +67,12 @@ public class SchemaConstraintTests
     public async Task Null_request_ids_do_not_collide()
     {
         await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
-        db.Tenants.Add(Tenant("null-request"));
-        var child = new ChildConfiguration { FirstName = "A", LastName = "B", TenantId = "null-request" };
+        var tenant = Tenant("null-request");
+        db.Tenants.Add(tenant);
+        var child = new ChildConfiguration { FirstName = "A", LastName = "B", TenantId = tenant.Id };
         db.Children.Add(child);
         await db.SaveChangesAsync();
-        db.Transactions.AddRange(Enumerable.Range(0, 3).Select(_ => Transaction(child.Id, "null-request")));
+        db.Transactions.AddRange(Enumerable.Range(0, 3).Select(_ => Transaction(child.Id, tenant.Id)));
         await db.SaveChangesAsync();
     }
 

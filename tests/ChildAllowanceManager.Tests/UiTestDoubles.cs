@@ -246,6 +246,35 @@ internal sealed class RecordingUserService : IUserService
     }
 }
 
+internal sealed class RecordingInvitationService : IInvitationService
+{
+    public ValueTask<TenantInvitation> InviteAsync(
+        string tenantId, string email, string role, CancellationToken ct = default) =>
+        ValueTask.FromResult(new TenantInvitation
+        {
+            TenantId = tenantId,
+            Email = email,
+            Role = role,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(14)
+        });
+
+    public ValueTask<IEnumerable<TenantInvitation>> GetPendingForTenantAsync(
+        string tenantId, CancellationToken ct = default) =>
+        ValueTask.FromResult<IEnumerable<TenantInvitation>>([]);
+
+    public ValueTask<IEnumerable<TenantInvitation>> GetPendingForEmailAsync(
+        string email, CancellationToken ct = default) =>
+        ValueTask.FromResult<IEnumerable<TenantInvitation>>([]);
+
+    public ValueTask<int> AcceptPendingAsync(
+        string email, string name, CancellationToken ct = default) =>
+        ValueTask.FromResult(0);
+
+    public ValueTask<bool> RevokeAsync(
+        string invitationId, string tenantId, CancellationToken ct = default) =>
+        ValueTask.FromResult(false);
+}
+
 internal sealed class RecordingTenantNotificationService : ITenantNotificationService
 {
     public event EventHandler<IGlobalNotificationService.ChildStateChangedEventArgs>? ChildStateChanged;

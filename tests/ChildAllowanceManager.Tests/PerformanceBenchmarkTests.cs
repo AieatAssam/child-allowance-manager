@@ -39,6 +39,12 @@ public sealed class PerformanceBenchmarkTests(ITestOutputHelper output)
                 LastName = "Benchmark"
             })
             .ToArray();
+        db.Tenants.Add(new TenantConfiguration
+        {
+            Id = "benchmark-tenant",
+            TenantName = "Benchmark",
+            UrlSuffix = "benchmark"
+        });
         db.Children.AddRange(children);
         db.Transactions.AddRange(children.SelectMany(child => Enumerable.Range(0, transactionsPerChild).Select(i => new AllowanceTransaction
         {
