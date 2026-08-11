@@ -1,0 +1,35 @@
+@using ChildAllowanceManager.Common.Models
+
+<table class="balance-history-table">
+    <caption>Balance for each child, by date</caption>
+    <thead>
+        <tr>
+            <th scope="col">Date</th>
+            @foreach (var child in _children)
+            {
+                <th scope="col">@child.ChildName</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @if (_rows.Length == 0)
+        {
+            <tr>
+                <td colspan="@Math.Max(1, _children.Length + 1)">No balance history available.</td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var row in _rows)
+            {
+                <tr>
+                    <th scope="row">@row.Date.ToString("d MMMM yyyy")</th>
+                    @foreach (var balance in row.Balances)
+                    {
+                        <td>@(balance?.ToString("C2") ?? "—")</td>
+                    }
+                </tr>
+            }
+        }
+    </tbody>
+</table>

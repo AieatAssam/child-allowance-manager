@@ -73,6 +73,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     private bool _plotlyThemeNeedsSync;
     private bool _plotlyThemeIsDarkMode;
     private string _plotlySurfaceColor = "#FFFFFF";
+    private ChildWithBalanceHistory[] _balanceHistory = [];
 
     #region Plotly
     private Config _plotlyConfig = new()
@@ -208,6 +209,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 {
                     _contextUpdated = false;
                     _plotlyData.Clear();
+                    _balanceHistory = [];
                 }
                 await ReloadChildren();
             }
@@ -321,8 +323,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             if (!outcome.Succeeded)
                 return;
 
+            _balanceHistory = balanceHistory!;
             var traces = new List<ITrace>();
-            foreach (var (child, index) in balanceHistory!.Select((child, index) => (child, index)))
+            foreach (var (child, index) in _balanceHistory.Select((child, index) => (child, index)))
             {
                 string chartColor = ChartColors[index % ChartColors.Length];
                 traces.Add(new Plotly.Blazor.Traces.Scatter

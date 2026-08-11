@@ -116,12 +116,17 @@
                     <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
                     <span>Tap or hover a point to see that day’s balance.</span>
                 </div>
-                <div class="chart-frame" role="img" aria-label="Balance over time chart" aria-describedby="balance-chart-description">
+                <div class="chart-frame" aria-hidden="true">
                     <PlotlyChart @bind-Config="_plotlyConfig"
                                  @bind-Layout="_plotlyLayout"
                                  @bind-Data="_plotlyData"
                                  @ref="_plotlyChart" />
                 </div>
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="View the data as a table" Expanded="false" aria-describedby="balance-chart-description">
+                        <BalanceHistoryTable History="_balanceHistory" />
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
             </MudPaper>
         </MudItem>
         </MudGrid>
