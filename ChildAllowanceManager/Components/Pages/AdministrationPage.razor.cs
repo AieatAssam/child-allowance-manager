@@ -16,6 +16,7 @@ public partial class AdministrationPage : CancellableComponentBase
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
     private TenantConfiguration[] Tenants { get; set; } = [];
+    private TenantConfiguration[]? DeletedTenants { get; set; }
     
     private string? TenantBeingEditedId = null;
     private MudMessageBox DeleteTenantMessageBox { get; set; } = null!;
@@ -49,15 +50,30 @@ public partial class AdministrationPage : CancellableComponentBase
             await ReloadTenants();
     }
 
+    private async Task RestoreTenant(TenantConfiguration tenant)
+    {
+        var outcome = await RunAsync(
+            async () => await TenantService.RestoreTenant(tenant.Id, CancellationToken),
+            successMessage: $"{tenant.TenantName} restored.");
+        if (outcome.Succeeded)
+            await ReloadTenants();
+    }
+
     private async Task ReloadTenants()
     {
         TenantConfiguration[]? loaded = null;
+        TenantConfiguration[]? deleted = null;
         var outcome = await RunAsync(
-            async () => loaded = (await TenantService.GetTenants(CancellationToken)).ToArray());
+            async () =>
+            {
+                loaded = (await TenantService.GetTenants(CancellationToken)).ToArray();
+                deleted = (await TenantService.GetDeletedTenants(CancellationToken)).ToArray();
+            });
         if (!outcome.Succeeded)
             return;
 
         Tenants = loaded!;
+        DeletedTenants = deleted!;
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();

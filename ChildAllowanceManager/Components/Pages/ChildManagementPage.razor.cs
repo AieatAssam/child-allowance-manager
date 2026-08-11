@@ -32,6 +32,7 @@ public partial class ChildManagementPage : CancellableComponentBase
     private Task<AuthenticationState>? AuthenticationState { get; set; }
     
     private ChildConfiguration[]? Children { get; set; } = null;
+    private ChildConfiguration[]? DeletedChildren { get; set; }
 
     private ChildConfiguration NewChild { get; set; } = new ChildConfiguration();
     private MudMessageBox DeleteChildMessageBox { get; set; } = null!;
@@ -107,6 +108,19 @@ public partial class ChildManagementPage : CancellableComponentBase
             await ReloadChildren();
     }
 
+    private async Task RestoreChild(ChildConfiguration child)
+    {
+        if (_tenantId is null)
+        {
+            return;
+        }
+        var outcome = await RunAsync(
+            async () => await ChildService.RestoreChild(child.Id, _tenantId, CancellationToken),
+            successMessage: $"{child.FirstName} {child.LastName} restored.");
+        if (outcome.Succeeded)
+            await ReloadChildren();
+    }
+
     private async Task ReloadChildren()
     {
         if (_tenantId is null)
@@ -114,12 +128,18 @@ public partial class ChildManagementPage : CancellableComponentBase
             return;
         }
         ChildConfiguration[]? loaded = null;
+        ChildConfiguration[]? deleted = null;
         var outcome = await RunAsync(
-            async () => loaded = (await ChildService.GetChildren(_tenantId, CancellationToken)).ToArray());
+            async () =>
+            {
+                loaded = (await ChildService.GetChildren(_tenantId, CancellationToken)).ToArray();
+                deleted = (await ChildService.GetDeletedChildren(_tenantId, CancellationToken)).ToArray();
+            });
         if (!outcome.Succeeded)
             return;
 
         Children = loaded!;
+        DeletedChildren = deleted!;
         ChildBeingEditedId = null;
         AddingChild = false;
         NewChild = new ChildConfiguration();

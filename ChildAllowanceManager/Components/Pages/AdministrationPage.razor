@@ -95,6 +95,36 @@
             }
         </MudPaper>
     </MudTabPanel>
+    <MudTabPanel Icon="@Icons.Material.Filled.Delete" Text="Deleted" BadgeData="DeletedTenants?.Count()">
+        <MudPaper Class="settings-card" Elevation="0">
+            @if (DeletedTenants is null)
+            {
+                <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+            }
+            else if (DeletedTenants.Any())
+            {
+                <MudTable Items="DeletedTenants" Hover="true" Dense="true">
+                    <HeaderContent>
+                        <MudTh>Family</MudTh>
+                        <MudTh>Deleted</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Family">@context.TenantName</MudTd>
+                        <MudTd DataLabel="Deleted">@context.UpdatedTimestamp.ToLocalTime().ToString("d")</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@IsBusy"
+                                       OnClick="() => RestoreTenant(context)">Restore</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="empty-state">Nothing deleted.</MudAlert>
+            }
+        </MudPaper>
+    </MudTabPanel>
 </MudTabs>
 
 <MudMessageBox @ref="DeleteTenantMessageBox" 
