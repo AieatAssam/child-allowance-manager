@@ -1317,10 +1317,10 @@ tasks:
     title: Deploy workflow migration step and post-deploy health gate
     depends_on: [P12-T4]
     files_touched: [.github/workflows/main_allowance-manager.yml]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p12-t5
+    updated: 2026-08-11T02:24:35Z
+    result: "Added CI and production migration steps plus a post-deploy /health/ready curl gate; preserved workflow trigger, app, slot, and publish-profile settings."
 
   - id: P12-T6
     phase: P12

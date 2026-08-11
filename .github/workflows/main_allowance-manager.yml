@@ -43,6 +43,9 @@ jobs:
       - name: Test with dotnet
         run: dotnet test --configuration Release --no-build
 
+      - name: Apply database migrations
+        run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
+
       - name: dotnet publish
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
@@ -60,10 +63,24 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+
+      # Required Production environment secret: PRODUCTION_POSTGRES_CONNECTION
+      - name: Apply production database migrations
+        env:
+          ConnectionStrings__Postgres: ${{ secrets.PRODUCTION_POSTGRES_CONNECTION }}
+        run: dotnet run --project ChildAllowanceManager -- --migrate
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -73,3 +90,6 @@ jobs:
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FAAC95D339584D58AB2FC636D595A3EF }}
           package: .
+
+      - name: Verify deployed readiness
+        run: curl "${{ steps.deploy-to-webapp.outputs.webapp-url }}/health/ready" --retry 10 --retry-delay 6 --retry-all-errors --fail --silent --show-error
