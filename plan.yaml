@@ -1268,10 +1268,10 @@ tasks:
     title: Idempotent, non-destructive development seeder
     depends_on: [P11-T8]
     files_touched: [ChildAllowanceManager/Services/DevelopmentDataSeeder.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p12-t1
+    updated: 2026-08-11T02:07:18Z
+    result: "Made development seeding insert-if-absent, non-destructive, stable, and emptiness-gated."
 
   - id: P12-T2
     phase: P12

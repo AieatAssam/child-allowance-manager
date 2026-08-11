@@ -12,6 +12,9 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
+        if (await db.Tenants.AnyAsync(x => x.Id == TenantId, cancellationToken))
+            return;
+
         var now = DateTimeOffset.UtcNow;
         var tenant = await db.Tenants.SingleOrDefaultAsync(x => x.Id == TenantId, cancellationToken);
         if (tenant is null)
@@ -27,8 +30,6 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
             db.Tenants.Add(tenant);
         }
 
-        tenant.Deleted = false;
-
         var user = await db.Users.SingleOrDefaultAsync(x => x.Email == UserEmail, cancellationToken);
         if (user is null)
         {
@@ -40,11 +41,9 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
                 UpdatedTimestamp = now
             };
             db.Users.Add(user);
+            user.Roles = [ValidRoles.Admin, ValidRoles.Parent];
+            user.Tenants = [TenantId];
         }
-
-        user.Deleted = false;
-        user.Roles = [ValidRoles.Admin, ValidRoles.Parent];
-        user.Tenants = [TenantId];
 
         await AddChildIfMissingAsync(
             new ChildConfiguration
@@ -103,7 +102,7 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
                 transaction.Item4,
                 transaction.Item5,
                 transaction.Item6,
-                now.AddDays(transaction.Item7),
+                DateTimeOffset.UtcNow.Date.AddDays(transaction.Item7),
                 now,
                 cancellationToken);
         }
@@ -133,20 +132,20 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var transaction = await db.Transactions.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (transaction is null)
-        {
-            transaction = new AllowanceTransaction { Id = id };
-            db.Transactions.Add(transaction);
-        }
+        if (await db.Transactions.AnyAsync(x => x.Id == id, cancellationToken))
+            return;
 
-        transaction.ChildId = childId;
-        transaction.TenantId = TenantId;
-        transaction.Balance = balance;
-        transaction.TransactionAmount = amount;
-        transaction.Description = description;
-        transaction.TransactionTimestamp = timestamp;
-        transaction.TransactionType = transactionType;
-        transaction.UpdatedTimestamp = now;
+        db.Transactions.Add(new AllowanceTransaction
+        {
+            Id = id,
+            ChildId = childId,
+            TenantId = TenantId,
+            Balance = balance,
+            TransactionAmount = amount,
+            Description = description,
+            TransactionTimestamp = timestamp,
+            TransactionType = transactionType,
+            UpdatedTimestamp = now
+        });
     }
 }
