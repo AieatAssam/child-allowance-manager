@@ -12,7 +12,7 @@ public class AccountAndTenantServiceTests
     public async Task FirstUserIsAdminAndTenantMembershipIsIdempotent()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
-        var service = new UserService(db);
+        var service = new UserService(db, new MembershipService(db));
 
         var first = await service.InitializeUserAsync(" Parent@Example.COM ", "Parent", "tenant-1", default);
         await service.AddUserToTenantAsync("parent@example.com", "Parent Updated", "tenant-1", ValidRoles.Parent, default);
@@ -33,7 +33,7 @@ public class AccountAndTenantServiceTests
         var transactions = new TransactionService(db, notifications);
         var childService = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
         var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
-        var users = new UserService(db);
+        var users = new UserService(db, new MembershipService(db));
         var tenant = await tenants.AddTenant(new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" });
         var child = await childService.AddChild(new ChildConfiguration
         {
@@ -71,7 +71,8 @@ public class AccountAndTenantServiceTests
     public async Task ClaimsTransformationRemovesRevokedAccess()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
-        await new UserService(db).UpsertUserAsync(new User
+        var userService = new UserService(db, new MembershipService(db));
+        await userService.UpsertUserAsync(new User
         {
             Email = "parent@example.com",
             Roles = [ValidRoles.Parent],
@@ -85,7 +86,8 @@ public class AccountAndTenantServiceTests
         ], "test"));
 
         var transformed = await new ClaimEnrichmentTransformer(
-            new UserService(db),
+            userService,
+            new MembershipService(db),
             NullLogger<ClaimEnrichmentTransformer>.Instance).TransformAsync(principal);
 
         Assert.DoesNotContain(transformed.Claims, c => c.Type == ClaimTypes.Role && c.Value == ValidRoles.Admin);

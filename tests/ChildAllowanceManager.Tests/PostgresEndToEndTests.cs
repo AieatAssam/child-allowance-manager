@@ -341,7 +341,7 @@ public class PostgresEndToEndTests
             db, notifications, transactions, NullLogger<ChildService>.Instance);
         return (
             new TenantService(db, NullLogger<TenantService>.Instance),
-            new UserService(db),
+            new UserService(db, new MembershipService(db)),
             children,
             transactions);
     }

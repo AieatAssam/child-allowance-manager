@@ -1,6 +1,7 @@
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Claims;
 
 namespace ChildAllowanceManager.Tests;
 
@@ -12,6 +13,10 @@ internal sealed class RecordingTenantService : ITenantService
     public int DeleteCalls { get; private set; }
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray());
+
+    public ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
+        ClaimsPrincipal principal, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray());
 
     public ValueTask<TenantConfiguration?> GetTenant(string id, CancellationToken cancellationToken = default) =>
