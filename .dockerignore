@@ -1,0 +1,10 @@
+.git
+.github
+.codex
+.agents
+**/bin/
+**/obj/
+**/TestResults/
+docs/
+plan.yaml
+docker-compose*.yml

@@ -23,6 +23,13 @@ Allowance Manager is an application for tracking child allowance and managing it
 - Blazor-compatible hosting (Azure App Service, for example)
 - Migrations are applied by a deploy step - see [Database](#database)
 
+## Container
+
+Pushes to `main` and `v*` tags build and publish a Linux image to GitHub Container
+Registry as `ghcr.io/<owner>/<repository>`. It listens on port `8080`; configure the
+required production environment variables below and use `/health` for liveness and
+`/health/ready` for readiness in the SaaS platform.
+
 ## Database
 
 Apply database migrations explicitly with:
