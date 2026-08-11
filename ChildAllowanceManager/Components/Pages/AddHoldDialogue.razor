@@ -1,6 +1,5 @@
-<MudDialog>
-    <TitleContent>Suspend Allowance</TitleContent>
-    <DialogContent>
+<AppDialog Title="Suspend Allowance" PrimaryActionText="Suspend" OnPrimary="AddHold" IsBusy="@IsBusy">
+    <ChildContent>
         <MudForm @ref="_form">
             <MudNumericField Label="Days"
                              @bind-Value="Days"
@@ -11,10 +10,6 @@
                           @bind-Value="Description"
                           Required="true"/>
         </MudForm>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="AddHold" Disabled="@IsBusy" Color="Color.Primary">Suspend</MudButton>
-        <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
-    </DialogActions>
-    @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
-</MudDialog>
+        @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
+    </ChildContent>
+</AppDialog>

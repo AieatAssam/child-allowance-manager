@@ -1,6 +1,5 @@
-<MudDialog>
-    <TitleContent>Add Funds</TitleContent>
-    <DialogContent>
+<AppDialog Title="Add Funds" PrimaryActionText="Add" OnPrimary="AddFunds" IsBusy="@IsBusy">
+    <ChildContent>
         <MudForm @ref="_form">
             <MudNumericField Label="Amount"
                              @bind-Value="Amount"
@@ -19,10 +18,6 @@
                           @bind-Value="Description"
                           Required="true"/>
         </MudForm>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="AddFunds" Disabled="@IsBusy" Color="Color.Primary">Add</MudButton>
-        <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
-    </DialogActions>
-    @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
-</MudDialog>
+        @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
+    </ChildContent>
+</AppDialog>

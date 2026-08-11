@@ -367,99 +367,6 @@ button, a, input, select, textarea {
     min-height: 360px;
 }
 
-.transactions-dialog-background {
-    background: var(--mud-palette-background, #f8fafc);
-}
-
-.transactions-dialog-title {
-    position: relative;
-    padding: clamp(1.25rem, 4vw, 2.25rem) clamp(1rem, 4vw, 3rem) !important;
-    border-bottom: 0 !important;
-    background: linear-gradient(135deg, #172554 0%, #0f3d56 58%, #0d9488 100%);
-    color: #f8fafc;
-}
-
-.transactions-dialog-close {
-    position: absolute;
-    z-index: 2;
-    top: clamp(.75rem, 2vw, 1.5rem);
-    right: clamp(.75rem, 3vw, 2.5rem);
-    min-width: 44px;
-    min-height: 44px;
-    border: 1px solid rgba(255, 255, 255, .22);
-    border-radius: .75rem;
-    color: #fff !important;
-}
-
-.transactions-dialog-close:hover {
-    background: rgba(255, 255, 255, .14);
-}
-
-.transactions-dialog-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2rem;
-    max-width: 1180px;
-    margin: 0 auto;
-    padding-right: 3.5rem;
-}
-
-.transactions-dialog-intro {
-    min-width: 0;
-}
-
-.transactions-dialog-kicker {
-    color: #ffce5c !important;
-    font-weight: 800;
-    letter-spacing: .14em;
-}
-
-.transactions-dialog-name {
-    margin: .2rem 0 .45rem;
-    color: #fff !important;
-    font-family: "Nunito", system-ui, sans-serif;
-    font-weight: 800 !important;
-    letter-spacing: -.025em;
-}
-
-.transactions-balance-card {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: .75rem;
-    min-width: 12rem;
-    padding: .85rem 1rem;
-    border: 1px solid rgba(255, 255, 255, .2);
-    border-radius: 1rem;
-    background: rgba(15, 23, 42, .28);
-}
-
-.transactions-balance-card > .mud-icon-root {
-    color: #ffce5c;
-}
-
-.transactions-balance-label,
-.transactions-balance-value {
-    display: block;
-}
-
-.transactions-balance-label {
-    color: rgba(248, 250, 252, .72) !important;
-}
-
-.transactions-balance-value {
-    margin-top: .1rem;
-    color: #fff !important;
-    font-family: "Nunito", system-ui, sans-serif;
-    font-weight: 800 !important;
-}
-
-.transactions-dialog-content {
-    padding: clamp(1rem, 3vw, 2rem) !important;
-    background: color-mix(in srgb, var(--mud-palette-background, #f8fafc) 94%, #0d9488);
-}
-
 .transactions-dialog-shell {
     max-width: 1180px;
     margin: 0 auto;
@@ -616,20 +523,6 @@ button, a, input, select, textarea {
     font-variant-numeric: tabular-nums;
 }
 
-.transactions-dialog-actions {
-    justify-content: flex-end;
-    padding: .85rem clamp(1rem, 4vw, 3rem) 1rem !important;
-    border-top: 1px solid var(--app-border);
-    background: var(--mud-palette-surface, #fff);
-}
-
-.transactions-dialog-actions .mud-button {
-    min-width: 5.5rem;
-    min-height: 2.75rem;
-    border-radius: .8rem;
-    font-weight: 800;
-}
-
 @media (max-width: 640px) {
     .page-heading {
         align-items: flex-start;
@@ -652,15 +545,6 @@ button, a, input, select, textarea {
 
     .chart-heading {
         flex-direction: column;
-    }
-
-    .transactions-dialog-heading {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .transactions-balance-card {
-        min-width: 0;
     }
 
     .transactions-filter {

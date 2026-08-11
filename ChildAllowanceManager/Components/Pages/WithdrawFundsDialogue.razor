@@ -1,6 +1,9 @@
-<MudDialog>
-    <TitleContent>Withdraw Funds</TitleContent>
-    <DialogContent>
+<AppDialog Title="Withdraw Funds"
+           PrimaryActionText="Withdraw"
+           OnPrimary="WithdrawFunds"
+           IsBusy="@IsBusy"
+           PrimaryDisabled="@(WillOverdraw && !_overdrawAcknowledged)">
+    <ChildContent>
         <MudForm @ref="_form">
             <MudNumericField Label="Amount"
                              @bind-Value="Amount"
@@ -21,10 +24,6 @@
                           Required="true"
                           Immediate="true"/>
         </MudForm>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="WithdrawFunds" Disabled="@(IsBusy || (WillOverdraw && !_overdrawAcknowledged))" Color="Color.Primary">Withdraw</MudButton>
-        <MudButton OnClick="MudDialog.Cancel" Disabled="@IsBusy" Color="Color.Secondary">Cancel</MudButton>
-    </DialogActions>
-    @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
-</MudDialog>
+        @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
+    </ChildContent>
+</AppDialog>

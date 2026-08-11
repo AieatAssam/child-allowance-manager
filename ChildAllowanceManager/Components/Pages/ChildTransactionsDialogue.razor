@@ -1,29 +1,8 @@
-@using MudBlazor.Utilities;
-
-<MudDialog TitleClass="transactions-dialog-title"
-           ContentClass="transactions-dialog-content"
-           ActionsClass="transactions-dialog-actions">
-    <TitleContent>
-        <MudIconButton Icon="@Icons.Material.Filled.Close"
-                       aria-label="Close transaction history"
-                       Class="transactions-dialog-close"
-                       Color="Color.Inherit"
-                       Size="Size.Medium"
-                       OnClick="MudDialog.Cancel" />
-        <div class="transactions-dialog-heading">
-            <div class="transactions-dialog-intro">
-                <MudText Typo="Typo.h4" Class="transactions-dialog-name">@Child.Name’s activity</MudText>
-            </div>
-            <div class="transactions-balance-card" aria-label="Current balance">
-                <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Size="Size.Medium" aria-hidden="true" />
-                <div>
-                    <MudText Typo="Typo.caption" Class="transactions-balance-label">Current balance</MudText>
-                    <MudText Typo="Typo.h6" Class="transactions-balance-value">@Child.Balance.ToString("C2")</MudText>
-                </div>
-            </div>
-        </div>
-    </TitleContent>
-    <DialogContent>
+<AppDialog Title="@($"{Child.Name}’s activity")"
+           Subtitle="@($"Current balance: {Child.Balance:C2}")"
+           PrimaryActionText="Done"
+           OnPrimary="() => MudDialog.Close()">
+    <ChildContent>
         <div class="transactions-dialog-shell">
             <div class="transactions-toolbar">
                 <MudText Typo="Typo.subtitle2" Class="transactions-toolbar-label">Activity</MudText>
@@ -36,8 +15,5 @@
             </div>
             <ChildTransactionsTable Child="Child" HideRegularTransactions="_hideRegularTransactions"></ChildTransactionsTable>
         </div>
-    </DialogContent>
-    <DialogActions>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => MudDialog.Close()">Done</MudButton>
-    </DialogActions>
-</MudDialog>
+    </ChildContent>
+</AppDialog>
