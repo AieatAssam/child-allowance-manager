@@ -1257,10 +1257,10 @@ tasks:
     title: Accessibility tests
     depends_on: [P11-T7]
     files_touched: [tests/ChildAllowanceManager.Tests/AccessibilityTests.cs]
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T02:00:00Z
+    result: "Added eleven accessibility contract tests covering chart alternatives, table semantics, icon naming, access messaging, destructive focus, chart encoding, headings, and skip-link order."
 
   # ---- P12 ---------------------------------------------------------------
   - id: P12-T1
