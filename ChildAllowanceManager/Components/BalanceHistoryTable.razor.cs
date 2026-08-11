@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace ChildAllowanceManager.Components;
 
-public partial class BalanceHistoryTable : ComponentBase
+public partial class BalanceHistoryTable : CancellableComponentBase
 {
     [Parameter]
     public IEnumerable<ChildWithBalanceHistory> History { get; set; } = [];
