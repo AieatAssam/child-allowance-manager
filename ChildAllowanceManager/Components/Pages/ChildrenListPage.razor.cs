@@ -18,12 +18,18 @@ using LegendOrientationEnum = Plotly.Blazor.LayoutLib.LegendLib.OrientationEnum;
 using Margin = Plotly.Blazor.LayoutLib.Margin;
 using Line = Plotly.Blazor.Traces.ScatterLib.Line;
 using Marker = Plotly.Blazor.Traces.ScatterLib.Marker;
+using MarkerSymbolEnum = Plotly.Blazor.Traces.ScatterLib.MarkerLib.SymbolEnum;
 
 namespace ChildAllowanceManager.Components.Pages;
 
 public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
-    private static readonly string[] ChartColors = ["#8B5CF6", "#F59E0B", "#14B8A6", "#EC4899"];
+    // Series are distinguished by dash pattern and marker shape as well as colour, so the
+    // chart is readable without colour vision. Values come from docs/brand/brand-guidelines.md.
+    private static readonly string[] ChartColors = ["#675184", "#32735F", "#B95E4D", "#E9A36A"];
+    private static readonly string[] ChartDashes = ["solid", "dash", "dot", "dashdot"];
+    private static readonly MarkerSymbolEnum[] ChartMarkers =
+        [MarkerSymbolEnum.Circle, MarkerSymbolEnum.Square, MarkerSymbolEnum.Diamond, MarkerSymbolEnum.TriangleUp];
 
     [Inject]
     public IChildService ChildService { get; set; } = default!;
@@ -337,11 +343,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                         Line = new Line
                         {
                             Color = chartColor,
-                            Width = 4,
+                            Dash = ChartDashes[index % ChartDashes.Length],
+                            Width = 2,
                         },
                         Marker = new Marker
                         {
                             Color = chartColor,
+                            Symbol = ChartMarkers[index % ChartMarkers.Length],
                             Size = 8,
                             Line = new Plotly.Blazor.Traces.ScatterLib.MarkerLib.Line
                             {
@@ -350,7 +358,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                             }
                         },
                         Fill = index == 0 ? FillEnum.ToZeroY : FillEnum.None,
-                        FillColor = index == 0 ? "rgba(139, 92, 246, .12)" : "rgba(245, 158, 11, 0)",
+                        FillColor = index == 0 ? $"{chartColor}1F" : null,
                         HoverTemplate = $"<b>{child.ChildName}</b><br>%{{x|%b %-d, %Y}}<br>Balance: £%{{y:,.2f}}<extra></extra>",
                         XCalendar = XCalendarEnum.Gregorian,
                 });
