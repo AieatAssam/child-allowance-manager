@@ -6,10 +6,12 @@
          @ref="@_form">
     <MudTextField Label="First Name" 
                   @bind-Value="Child.FirstName" 
-                  For="() => Child.FirstName"></MudTextField>
+                  For="() => Child.FirstName"
+                  Immediate="false"></MudTextField>
     <MudTextField Label="Last Name" 
                   @bind-Value="Child.LastName" 
-                  For="() => Child.LastName"></MudTextField>
+                  For="() => Child.LastName"
+                  Immediate="false"></MudTextField>
     <MudDatePicker Label="Date of Birth"
                    HelperText="Optional. Used for birthday allowance and special styling"
                    Editable="true"
@@ -26,6 +28,7 @@
                          @bind-Value="Child.BirthdayAllowance"
                          For="() => Child.BirthdayAllowance"
                          InputMode="@(InputMode.@decimal)"
+                         Immediate="false"
                          HelperText="Optional alternative allowance on birthday"></MudNumericField>
     }
     <MudNumericField Label="Regular Allowance"
@@ -33,5 +36,6 @@
                      HideSpinButtons="true"
                      @bind-Value="Child.RegularAllowance"
                      InputMode="@(InputMode.@decimal)"
-                     For="() => Child.RegularAllowance"></MudNumericField>
+                     For="() => Child.RegularAllowance"
+                     Immediate="false"></MudNumericField>
 </MudForm>

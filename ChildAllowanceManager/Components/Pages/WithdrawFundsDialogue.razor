@@ -10,7 +10,7 @@
                              Min="0.1m"
                              InputMode="@(InputMode.@decimal)"
                              Required="true"
-                             Immediate="true"/>
+                             Immediate="false"/>
             <MudText Typo="Typo.body2">New balance: @ResultingBalance.ToString("C2")</MudText>
             @if (WillOverdraw)
             {
@@ -22,7 +22,7 @@
             <MudTextField Label="Description"
                           @bind-Value="Description"
                           Required="true"
-                          Immediate="true"/>
+                          Immediate="false"/>
         </MudForm>
         @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
     </ChildContent>

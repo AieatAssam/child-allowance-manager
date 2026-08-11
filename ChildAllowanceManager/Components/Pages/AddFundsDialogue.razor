@@ -6,7 +6,7 @@
                              Min="0.1m"
                              Required="true"
                              InputMode="@(InputMode.@decimal)"
-                             Immediate="true"/>
+                             Immediate="false"/>
             <MudText Typo="Typo.caption">@($"{Child.Balance:C2} + {Amount:C2} = {Child.Balance + Amount:C2}")</MudText>
             <MudTooltip Text="Round Up">
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowCircleUp"
@@ -16,7 +16,8 @@
             </MudTooltip>
             <MudTextField Label="Description"
                           @bind-Value="Description"
-                          Required="true"/>
+                          Required="true"
+                          Immediate="false"/>
         </MudForm>
         @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
     </ChildContent>

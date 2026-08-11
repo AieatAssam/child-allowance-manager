@@ -6,10 +6,12 @@
          @ref="@_form">
     <MudTextField @bind-Value="Tenant.TenantName"
                   For="() => Tenant.TenantName"
-                  Label="Name"></MudTextField>
+                  Label="Name"
+                  Immediate="false"></MudTextField>
     <MudTextField @bind-Value="Tenant.UrlSuffix"
                   For="() => Tenant.UrlSuffix"
-                  Label="URL Suffix" />
+                  Label="URL Suffix"
+                  Immediate="false" />
     <MudSelect T="string"
                @bind-Value="Tenant.TimeZoneId"
                Label="Time zone"

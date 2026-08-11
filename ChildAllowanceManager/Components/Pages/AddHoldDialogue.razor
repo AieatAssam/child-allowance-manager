@@ -5,10 +5,11 @@
                              @bind-Value="Days"
                              Min="1"
                              Required="true"
-                             Immediate="true"/>
+                             Immediate="false"/>
             <MudTextField Label="Description"
                           @bind-Value="Description"
-                          Required="true"/>
+                          Required="true"
+                          Immediate="false"/>
         </MudForm>
         @if (IsBusy) { <MudProgressLinear Indeterminate="true" Class="mt-2" aria-label="Saving" /> }
     </ChildContent>

@@ -1233,10 +1233,10 @@ tasks:
       - ChildAllowanceManager/Components/Pages/WithdrawFundsDialogue.razor
       - ChildAllowanceManager/Components/Pages/AddHoldDialogue.razor
       - ChildAllowanceManager/Components/Pages/AddParentDialogue.razor
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: main
+    updated: 2026-08-11T01:31:00Z
+    result: "Set Immediate=\"false\" on all MudTextField and MudNumericField controls in the six scoped files; submit validation gates and AddFundsDialogue round-up logic remain unchanged. Release build unavailable because dotnet is not installed."
 
   - id: P11-T7
     phase: P11
