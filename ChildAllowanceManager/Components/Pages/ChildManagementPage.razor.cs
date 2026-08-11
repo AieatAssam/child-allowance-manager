@@ -35,7 +35,6 @@ public partial class ChildManagementPage : CancellableComponentBase
     private ChildConfiguration[]? DeletedChildren { get; set; }
 
     private ChildConfiguration NewChild { get; set; } = new ChildConfiguration();
-    private MudMessageBox DeleteChildMessageBox { get; set; } = null!;
     private bool AddingChild = false;
     private string? ChildBeingEditedId = null;
 
@@ -96,8 +95,10 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
-        // Confirmation dialog
-        if (true != await DeleteChildMessageBox.ShowAsync())
+        if (!await ConfirmDialog.ShowAsync(
+                DialogService,
+                "Warning",
+                "Delete this child? This hides the child and their history. A parent can restore them."))
         {
             return;
         }

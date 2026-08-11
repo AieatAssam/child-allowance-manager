@@ -1,0 +1,15 @@
+<AppDialog Title="@Title">
+    <ChildContent>
+        <MudText>@Message</MudText>
+    </ChildContent>
+    <Actions>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   OnClick="MudDialog.Cancel"
+                   autofocus="true">Cancel</MudButton>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled"
+                   Color="@(Destructive ? Color.Error : Color.Primary)"
+                   OnClick="() => MudDialog.Close(DialogResult.Ok(true))">@ConfirmText</MudButton>
+    </Actions>
+</AppDialog>

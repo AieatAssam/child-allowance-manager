@@ -12,6 +12,9 @@ public partial class AdministrationPage : CancellableComponentBase
     
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
+
+    [Inject]
+    private IDialogService DialogService { get; set; } = default!;
     
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
@@ -19,7 +22,6 @@ public partial class AdministrationPage : CancellableComponentBase
     private TenantConfiguration[]? DeletedTenants { get; set; }
     
     private string? TenantBeingEditedId = null;
-    private MudMessageBox DeleteTenantMessageBox { get; set; } = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -39,7 +41,10 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task DeleteTenant(TenantConfiguration tenant)
     {
-        if (true != await DeleteTenantMessageBox.ShowAsync())
+        if (!await ConfirmDialog.ShowAsync(
+                DialogService,
+                "Warning",
+                "Delete this family? This hides the family and its children. An administrator can restore it."))
         {
             return;
         }

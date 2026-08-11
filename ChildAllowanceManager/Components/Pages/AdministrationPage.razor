@@ -127,16 +127,6 @@
     </MudTabPanel>
 </MudTabs>
 
-<MudMessageBox @ref="DeleteTenantMessageBox" 
-               Class="pa-6 ma-3"
-               Title="Warning" CancelText="Cancel">
-    <MessageContent>
-        Delete this family? This hides the family and its children. An administrator can restore it.
-    </MessageContent>
-    <YesButton>
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
-    </YesButton>
-</MudMessageBox>
 </div>
 
 @code {
