@@ -8,12 +8,14 @@ using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Data;
+using ChildAllowanceManager.HealthChecks;
 using ChildAllowanceManager.Migrations;
 using ChildAllowanceManager.Services;
 using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -52,7 +54,9 @@ if (!StartupPolicy.IsConfigured(postgresConnection))
 }
 builder.Services.AddDbContext<AllowanceDbContext>(options =>
     options.UseNpgsql(postgresConnection));
-builder.Services.AddHealthChecks().AddDbContextCheck<AllowanceDbContext>();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AllowanceDbContext>(tags: ["ready"])
+    .AddCheck<MigrationHealthCheck>("migrations", tags: ["ready"]);
 
 var authentication = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
@@ -298,6 +302,13 @@ app.Map("/logout", signoutApp =>
     });
 });
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => !check.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 app.Run();
 return 0;

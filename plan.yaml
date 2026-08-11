@@ -1307,10 +1307,10 @@ tasks:
       - ChildAllowanceManager/HealthChecks/MigrationHealthCheck.cs
       - ChildAllowanceManager/Program.cs
     mutex: program-cs
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p12-t4
+    updated: 2026-08-11T02:21:47Z
+    result: "Added migration-state and unreachable-database readiness checks; kept /health DB-free and added /health/ready. Build skipped per user request."
 
   - id: P12-T5
     phase: P12
