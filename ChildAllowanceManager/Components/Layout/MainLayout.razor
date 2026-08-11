@@ -15,7 +15,13 @@
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        aria-label="Toggle navigation" OnClick="@((e) => DrawerToggle())"/>
         <MudText Typo="Typo.h5" Class="ml-3 app-brand">Allowance Manager</MudText>
-        <AuthorizeView><Authorized><FamilySwitcher/></Authorized></AuthorizeView>
+        <AuthorizeView>
+            <Authorized>
+                <div class="app-family-switcher">
+                    <FamilySwitcher/>
+                </div>
+            </Authorized>
+        </AuthorizeView>
         <MudSpacer/>
         <AuthorizeView>
             <Authorized>

@@ -144,6 +144,33 @@ button, a, input, select, textarea {
     backdrop-filter: blur(14px);
 }
 
+.app-bar .mud-toolbar {
+    gap: .5rem;
+}
+
+.app-brand {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-family-switcher {
+    min-width: 0;
+    max-width: min(36vw, 20rem);
+    overflow: hidden;
+}
+
+.app-family-switcher > .mud-typography,
+.app-family-switcher .mud-button,
+.app-family-switcher .mud-button .ml-1 {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .app-brand,
 .page-title,
 .child-card .mud-typography-h6 {
