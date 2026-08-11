@@ -98,21 +98,22 @@ if (!builder.Environment.IsDevelopment())
                 var email = identity.FindFirst(ClaimTypes.Email)?.Value;
                 if (email != null)
                 {
-                    var user = await userService.GetUserByEmailAsync(email, CancellationToken.None);
+                    var cancellationToken = context.HttpContext.RequestAborted;
+                    var user = await userService.GetUserByEmailAsync(email, cancellationToken);
                     if (user == null)
                     {
                         var name = identity.FindFirst(ClaimTypes.Name)?.Value;
-                        user = await userService.InitializeUserAsync(email, name ?? string.Empty, null, CancellationToken.None);
+                        user = await userService.InitializeUserAsync(email, name ?? string.Empty, null, cancellationToken);
                     }
                     else
                     {
                         user.LastLoggedIn = DateTimeOffset.UtcNow;
-                        await userService.UpsertUserAsync(user, CancellationToken.None);
+                        await userService.UpsertUserAsync(user, cancellationToken);
                     }
 
                     await context.HttpContext.RequestServices.GetRequiredService<IInvitationService>()
                         .AcceptPendingAsync(email, identity.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty,
-                            context.HttpContext.RequestAborted);
+                            cancellationToken);
 
                 }
             }
@@ -209,6 +210,7 @@ if (migrateOnly || app.Environment.IsDevelopment())
         .GetRequiredService<ILoggerFactory>().CreateLogger("Migrations");
     try
     {
+        // Startup migration has no HTTP request or component lifetime to provide a cancellation token.
         await BaselineCompatibility.EnsureBaselineRecordedAsync(db, CancellationToken.None);
         await db.Database.MigrateAsync();
         migrationLogger.LogInformation("Database migrations applied.");

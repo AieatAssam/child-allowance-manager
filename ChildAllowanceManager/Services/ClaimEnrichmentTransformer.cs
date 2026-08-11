@@ -2,12 +2,14 @@ using System.Security.Claims;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 
 namespace ChildAllowanceManager.Services;
 
 public class ClaimEnrichmentTransformer(IUserService _userService,
     IMembershipService _membershipService,
-    ILogger<ClaimEnrichmentTransformer> _logger) : IClaimsTransformation
+    ILogger<ClaimEnrichmentTransformer> _logger,
+    IHttpContextAccessor? _httpContextAccessor = null) : IClaimsTransformation
 {
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
@@ -20,7 +22,9 @@ public class ClaimEnrichmentTransformer(IUserService _userService,
             return principal;
         }
 
-        var matchingUser = await _userService.GetUserByEmailAsync(email, CancellationToken.None);
+        // Claims transformation can run without an HTTP request, so there is no ambient token then.
+        var cancellationToken = _httpContextAccessor?.HttpContext?.RequestAborted ?? CancellationToken.None;
+        var matchingUser = await _userService.GetUserByEmailAsync(email, cancellationToken);
         if (matchingUser is null)
         {
             _logger.LogWarning("No user found for email {Email}. Cannot enrich claims", email);
@@ -28,7 +32,7 @@ public class ClaimEnrichmentTransformer(IUserService _userService,
         }
 
         var memberships = (await _membershipService.GetMembershipsForUserAsync(
-            matchingUser.Id, CancellationToken.None)).ToArray();
+            matchingUser.Id, cancellationToken)).ToArray();
         var tenantIds = memberships.Select(x => x.TenantId).ToHashSet();
         var tenantRoles = memberships
             .Select(x => TenantRoleClaim.Format(x.TenantId, x.Role))
