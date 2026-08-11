@@ -102,7 +102,7 @@ public sealed class DevelopmentDataSeeder(AllowanceDbContext db)
                 transaction.Item4,
                 transaction.Item5,
                 transaction.Item6,
-                DateTimeOffset.UtcNow.Date.AddDays(transaction.Item7),
+                new DateTimeOffset(DateTime.UtcNow.Date.AddDays(transaction.Item7), TimeSpan.Zero),
                 now,
                 cancellationToken);
         }

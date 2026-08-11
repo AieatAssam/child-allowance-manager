@@ -40,7 +40,7 @@ public partial class MainLayout : IAsyncDisposable
             // set long lived cookie
             // load JS module once
             _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./Components/Layout/MainLayout.razor.js");
+                "import", "./Components/Layout/MainLayout.razor.js?v=2");
             // set cookie
             await _jsModule.InvokeVoidAsync("createCookie", "current_tenant", currentTenant.Value!, 365);
         }

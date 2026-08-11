@@ -29,8 +29,22 @@ public partial class PeoplePage : CancellableComponentBase
             return;
 
         TenantConfiguration? tenant = null;
+        TenantMembership[]? members = null;
+        TenantInvitation[]? invitations = null;
+        var canManage = false;
         var outcome = await RunAsync(async () =>
-            tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken));
+        {
+            tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
+            if (tenant is null || AuthenticationState is null)
+                return;
+
+            canManage = TenantAuthorization.CanManagePeople((await AuthenticationState).User, tenant.Id);
+            if (!canManage)
+                return;
+
+            members = (await MembershipService.GetMembershipsForTenantAsync(tenant.Id, CancellationToken)).ToArray();
+            invitations = (await InvitationService.GetPendingForTenantAsync(tenant.Id, CancellationToken)).ToArray();
+        });
         if (!outcome.Succeeded)
             return;
 
@@ -40,15 +54,15 @@ public partial class PeoplePage : CancellableComponentBase
             return;
         }
 
-        if (AuthenticationState is null ||
-            !TenantAuthorization.CanManagePeople((await AuthenticationState).User, tenant.Id))
+        if (!canManage)
         {
             Navigation.NavigateTo("/");
             return;
         }
 
         _tenantId = tenant.Id;
-        await ReloadAsync();
+        Members = members;
+        Invitations = invitations;
         await base.OnParametersSetAsync();
     }
 

@@ -46,6 +46,7 @@
     [Parameter] public string PrimaryActionText { get; set; } = "Save";
     [Parameter] public EventCallback OnPrimary { get; set; }
     [Parameter] public bool PrimaryDisabled { get; set; }
+    [Parameter] public new bool IsBusy { get; set; }
 
     private Task HandlePrimaryAsync() => OnPrimary.InvokeAsync();
 }

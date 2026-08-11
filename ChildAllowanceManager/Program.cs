@@ -53,7 +53,7 @@ if (!StartupPolicy.IsConfigured(postgresConnection))
         "Host=localhost;Port=5432;Database=child_allowance_manager;Username=postgres;Password=postgres");
 }
 builder.Services.AddDbContext<AllowanceDbContext>(options =>
-    options.UseNpgsql(postgresConnection));
+    options.UseNpgsql(postgresConnection), ServiceLifetime.Transient);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AllowanceDbContext>(tags: ["ready"])
     .AddCheck<MigrationHealthCheck>("migrations", tags: ["ready"]);
@@ -183,7 +183,7 @@ builder.Services.AddResponseCompression(opts =>
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped<IChildService, ChildService>();
-builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddTransient<ITenantService, TenantService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
