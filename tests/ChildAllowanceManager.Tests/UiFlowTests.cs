@@ -77,6 +77,9 @@ public class UiFlowTests
         var cut = context.Render<AdministrationPage>();
 
         cut.WaitForAssertion(() => Assert.Contains("Demo family", cut.Markup));
+        Assert.Contains("Families", cut.Markup);
+        Assert.Contains("Open this family", cut.Markup);
+        Assert.Contains("Copy the link to this family", cut.Markup);
         cut.Find("button[aria-label='Add tenant']").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Add a family", cut.Markup));
@@ -160,7 +163,7 @@ public class UiFlowTests
         Assert.Contains("/demo/configuration", cut.Markup);
         Assert.Contains("/admin", cut.Markup);
         Assert.Contains("Children", cut.Markup);
-        Assert.Contains("Manage Children", cut.Markup);
+        Assert.Contains("Family settings", cut.Markup);
         Assert.Contains("Administration", cut.Markup);
     }
 
@@ -298,9 +301,17 @@ public class UiFlowTests
             .AddCascadingValue(new ThemeConfiguration()));
 
         cut.WaitForAssertion(() => Assert.Contains("Alex Demo", cut.Markup));
+        Assert.Contains("Balances", cut.Markup);
+        var expectedDate = TimeZoneInfo.ConvertTime(
+            DateTimeOffset.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/London"))
+            .ToString("dddd, d MMMM");
+        Assert.Contains(expectedDate, cut.Markup);
         Assert.Contains("Next allowance", cut.Markup);
         Assert.Contains("History", cut.Markup);
-        Assert.Contains("Take out", cut.Markup);
+        Assert.Contains("Add money", cut.Markup);
+        Assert.Contains("Withdraw", cut.Markup);
+        Assert.DoesNotContain("Today at a glance", cut.Markup);
         Assert.Contains("More actions", cut.Markup);
         Assert.Contains("Balance over time chart", cut.Markup);
         Assert.Contains("Tap or hover a point", cut.Markup);

@@ -2,13 +2,12 @@
 @using ChildAllowanceManager.Common.Models
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "admin,parent")]
-<PageTitle>Parent Configuration</PageTitle>
+<PageTitle>Family settings</PageTitle>
 
 <div class="page-shell settings-view">
     <div class="page-heading">
         <div class="page-heading-copy">
-            <MudText Typo="Typo.overline" Class="page-kicker">Family setup</MudText>
-            <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Manage children</MudText>
+            <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Family settings</MudText>
             <MudText Color="Color.Secondary">Set allowances, birthdays, and pauses in one place.</MudText>
         </div>
     </div>
@@ -17,7 +16,7 @@
     <MudTabPanel Icon="@Icons.Material.Filled.ChildCare" Text="Children" BadgeData="Children?.Count()">
         <MudPaper Class="settings-card" Elevation="0">
             <MudToolBar>
-                <MudText Typo="Typo.subtitle1">Child Management</MudText>
+                <MudText Typo="Typo.subtitle1">Children</MudText>
                 <MudSpacer/>
                 <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add child" Disabled="@IsBusy" OnClick="() => AddingChild = true"/>
             </MudToolBar>
@@ -81,7 +80,7 @@
             }
             else
             {
-                <MudAlert Severity="Severity.Info" Class="empty-state">No children yet. Add one to start managing pocket money.</MudAlert>
+                <MudAlert Severity="Severity.Info" Class="empty-state">No children yet. Add one to start tracking allowance.</MudAlert>
             }
         </MudPaper>
     </MudTabPanel>
@@ -91,7 +90,7 @@
                Class="pa-6 ma-3"
                Title="Warning" CancelText="Cancel">
     <MessageContent>
-        Delete this child? This cannot be undone.
+        Delete this child? This hides the child and their history. A parent can restore them.
     </MessageContent>
     <YesButton>
         <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>

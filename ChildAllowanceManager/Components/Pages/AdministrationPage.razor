@@ -1,15 +1,15 @@
 @page "/admin"
 @using ChildAllowanceManager.Common.Models
 @using Microsoft.AspNetCore.Authorization
+@inject Microsoft.JSInterop.IJSRuntime JS
 @attribute [Authorize(Roles = "admin")]
 <PageTitle>Administration</PageTitle>
 
 <div class="page-shell settings-view">
     <div class="page-heading">
         <div class="page-heading-copy">
-            <MudText Typo="Typo.overline" Class="page-kicker">System access</MudText>
             <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Administration</MudText>
-            <MudText Color="Color.Secondary">Keep families, links, and access details organised.</MudText>
+            <MudText Color="Color.Secondary">Create, rename and remove families.</MudText>
         </div>
     </div>
 
@@ -17,7 +17,7 @@
     <MudTabPanel Icon="@Icons.Material.Filled.People" Text="Tenants" BadgeData="Tenants?.Count()">
         <MudPaper Class="settings-card" Elevation="0">
             <MudToolBar>
-                <MudText Typo="Typo.subtitle1">Tenant Management</MudText>
+                <MudText Typo="Typo.subtitle1">Families</MudText>
                 <MudSpacer/>
                 <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add tenant" Disabled="@IsBusy" OnClick="() => AddingTenant = true"/>
             </MudToolBar>
@@ -56,7 +56,10 @@
                                 </div>
                             </TitleContent>
                             <ChildContent>
-                                <MudNavLink Href="@($"/{Tenants[idxLocal].UrlSuffix}/children")">@(Navigation.ToAbsoluteUri($"/{Tenants[idxLocal].UrlSuffix}/children"))</MudNavLink>
+                                <MudNavLink Href="@($"/{Tenants[idxLocal].UrlSuffix}/children")">Open this family</MudNavLink>
+                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                               aria-label="Copy the link to this family"
+                                               OnClick="() => CopyFamilyLink(Tenants[idxLocal])" />
                                 <TenantConfigurationEditor @bind-Tenant="Tenants[idxLocal]" ReadOnly="@(TenantBeingEditedId != Tenants[idxLocal].Id)"></TenantConfigurationEditor>
 
                                 @if (TenantBeingEditedId != Tenants[idxLocal].Id)
@@ -92,10 +95,15 @@
                Class="pa-6 ma-3"
                Title="Warning" CancelText="Cancel">
     <MessageContent>
-        Delete this family? This cannot be undone.
+        Delete this family? This hides the family and its children. An administrator can restore it.
     </MessageContent>
     <YesButton>
         <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
     </YesButton>
 </MudMessageBox>
 </div>
+
+@code {
+    private async Task CopyFamilyLink(TenantConfiguration tenant) =>
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Navigation.ToAbsoluteUri($"/{tenant.UrlSuffix}/children").ToString());
+}

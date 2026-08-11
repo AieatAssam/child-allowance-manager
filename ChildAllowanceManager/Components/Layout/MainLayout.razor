@@ -24,7 +24,7 @@
                         @context.User.Identity?.Name
                     </MudMenuItem>
                     <MudMenuItem Icon="@Icons.Custom.Brands.Microsoft">@context.User.FindFirst(ClaimTypes.Email)?.Value</MudMenuItem>
-                    <MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">Log Out</MudMenuItem>
+                    <MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">Sign out</MudMenuItem>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>

@@ -1075,10 +1075,10 @@ tasks:
       - tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
       - tests/ChildAllowanceManager.Tests/UiFlowTests.cs
     mutex: children-list-page
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p10-t3
+    updated: 2026-08-11T00:15:00Z
+    result: "Applied the P10-T3 copy map and focused UI assertions; static checks pass. Build blocked because dotnet is unavailable; Postgres tests blocked by Docker socket permissions."
 
   - id: P10-T4
     phase: P10

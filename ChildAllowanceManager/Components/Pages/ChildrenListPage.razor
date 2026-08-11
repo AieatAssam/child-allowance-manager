@@ -12,13 +12,15 @@
     <MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
         <div class="page-heading">
             <div class="page-heading-copy">
-                <MudText Typo="Typo.overline" Class="page-kicker">Pocket money</MudText>
-                <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">See the money move</MudText>
-                <MudText Color="Color.Secondary">Balances, allowances, and spending for this family.</MudText>
+                <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Balances</MudText>
+                <MudText Color="Color.Secondary">What each child has, and what is coming next.</MudText>
             </div>
-            <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WbSunny">
-                Today at a glance
-            </MudChip>
+            @if (Children?.FirstOrDefault() is { } firstChild)
+            {
+                <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WbSunny">
+                    @TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById(firstChild.TimeZoneId)).ToString("dddd, d MMMM")
+                </MudChip>
+            }
         </div>
 
         <MudGrid Spacing="3">
@@ -35,7 +37,7 @@
                             @if (child.IsBirthday)
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Success" Class="birthday-label">
-                                    <MudIcon Icon="@Icons.Material.Filled.Cake" Size="Size.Small" aria-hidden="true" /> Birthday bonus day
+                                    <MudIcon Icon="@Icons.Material.Filled.Cake" Size="Size.Small" aria-hidden="true" /> Birthday allowance today
                                 </MudText>
                             }
                         </div>
@@ -49,7 +51,7 @@
                         @if (child.HoldDaysRemaining > 0)
                         {
                             <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-4">
-                                Allowance paused for @child.HoldDaysRemaining day(s).
+                                Allowance paused for @child.HoldDaysRemaining more day(s).
                                 <AuthorizeView Roles="admin,parent">
                                     <Authorized>
                                         <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => RemoveHoldDay(child)">
@@ -64,8 +66,11 @@
                             <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Success" />
                             <div>
                                 <MudText Typo="Typo.body2">Next allowance</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @child.NextRegularChange.ToString("C2") @child.NextRegularChangeDate.ToLocalTime().Humanize()
+                                <MudText Typo="Typo.body2">
+                                    @child.NextRegularChange.ToString("C2") on @child.NextRegularChangeLocalDate.ToString("dddd, d MMMM")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @child.NextRegularChangeDate.ToLocalTime().Humanize()
                                 </MudText>
                             </div>
                         </div>
@@ -79,11 +84,11 @@
                             <Authorized>
                                 <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="() => ShowAddFundsForChild(child)">
-                                    Add
+                                    Add money
                                 </MudButton>
                                 <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Remove"
                                            OnClick="() => ShowWithdrawFundsForChild(child)">
-                                    Take out
+                                    Withdraw
                                 </MudButton>
                                 <MudMenu Icon="@Icons.Material.Filled.MoreVert" aria-label="More actions">
                                     <MudMenuItem OnClick="() => ApplyHold(child)" Icon="@Icons.Material.Filled.PauseCircle">
@@ -103,12 +108,9 @@
                     <div>
                         <MudText Typo="Typo.h5">Balance over time</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            A simple view of each child’s balance across recent days.
+                            Balance for each child over recent days.
                         </MudText>
                     </div>
-                    <MudChip T="string" Color="Color.Tertiary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Insights">
-                        Compare balances
-                    </MudChip>
                 </div>
                 <div class="chart-note" id="balance-chart-description">
                     <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />

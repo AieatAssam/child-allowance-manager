@@ -101,6 +101,22 @@ public class ComponentRenderingTests
         Assert.DoesNotContain("negative-amount", cut.Markup);
     }
 
+    [Fact]
+    public async Task TransactionDialogueUsesActivityHeading()
+    {
+        await using var context = BunitTestContext.Create();
+        context.Services.Add(ServiceDescriptor.Singleton<ITransactionService>(new FakeTransactionService()));
+        var provider = context.Render<MudDialogProvider>();
+        var parameters = new DialogParameters<ChildTransactionsDialogue>();
+        parameters.Add(x => x.Child, new ChildWithBalance { Id = "child-1", TenantId = "tenant-1", Name = "Ada", Balance = 3m });
+
+        await context.Services.GetRequiredService<IDialogService>()
+            .ShowAsync<ChildTransactionsDialogue>(null, parameters);
+
+        provider.WaitForAssertion(() => Assert.Contains("Ada’s activity", provider.Markup));
+        Assert.DoesNotContain("Money trail", provider.Markup);
+    }
+
     private sealed class FakeUserService : IUserService
     {
         public ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId, CancellationToken cancellationToken) =>
