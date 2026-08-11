@@ -240,9 +240,17 @@ button, a, input, select, textarea {
 }
 
 .settings-card .mud-expansion-panel {
-    margin: .5rem 0;
     border: 1px solid var(--app-border);
     border-radius: .85rem;
+}
+
+.settings-panel {
+    margin-block: var(--al-space-2);
+}
+
+.settings-actions {
+    width: 100%;
+    margin-top: var(--al-space-4);
 }
 
 .settings-card .mud-expansion-panel-header {

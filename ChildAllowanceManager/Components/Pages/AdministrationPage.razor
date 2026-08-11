@@ -37,8 +37,8 @@
                             <TenantConfigurationEditor @bind-Tenant="NewTenant"></TenantConfigurationEditor>
                         </MudCardContent>
                         <MudCardActions>
-                            <MudButton Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddTenant()">Save</MudButton>
-                            <MudButton Color="Color.Secondary" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddTenant()">Save</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
                         </MudCardActions>
                     </MudCard>
                 </MudCollapse>
@@ -47,7 +47,7 @@
                     @for (int idx = 0; idx < Tenants.Length; idx++)
                     {
                         var idxLocal = idx;
-                        <MudExpansionPanel Class="ma-5">
+                        <MudExpansionPanel Class="settings-panel">
                             <TitleContent>
                                 <div class="d-flex">
                                     <MudIcon Icon="@(TenantBeingEditedId == Tenants[idxLocal].Id ? Icons.Material.Filled.Edit : Icons.Material.Filled.PeopleAlt)"
@@ -64,18 +64,24 @@
 
                                 @if (TenantBeingEditedId != Tenants[idxLocal].Id)
                                 {
-                                    <MudButton Color="Color.Primary"
-                                               OnClick="() => TenantBeingEditedId = Tenants[idxLocal].Id">Edit</MudButton>
-                                    <MudButton Color="Color.Secondary" Disabled="@IsBusy" OnClick="async () => await DeleteTenant(Tenants[idxLocal])">Delete</MudButton>
+                                    <MudStack Row="true" Class="settings-actions" AlignItems="AlignItems.Center">
+                                        <MudButton Variant="Variant.Text" Color="Color.Default"
+                                                   OnClick="() => TenantBeingEditedId = Tenants[idxLocal].Id">Edit</MudButton>
+                                        <MudSpacer />
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@IsBusy" OnClick="async () => await DeleteTenant(Tenants[idxLocal])">Delete</MudButton>
+                                    </MudStack>
                                 }
                                 else
                                 {
                                     // already being edited
-                                    <MudButton Color="Color.Primary"
-                                               Disabled="@IsBusy"
-                                               OnClick="async () => await UpdateTenant(Tenants[idxLocal])">Save</MudButton>
-                                    <MudButton Color="Color.Secondary"
-                                               OnClick="async () => await ReloadTenants()">Cancel</MudButton>
+                                    <MudStack Row="true" Class="settings-actions" AlignItems="AlignItems.Center">
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                                   Disabled="@IsBusy"
+                                                   OnClick="async () => await UpdateTenant(Tenants[idxLocal])">Save</MudButton>
+                                        <MudSpacer />
+                                        <MudButton Variant="Variant.Text" Color="Color.Default"
+                                                   OnClick="async () => await ReloadTenants()">Cancel</MudButton>
+                                    </MudStack>
                                 }
                             </ChildContent>
 
@@ -98,7 +104,7 @@
         Delete this family? This hides the family and its children. An administrator can restore it.
     </MessageContent>
     <YesButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete</MudButton>
     </YesButton>
 </MudMessageBox>
 </div>

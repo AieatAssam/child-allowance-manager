@@ -1107,10 +1107,10 @@ tasks:
       - ChildAllowanceManager/Components/Pages/ChildManagementPage.razor
       - ChildAllowanceManager/wwwroot/app.css
     mutex: app-css
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p10-t5
+    updated: 2026-08-11T00:25:30Z
+    result: "Standardized settings actions: filled primary actions, neutral text secondary actions, outlined destructive actions, settings-panel spacing, and consistent button order."
 
   - id: P10-T6
     phase: P10
