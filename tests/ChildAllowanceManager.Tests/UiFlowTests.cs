@@ -178,9 +178,9 @@ public class UiFlowTests
         var provider = context.Render<MudDialogProvider>();
         var dialogService = context.Services.GetRequiredService<IDialogService>();
 
-        var addParameters = new DialogParameters<AddFundsDialogue>();
+        var addParameters = new DialogParameters<AddFundsDialog>();
         addParameters.Add(x => x.Child, child);
-        var addReference = await dialogService.ShowAsync<AddFundsDialogue>("Add Funds", addParameters);
+        var addReference = await dialogService.ShowAsync<AddFundsDialog>("Add Funds", addParameters);
         provider.WaitForAssertion(() => Assert.Contains("Amount", provider.Markup));
         Assert.Contains("Description", provider.Markup);
         Assert.Contains("Round up amount", provider.Markup);
@@ -188,24 +188,24 @@ public class UiFlowTests
         provider.FindAll("button").Single(x => x.TextContent.Trim() == "Cancel").Click();
         await addReference.Result;
 
-        var withdrawParameters = new DialogParameters<WithdrawFundsDialogue>();
+        var withdrawParameters = new DialogParameters<WithdrawFundsDialog>();
         withdrawParameters.Add(x => x.Child, child);
-        var withdrawReference = await dialogService.ShowAsync<WithdrawFundsDialogue>("Withdraw Funds", withdrawParameters);
+        var withdrawReference = await dialogService.ShowAsync<WithdrawFundsDialog>("Withdraw Funds", withdrawParameters);
         provider.WaitForAssertion(() => Assert.Contains("Withdraw", provider.Markup));
         provider.FindAll("button").Single(x => x.TextContent.Trim() == "Cancel").Click();
         await withdrawReference.Result;
 
-        var holdParameters = new DialogParameters<AddHoldDialogue>();
+        var holdParameters = new DialogParameters<AddHoldDialog>();
         holdParameters.Add(x => x.Child, child);
-        var holdReference = await dialogService.ShowAsync<AddHoldDialogue>("Suspend Allowance", holdParameters);
+        var holdReference = await dialogService.ShowAsync<AddHoldDialog>("Suspend Allowance", holdParameters);
         provider.WaitForAssertion(() => Assert.Contains("Days", provider.Markup));
         Assert.Contains("Suspend", provider.Markup);
         provider.FindAll("button").Single(x => x.TextContent.Trim() == "Cancel").Click();
         await holdReference.Result;
 
-        var parentParameters = new DialogParameters<AddParentDialogue>();
+        var parentParameters = new DialogParameters<AddParentDialog>();
         parentParameters.Add(x => x.TenantId, "tenant-1");
-        var parentReference = await dialogService.ShowAsync<AddParentDialogue>("Add Parent", parentParameters);
+        var parentReference = await dialogService.ShowAsync<AddParentDialog>("Add Parent", parentParameters);
         provider.WaitForAssertion(() => Assert.Contains("Email", provider.Markup));
         Assert.Contains("Full Name", provider.Markup);
         Assert.Contains("Add", provider.Markup);
@@ -214,7 +214,7 @@ public class UiFlowTests
     }
 
     [Fact]
-    public async Task TransactionDialogueShowsReadableHistoryAndCloseControl()
+    public async Task TransactionDialogShowsReadableHistoryAndCloseControl()
     {
         await using var context = BunitTestContext.Create();
         var transactions = new RecordingTransactionService();
@@ -227,11 +227,11 @@ public class UiFlowTests
         context.Services.AddSingleton<ITransactionService>(transactions);
         var child = new ChildWithBalance { Id = "child-1", TenantId = "tenant-1", Name = "Alex", Balance = 4m };
         var provider = context.Render<MudDialogProvider>();
-        var parameters = new DialogParameters<ChildTransactionsDialogue>();
+        var parameters = new DialogParameters<ChildTransactionsDialog>();
         parameters.Add(x => x.Child, child);
 
         var reference = await context.Services.GetRequiredService<IDialogService>()
-            .ShowAsync<ChildTransactionsDialogue>(null, parameters);
+            .ShowAsync<ChildTransactionsDialog>(null, parameters);
 
         provider.WaitForAssertion(() => Assert.Contains("Skate park", provider.Markup));
         Assert.Contains("Current balance", provider.Markup);
@@ -243,17 +243,17 @@ public class UiFlowTests
     }
 
     [Fact]
-    public async Task AddFundsDialogueRoundsUpAndPersistsTheDeposit()
+    public async Task AddFundsDialogRoundsUpAndPersistsTheDeposit()
     {
         await using var context = BunitTestContext.Create();
         var transactions = new RecordingTransactionService();
         context.Services.AddSingleton<ITransactionService>(transactions);
         var child = new ChildWithBalance { Id = "child-1", TenantId = "tenant-1", Name = "Alex", Balance = 4m };
         var provider = context.Render<MudDialogProvider>();
-        var parameters = new DialogParameters<AddFundsDialogue>();
+        var parameters = new DialogParameters<AddFundsDialog>();
         parameters.Add(x => x.Child, child);
         var reference = await context.Services.GetRequiredService<IDialogService>()
-            .ShowAsync<AddFundsDialogue>(null, parameters);
+            .ShowAsync<AddFundsDialog>(null, parameters);
 
         provider.WaitForAssertion(() => Assert.Contains("Round up amount", provider.Markup));
         var inputs = provider.FindAll("input");

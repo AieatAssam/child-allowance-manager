@@ -289,25 +289,25 @@ phases:
     file: docs/plan/phase-10-visual-redesign.yaml
     title: Calm ledger redesign — remove decoration, unify copy, standardize patterns
     depends_on: [P09, P08]
-    status: pending
+    status: done
 
   - id: P11
     file: docs/plan/phase-11-accessibility.yaml
     title: Accessibility and interaction correctness
     depends_on: [P10]
-    status: pending
+    status: done
 
   - id: P12
     file: docs/plan/phase-12-ops-hygiene.yaml
     title: Dev seeder, resource leaks, cancellation, deploy verification, docs
     depends_on: [P05, P11]
-    status: pending
+    status: done
 
   - id: P13
     file: docs/plan/phase-13-rename-dialogue.yaml
     title: Rename Dialogue -> Dialog across components, call sites and tests
     depends_on: [P12]
-    status: pending
+    status: done
     exclusive: true
     note: Runs alone. No sibling task may be in_progress while any P13 task runs.
 
@@ -1339,10 +1339,10 @@ tasks:
     depends_on: [P12-T6]
     files_touched: ["*"]
     exclusive: true
-    status: pending
-    owner: null
-    updated: null
-    result: null
+    status: done
+    owner: codex-p13-t1
+    updated: 2026-08-11T02:42:00Z
+    result: "Renamed all Dialogue components, code references, and tests to Dialog; verified solution Release build with 0 errors."
 
 # ---------------------------------------------------------------------------
 # 8. AUDIT COVERAGE MAP — every finding maps to at least one task.

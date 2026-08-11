@@ -59,7 +59,7 @@ public class ComponentRenderingTests
         var appDialog = ReadSource("ChildAllowanceManager/Components/AppDialog.razor");
         Assert.Contains("aria-label=\"@($\"Close {Title}\")\"", appDialog);
         foreach (var dialog in new[] { "AddFunds", "WithdrawFunds", "AddHold", "AddParent", "ChildTransactions" })
-            Assert.Contains("<AppDialog", ReadSource($"ChildAllowanceManager/Components/Pages/{dialog}Dialogue.razor"));
+            Assert.Contains("<AppDialog", ReadSource($"ChildAllowanceManager/Components/Pages/{dialog}Dialog.razor"));
     }
 
     [Fact]
@@ -171,16 +171,16 @@ public class ComponentRenderingTests
     }
 
     [Fact]
-    public async Task TransactionDialogueUsesActivityHeading()
+    public async Task TransactionDialogUsesActivityHeading()
     {
         await using var context = BunitTestContext.Create();
         context.Services.Add(ServiceDescriptor.Singleton<ITransactionService>(new FakeTransactionService()));
         var provider = context.Render<MudDialogProvider>();
-        var parameters = new DialogParameters<ChildTransactionsDialogue>();
+        var parameters = new DialogParameters<ChildTransactionsDialog>();
         parameters.Add(x => x.Child, new ChildWithBalance { Id = "child-1", TenantId = "tenant-1", Name = "Ada", Balance = 3m });
 
         await context.Services.GetRequiredService<IDialogService>()
-            .ShowAsync<ChildTransactionsDialogue>(null, parameters);
+            .ShowAsync<ChildTransactionsDialog>(null, parameters);
 
         provider.WaitForAssertion(() => Assert.Contains("Ada’s activity", provider.Markup));
         Assert.DoesNotContain("Money trail", provider.Markup);

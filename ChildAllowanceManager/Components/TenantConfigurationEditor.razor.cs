@@ -74,18 +74,18 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
         }
     }
     
-    private async Task AddParentDialogue()
+    private async Task AddParentDialog()
     {
         if (Tenant is null)
             return;
         var options = new DialogOptions { CloseOnEscapeKey = true };
-        DialogParameters<AddParentDialogue> parameters = new();
+        DialogParameters<AddParentDialog> parameters = new();
         parameters.Add(d => d.TenantId, Tenant.Id);
-        var dialogue = await DialogService.ShowAsync<AddParentDialogue>(null, parameters: parameters, options: options);
-        var dialogueResult = await dialogue.Result;
-        if (dialogueResult is not null && !dialogueResult.Canceled)
+        var dialog = await DialogService.ShowAsync<AddParentDialog>(null, parameters: parameters, options: options);
+        var dialogResult = await dialog.Result;
+        if (dialogResult is not null && !dialogResult.Canceled)
         {
-            //var parent = dialogueResult.Data as User; 
+            //var parent = dialogResult.Data as User;
             await ReloadParentsAsync();
         }
     }

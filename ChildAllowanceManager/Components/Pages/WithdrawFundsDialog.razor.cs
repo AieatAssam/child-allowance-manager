@@ -5,7 +5,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class AddFundsDialogue : CancellableComponentBase
+public partial class WithdrawFundsDialog : CancellableComponentBase
 {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     
@@ -17,11 +17,20 @@ public partial class AddFundsDialogue : CancellableComponentBase
     private string _description = string.Empty;
     private MudForm _form = default!;
     private readonly string _requestId = Guid.NewGuid().ToString("N");
+    private bool _overdrawAcknowledged;
 
+    private decimal ResultingBalance => Child.Balance - Amount;
+    private bool WillOverdraw => ResultingBalance < 0;
+    
     public decimal Amount
     {
         get => _amount;
-        set => _amount = value;
+        set
+        {
+            _amount = value;
+            if (!WillOverdraw)
+                _overdrawAcknowledged = false;
+        }
     }
     
     public string Description
@@ -29,19 +38,8 @@ public partial class AddFundsDialogue : CancellableComponentBase
         get => _description;
         set => _description = value;
     }
-    
-    private void RoundUp()
-    {
-        var expectedBalance = Child.Balance + Amount;
-        var decimalPart = expectedBalance % 1;
-        if (decimalPart > 0)
-        {
-            Amount += 1 - decimalPart;
-        }
-    }
 
-    
-    private async Task AddFunds()
+    private async Task WithdrawFunds()
     {
         await _form.ValidateAsync();
         if (!_form.IsValid)
@@ -50,13 +48,13 @@ public partial class AddFundsDialogue : CancellableComponentBase
             async () => await TransactionService.AddTransaction(new AllowanceTransaction
             {
                 Description = Description,
-                TransactionAmount = Amount,
+                TransactionAmount = -Amount,
                 TenantId = Child.TenantId,
                 ChildId = Child.Id,
-                TransactionType = TransactionType.Deposit,
+                TransactionType = TransactionType.Withdrawal,
                 RequestId = _requestId
             }, CancellationToken),
-            successMessage: $"Added {Amount:C2} to {Child.Name}.");
+            successMessage: $"Withdrew {Amount:C2} from {Child.Name}.");
 
         if (outcome.Succeeded)
             MudDialog.Close();

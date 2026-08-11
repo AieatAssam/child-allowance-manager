@@ -34,7 +34,7 @@ public sealed class AccessibilityTests
         var files = new[]
         {
             "ChildrenListPage.razor", "AdministrationPage.razor", "ChildManagementPage.razor",
-            "ChildTransactionsDialogue.razor", "ChildTransactionsTable.razor"
+            "ChildTransactionsDialog.razor", "ChildTransactionsTable.razor"
         };
         foreach (var file in files)
         {

@@ -377,7 +377,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task ShowTransactionsForChild(ChildWithBalance child)
     {
-        var parameters = new DialogParameters<ChildTransactionsDialogue>();
+        var parameters = new DialogParameters<ChildTransactionsDialog>();
         parameters.Add(x => x.Child, child);
         var options = new DialogOptions
         {
@@ -387,28 +387,28 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             FullWidth = true,
             BackgroundClass = "transactions-dialog-background",
         };
-        await DialogService.ShowAsync<ChildTransactionsDialogue>(null, parameters, options);
+        await DialogService.ShowAsync<ChildTransactionsDialog>(null, parameters, options);
     }
     
     private async Task ShowAddFundsForChild(ChildWithBalance child)
     {
-        var parameters = new DialogParameters<AddFundsDialogue>();
+        var parameters = new DialogParameters<AddFundsDialog>();
         parameters.Add(x => x.Child, child);
-        await DialogService.ShowAsync<AddFundsDialogue>(null, parameters);
+        await DialogService.ShowAsync<AddFundsDialog>(null, parameters);
     }
     
     private async Task ShowWithdrawFundsForChild(ChildWithBalance child)
     {
-        var parameters = new DialogParameters<WithdrawFundsDialogue>();
+        var parameters = new DialogParameters<WithdrawFundsDialog>();
         parameters.Add(x => x.Child, child);
-        await DialogService.ShowAsync<WithdrawFundsDialogue>(null, parameters);
+        await DialogService.ShowAsync<WithdrawFundsDialog>(null, parameters);
     }
     
     private async Task ApplyHold(ChildWithBalance child)
     {
-        var parameters = new DialogParameters<AddHoldDialogue>();
+        var parameters = new DialogParameters<AddHoldDialog>();
         parameters.Add(x => x.Child, child);
-        await DialogService.ShowAsync<AddHoldDialogue>(null, parameters);
+        await DialogService.ShowAsync<AddHoldDialog>(null, parameters);
     }
     
     private async Task RemoveHoldDay(ChildWithBalance child)

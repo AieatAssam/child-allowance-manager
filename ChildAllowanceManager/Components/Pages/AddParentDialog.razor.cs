@@ -5,7 +5,7 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Pages;
 
-public partial class AddParentDialogue : CancellableComponentBase
+public partial class AddParentDialog : CancellableComponentBase
 {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public string TenantId { get; set; } = default!;
