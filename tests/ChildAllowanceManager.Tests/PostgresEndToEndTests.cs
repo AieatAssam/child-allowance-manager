@@ -210,11 +210,10 @@ public class PostgresEndToEndTests
         var tenant = await tenants.AddTenant(new TenantConfiguration
         {
             TenantName = "Worker Family",
-            UrlSuffix = "worker"
+            UrlSuffix = "worker",
+            TimeZoneId = "UTC"
         });
-        var tenantToday = TimeZoneInfo.ConvertTime(
-            DateTimeOffset.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById(tenant.TimeZoneId)).Date;
+        var tenantToday = DateTime.UtcNow.Date;
 
         var due = await children.AddChild(new ChildConfiguration
         {

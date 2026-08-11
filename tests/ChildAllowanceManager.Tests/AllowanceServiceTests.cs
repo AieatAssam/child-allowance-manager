@@ -195,9 +195,7 @@ public class AllowanceServiceTests
     public async Task ChildBalanceUsesBirthdayAllowanceOnTheChildsBirthday()
     {
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
-        var tenantToday = TimeZoneInfo.ConvertTime(
-            DateTimeOffset.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById("Europe/London")).Date;
+        var tenantToday = DateTime.UtcNow.Date;
         var service = new ChildService(
             db,
             new GlobalNotificationService(),
@@ -212,7 +210,9 @@ public class AllowanceServiceTests
             RegularAllowance = 5m,
             BirthdayAllowance = 25m
         };
-        db.Tenants.Add(Tenant(child.TenantId));
+        var tenant = Tenant(child.TenantId);
+        tenant.TimeZoneId = "UTC";
+        db.Tenants.Add(tenant);
         var timestamp = DateTimeOffset.UtcNow.AddDays(-1);
         db.Children.Add(child);
         db.Transactions.Add(Transaction(child.Id, child.TenantId, TransactionType.Adjustment, 2m, timestamp, 2m));
