@@ -7,10 +7,11 @@ using MudBlazor;
 
 namespace ChildAllowanceManager.Components.Layout;
 
-public partial class MainLayout
+public partial class MainLayout : IAsyncDisposable
 {
     private bool _drawerOpen = false;
     private bool _useDarkMode;
+    private IJSObjectReference? _jsModule;
     private MudThemeProvider _themeProvider = default!;
     private ErrorBoundary? _errorBoundary;
     
@@ -37,11 +38,11 @@ public partial class MainLayout
             CurrentContextService.SetCurrentTenant(currentTenant.Value!);
 
             // set long lived cookie
-            // load JS module
-            var module = await JSRuntime.InvokeAsync<IJSObjectReference>(
+            // load JS module once
+            _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
                 "import", "./Components/Layout/MainLayout.razor.js");
             // set cookie
-            await JSRuntime.InvokeVoidAsync("MainLayout.createCookie", "current_tenant", currentTenant.Value!, 365);
+            await _jsModule.InvokeVoidAsync("createCookie", "current_tenant", currentTenant.Value!, 365);
         }
 
         if (firstRender)
@@ -61,5 +62,14 @@ public partial class MainLayout
         _themeConfiguration.IsDarkMode = _useDarkMode;
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule is not null)
+        {
+            try { await _jsModule.DisposeAsync(); }
+            catch (JSDisconnectedException) { /* circuit already gone */ }
+        }
     }
 }
