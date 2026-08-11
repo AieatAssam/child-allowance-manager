@@ -25,6 +25,6 @@ public partial class AddParentDialogue : CancellableComponentBase
                 TenantId, NewParent.Email, ValidRoles.Parent, CancellationToken),
             successMessage: $"Invitation sent to {NewParent.Email}.");
         if (outcome.Succeeded)
-            MudDialog.Close(DialogResult.Ok());
+            MudDialog.Close(DialogResult.Ok(true));
     }
 }

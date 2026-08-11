@@ -315,7 +315,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             await using var scope = ServiceScopeFactory.CreateAsyncScope();
             var isolatedChildService = scope.ServiceProvider.GetRequiredService<IChildService>();
-            ChildWithBalance[]? balanceHistory = null;
+            ChildWithBalanceHistory[]? balanceHistory = null;
             var outcome = await RunAsync(async () => balanceHistory = (await isolatedChildService.GetChildrenWithBalanceHistory(
                 _tenantId, null, null, CancellationToken)).ToArray());
             if (!outcome.Succeeded)
