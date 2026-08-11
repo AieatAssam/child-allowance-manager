@@ -94,7 +94,7 @@ public partial class PeoplePage : CancellableComponentBase
         parameters.Add(x => x.TenantId, _tenantId);
         var dialog = await DialogService.ShowAsync<AddParentDialog>("Invite a parent", parameters);
         var result = await dialog.Result;
-        if (!result.Canceled)
+        if (result is not null && !result.Canceled)
             await ReloadAsync();
     }
 

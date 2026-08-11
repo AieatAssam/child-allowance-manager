@@ -27,8 +27,10 @@ public static class BaselineCompatibility
                 CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId"));
             """, ct);
 
+        var productVersion = db.Model.GetProductVersion()
+            ?? throw new InvalidOperationException("EF product version is unavailable.");
         await db.Database.ExecuteSqlRawAsync(
             "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1});",
-            [db.Database.GetMigrations().First(), db.Model.GetProductVersion()], ct);
+            [db.Database.GetMigrations().First(), productVersion], ct);
     }
 }

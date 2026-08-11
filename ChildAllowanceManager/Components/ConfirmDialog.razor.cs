@@ -37,6 +37,6 @@ public partial class ConfirmDialog
             title,
             parameters,
             new DialogOptions { CloseOnEscapeKey = true, DefaultFocus = DefaultFocus.None });
-        return !(await dialog.Result).Canceled;
+        return (await dialog.Result)?.Canceled != true;
     }
 }
