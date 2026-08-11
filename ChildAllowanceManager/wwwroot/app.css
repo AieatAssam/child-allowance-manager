@@ -1,14 +1,14 @@
 :root {
-    --app-background: var(--color-paper, #f7f8fc);
-    --app-foreground: var(--color-ink, #172033);
-    --app-accent: var(--color-accent, #1f6f5b);
-    --app-bg: var(--mud-palette-background, #f7f8fc);
-    --app-ink: var(--mud-palette-text-primary, #172033);
-    --app-muted: var(--mud-palette-text-secondary, #5b657a);
-    --app-border: var(--mud-palette-lines-default, #e5e7ef);
-    --app-primary: var(--mud-palette-primary, #4f46e5);
-    --app-success: var(--mud-palette-success, #0f766e);
-    --app-shadow: 0 14px 40px rgba(23, 32, 51, .08);
+    --app-background: var(--al-paper);
+    --app-foreground: var(--al-ink);
+    --app-accent: var(--al-accent);
+    --app-bg: var(--al-paper);
+    --app-ink: var(--al-ink);
+    --app-muted: var(--al-ink-muted);
+    --app-border: var(--al-border);
+    --app-primary: var(--al-primary);
+    --app-success: var(--al-positive);
+    --app-shadow: var(--al-shadow-none);
     --motion-fast: 160ms;
     --motion-smooth: 280ms;
     --motion-ease: cubic-bezier(.22, 1, .36, 1);
@@ -24,7 +24,7 @@ html, body {
     scroll-padding-top: 5rem;
     background: var(--app-bg);
     color: var(--app-ink);
-    font-family: "DM Sans", system-ui, sans-serif;
+    font-family: var(--al-font-ui);
 }
 
 body {
@@ -128,7 +128,7 @@ button, a, input, select, textarea {
     left: .75rem;
     padding: .65rem .9rem;
     border-radius: .6rem;
-    background: var(--mud-palette-surface, #fff);
+    background: var(--al-surface);
     color: var(--app-ink);
     box-shadow: var(--app-shadow);
     transform: translateY(-180%);
@@ -141,15 +141,13 @@ button, a, input, select, textarea {
 
 .app-bar {
     border-bottom: 1px solid var(--app-border);
-    background: #172554 !important;
-    color: #f8fafc !important;
     backdrop-filter: blur(14px);
 }
 
 .app-brand,
 .page-title,
 .child-card .mud-typography-h6 {
-    font-family: "Nunito", system-ui, sans-serif;
+    font-family: var(--al-font-display);
     font-weight: 800;
     letter-spacing: -.02em;
 }
@@ -229,7 +227,7 @@ button, a, input, select, textarea {
     padding: clamp(.85rem, 2vw, 1.5rem);
     border: 1px solid var(--app-border);
     border-radius: 1.25rem;
-    background: var(--mud-palette-surface, #fff);
+    background: var(--al-surface);
 }
 
 .settings-card .mud-toolbar {
@@ -260,7 +258,7 @@ button, a, input, select, textarea {
     margin: 1rem 0;
     border: 1px solid var(--app-border);
     border-radius: .9rem;
-    background: color-mix(in srgb, var(--app-primary) 4%, var(--mud-palette-surface, #fff));
+    background: color-mix(in srgb, var(--app-primary) 4%, var(--al-surface));
 }
 
 .empty-state {
@@ -277,7 +275,7 @@ button, a, input, select, textarea {
 .chart-card {
     border: 1px solid var(--app-border);
     border-radius: 1.25rem;
-    background: var(--mud-palette-surface, rgba(255, 255, 255, .96));
+    background: var(--al-surface);
     color: var(--app-ink);
     box-shadow: var(--app-shadow);
 }
@@ -294,7 +292,7 @@ button, a, input, select, textarea {
 }
 
 .child-avatar {
-    font-family: "Nunito", system-ui, sans-serif;
+    font-family: var(--al-font-ui);
     font-weight: 800;
 }
 
@@ -315,7 +313,7 @@ button, a, input, select, textarea {
 }
 
 .balance-negative {
-    color: #b42318;
+    color: var(--al-negative-text);
 }
 
 .next-allowance {
@@ -325,7 +323,7 @@ button, a, input, select, textarea {
     margin-top: 1.25rem;
     padding: .85rem;
     border-radius: .85rem;
-    background: color-mix(in srgb, var(--app-success) 10%, var(--mud-palette-surface, #fff));
+    background: color-mix(in srgb, var(--app-success) 10%, var(--al-surface));
 }
 
 .next-allowance .mud-icon-root {
@@ -396,12 +394,12 @@ button, a, input, select, textarea {
     padding: .55rem .85rem;
     border: 1px solid color-mix(in srgb, var(--app-primary) 20%, var(--app-border));
     border-radius: .75rem;
-    background: color-mix(in srgb, #0d9488 9%, var(--mud-palette-surface, #fff));
+    background: color-mix(in srgb, var(--al-positive) 9%, var(--al-surface));
 }
 
 .transactions-toolbar-label {
     color: var(--app-ink) !important;
-    font-family: "Nunito", system-ui, sans-serif;
+    font-family: var(--al-font-ui);
     font-weight: 800 !important;
 }
 
@@ -414,12 +412,12 @@ button, a, input, select, textarea {
     overflow-x: auto;
     border: 1px solid var(--app-border);
     border-radius: 1rem;
-    background: var(--mud-palette-surface, #fff);
-    box-shadow: 0 12px 30px rgba(23, 32, 51, .08);
+    background: var(--al-surface);
+    box-shadow: var(--al-shadow-none);
 }
 
 .transactions-table .mud-table-head {
-    background: color-mix(in srgb, #172554 8%, var(--mud-palette-surface, #fff));
+    background: color-mix(in srgb, var(--al-primary-strong) 8%, var(--al-surface));
 }
 
 .transactions-table .mud-table-head .mud-table-cell {
@@ -442,7 +440,7 @@ button, a, input, select, textarea {
 }
 
 .transactions-table .mud-table-row:hover {
-    background: color-mix(in srgb, #0d9488 7%, var(--mud-palette-surface, #fff));
+    background: color-mix(in srgb, var(--al-positive) 7%, var(--al-surface));
 }
 
 .transaction-date,
@@ -500,8 +498,8 @@ button, a, input, select, textarea {
 }
 
 .transaction-out .transaction-direction {
-    background: color-mix(in srgb, #f97360 16%, transparent);
-    color: #c24132;
+    background: color-mix(in srgb, var(--al-negative) 16%, transparent);
+    color: var(--al-negative-text);
 }
 
 .transaction-neutral .transaction-direction {
@@ -514,7 +512,7 @@ button, a, input, select, textarea {
 }
 
 .transaction-out .transaction-amount {
-    color: #c24132 !important;
+    color: var(--al-negative-text) !important;
 }
 
 .transaction-neutral .transaction-amount {
