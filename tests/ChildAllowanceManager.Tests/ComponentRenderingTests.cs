@@ -11,6 +11,75 @@ namespace ChildAllowanceManager.Tests;
 public class ComponentRenderingTests
 {
     [Fact]
+    public void Dashboard_renders_no_decorative_backdrop_elements()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.DoesNotContain("dashboard-backdrop", markup);
+        Assert.DoesNotContain("dashboard-ribbon", markup);
+        Assert.DoesNotContain("dashboard-orb", markup);
+        Assert.DoesNotContain("dashboard-spark", markup);
+    }
+
+    [Fact]
+    public void Dashboard_heading_is_balances()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.Contains(">Balances</MudText>", markup);
+        Assert.DoesNotContain("See the money move", markup);
+    }
+
+    [Fact]
+    public void Dashboard_shows_an_exact_date_not_a_slogan()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.Contains("dddd, d MMMM", markup);
+        Assert.DoesNotContain("Today at a glance", markup);
+    }
+
+    [Fact]
+    public void Money_buttons_read_add_money_and_withdraw()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.Contains("Add money", markup);
+        Assert.Contains(">Withdraw<", markup);
+        Assert.DoesNotContain(">Add<", markup);
+        Assert.DoesNotContain(">Take out<", markup);
+    }
+
+    [Fact]
+    public void Next_allowance_shows_an_exact_date()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.Contains("NextRegularChangeLocalDate.ToString(\"dddd, d MMMM\")", markup);
+    }
+
+    [Fact]
+    public void Every_dialog_renders_a_close_control_with_an_aria_label()
+    {
+        var appDialog = ReadSource("ChildAllowanceManager/Components/AppDialog.razor");
+        Assert.Contains("aria-label=\"@($\"Close {Title}\")\"", appDialog);
+        foreach (var dialog in new[] { "AddFunds", "WithdrawFunds", "AddHold", "AddParent", "ChildTransactions" })
+            Assert.Contains("<AppDialog", ReadSource($"ChildAllowanceManager/Components/Pages/{dialog}Dialogue.razor"));
+    }
+
+    [Fact]
+    public void Cancel_buttons_are_never_secondary_coloured()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/AppDialog.razor");
+        Assert.Contains("Color=\"Color.Default\"", markup);
+        Assert.DoesNotContain("Cancel</MudButton>", markup.Replace("Color=\"Color.Secondary\"", string.Empty));
+    }
+
+    [Fact]
+    public void Deleted_family_list_offers_restore()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Components/Pages/AdministrationPage.razor");
+        Assert.Contains("Deleted", markup);
+        Assert.Contains("Restore", markup);
+        Assert.Contains("Nothing deleted.", markup);
+    }
+
+    [Fact]
     public async Task ChildEditorHidesBirthdayAllowanceUntilBirthDateIsSet()
     {
         await using var context = BunitTestContext.Create();
@@ -186,5 +255,22 @@ public class ComponentRenderingTests
             string childId, string tenantId, DateTimeOffset? startDate, DateTimeOffset? endDate,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult<IEnumerable<BalanceHistoryEntry>>([]);
+
+        public ValueTask<AllowanceTransaction> ReverseTransactionAsync(string transactionId, string tenantId,
+            string reason, string? requestId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public ValueTask<string> ExportTransactionsCsvAsync(string childId, string tenantId,
+            CancellationToken cancellationToken = default) => ValueTask.FromResult(string.Empty);
+    }
+
+    private static string ReadSource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "plan.yaml")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
     }
 }
