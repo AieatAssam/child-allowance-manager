@@ -1,16 +1,5 @@
-export class MainLayout {
-    static createCookie(name, value, days) {
-        var expires;
-        if (days) {
-            var date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            expires = "; expires=" + date.toGMTString();
-        }
-        else {
-            expires = "";
-        }
-        document.cookie = name + "=" + value + expires + "; path=/; samesite=lax;";
-    }
+export function createCookie(name, value, days) {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie =
+        `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
 }
-
-window.MainLayout = MainLayout;
