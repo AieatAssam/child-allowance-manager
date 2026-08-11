@@ -84,12 +84,12 @@ public sealed class AccessibilityTests
     }
 
     [Fact]
-    public void Chart_series_carry_distinct_dash_patterns()
+    public void Balance_chart_uses_time_series_with_a_table_alternative()
     {
-        var source = Source("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs");
-        Assert.Contains("ChartDashes", source);
-        Assert.Contains("Dash = ChartDashes", source);
-        Assert.Contains("Symbol = ChartMarkers", source);
+        var source = Source("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
+        Assert.Contains("ChartType=\"ChartType.Timeseries\"", source);
+        Assert.Contains("ChartSeries=\"_balanceChartSeries\"", source);
+        Assert.Contains("<BalanceHistoryTable History=\"_balanceHistory\" />", source);
     }
 
     [Fact]

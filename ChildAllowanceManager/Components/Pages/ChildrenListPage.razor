@@ -2,7 +2,6 @@
 @using ChildAllowanceManager.Common.Models
 @using Humanizer
 @using Microsoft.AspNetCore.Components.Authorization
-@using Plotly.Blazor
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 
@@ -117,10 +116,14 @@
                     <span>Tap or hover a point to see that day’s balance.</span>
                 </div>
                 <div class="chart-frame" aria-hidden="true">
-                    <PlotlyChart @bind-Config="_plotlyConfig"
-                                 @bind-Layout="_plotlyLayout"
-                                 @bind-Data="_plotlyData"
-                                 @ref="_plotlyChart" />
+                    <MudChart T="decimal"
+                              ChartType="ChartType.Timeseries"
+                              ChartSeries="_balanceChartSeries"
+                              ChartOptions="_balanceChartOptions"
+                              Width="100%"
+                              Height="200px"
+                              MatchBoundsToSize="true"
+                              CanHideSeries />
                 </div>
                 <MudExpansionPanels>
                     <MudExpansionPanel Text="View the data as a table" Expanded="false" aria-describedby="balance-chart-description">

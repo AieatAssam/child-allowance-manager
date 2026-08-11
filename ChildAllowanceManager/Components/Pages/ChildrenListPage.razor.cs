@@ -5,31 +5,14 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
-using Plotly.Blazor;
-using Plotly.Blazor.ConfigLib;
-using Plotly.Blazor.LayoutLib;
-using Plotly.Blazor.LayoutLib.LegendLib;
-using Plotly.Blazor.LayoutLib.YAxisLib;
-using Plotly.Blazor.Traces;
-using Plotly.Blazor.Traces.ScatterLib;
-using Font = Plotly.Blazor.LayoutLib.Font;
-using HoverModeEnum = Plotly.Blazor.LayoutLib.HoverModeEnum;
-using LegendOrientationEnum = Plotly.Blazor.LayoutLib.LegendLib.OrientationEnum;
-using Margin = Plotly.Blazor.LayoutLib.Margin;
-using Line = Plotly.Blazor.Traces.ScatterLib.Line;
-using Marker = Plotly.Blazor.Traces.ScatterLib.Marker;
-using MarkerSymbolEnum = Plotly.Blazor.Traces.ScatterLib.MarkerLib.SymbolEnum;
+using MudBlazor.Charts;
 
 namespace ChildAllowanceManager.Components.Pages;
 
 public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
-    // Series are distinguished by dash pattern and marker shape as well as colour, so the
-    // chart is readable without colour vision. Values come from docs/brand/brand-guidelines.md.
+    // Values come from docs/brand/brand-guidelines.md.
     private static readonly string[] ChartColors = ["#675184", "#32735F", "#B95E4D", "#E9A36A"];
-    private static readonly string[] ChartDashes = ["solid", "dash", "dot", "dashdot"];
-    private static readonly MarkerSymbolEnum[] ChartMarkers =
-        [MarkerSymbolEnum.Circle, MarkerSymbolEnum.Square, MarkerSymbolEnum.Diamond, MarkerSymbolEnum.TriangleUp];
 
     [Inject]
     public IChildService ChildService { get; set; } = default!;
@@ -67,83 +50,35 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     [Parameter]
     public string? TenantSuffix { get; set; }
 
-    [CascadingParameter]
-    public ThemeConfiguration ThemeConfiguration { get; set; } = default!;
-    
     private string? _tenantId = null;
     private bool CanManageCurrentTenant;
     private ChildWithBalance[]? Children = null;
     private readonly SemaphoreSlim _dataGate = new(1, 1);
     private readonly SemaphoreSlim _parametersGate = new(1, 1);
     private bool _balanceHistoryNeedsSync = true;
-    private bool _plotlyThemeNeedsSync;
-    private bool _plotlyThemeIsDarkMode;
-    private string _plotlySurfaceColor = "#FFFFFF";
     private ChildWithBalanceHistory[] _balanceHistory = [];
 
-    #region Plotly
-    private Config _plotlyConfig = new()
+    private readonly TimeSeriesChartOptions _balanceChartOptions = new()
     {
-        DisplayLogo = false,
-        AutoSizable = true,
-        FrameMargins = 0,
-        Editable = false,
-        DisplayModeBar = DisplayModeBarEnum.False,
-        Locale = "en-GB",
-        Responsive = true
+        ChartPalette = ChartColors,
+        YAxisLines = false,
+        YAxisRequireZeroPoint = true,
+        MaxNumYAxisTicks = 6,
+        YAxisFormat = "C0",
+        XAxisLines = false,
+        TimeLabelFormat = "MMM d",
+        TimeLabelSpacing = TimeSpan.FromDays(1),
+        TooltipTimeLabelFormat = "d MMM yyyy",
+        TooltipTitleFormat = "{{SERIES_NAME}}",
+        TooltipSubtitleFormat = "Balance: {{Y_VALUE}}",
+        ShowDataMarkers = true,
+        LineStrokeWidth = 2,
     };
 
-    private Plotly.Blazor.Layout _plotlyLayout = new()
-    {
-        ShowLegend = true,
-        HoverMode = HoverModeEnum.XUnified,
-        YAxis = new List<YAxis>(){ new Plotly.Blazor.LayoutLib.YAxis()
-            {
-                TickPrefix = "£",
-                ShowTickPrefix = ShowTickPrefixEnum.All,
-                ShowTickLabels = true,
-                TickFormat = ",.0f",
-                GridColor = "rgba(148, 163, 184, .28)",
-                GridWidth = 1,
-                ZeroLine = true,
-                ZeroLineColor = "rgba(148, 163, 184, .48)",
-                ZeroLineWidth = 1,
-                ShowLine = false,
-            }
-        },
-        XAxis = new List<XAxis>(){ new Plotly.Blazor.LayoutLib.XAxis()
-            {
-                ShowGrid = false,
-                ShowLine = false,
-                TickFormat = "%b %-d",
-                TickAngle = 0,
-            }
-        },
-        AutoSize = true,
-        Margin = new Margin() { T = 24, R = 24, B = 52, L = 58},
-        Legend = new List<Legend>()
-        {
-            new Legend()
-            {
-                X = 0,
-                Y = 1,
-                XAnchor = XAnchorEnum.Left,
-                YAnchor = YAnchorEnum.Top,
-                Orientation = LegendOrientationEnum.H,
-            }
-        },
-    };
-    
-    private PlotlyChart _plotlyChart = null!; // referenced in razor page
-    
-    IList<ITrace> _plotlyData = new List<ITrace>();
-    #endregion Plotly
+    private List<ChartSeries<decimal>> _balanceChartSeries = [];
     
     protected override async Task OnInitializedAsync()
     {
-        
-        ApplyPlotlyTheme();
-        
         TenantNotificationService.ChildStateChanged += ChildStateChangedNotification;
 
         await ReloadChildren();
@@ -165,13 +100,6 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_plotlyThemeIsDarkMode != ThemeConfiguration.IsDarkMode)
-        {
-            ApplyPlotlyTheme();
-            _plotlyThemeIsDarkMode = ThemeConfiguration.IsDarkMode;
-            _plotlyThemeNeedsSync = true;
-        }
-
         await _parametersGate.WaitAsync(CancellationToken);
         try
         {
@@ -214,7 +142,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 if (previousTenantId != tenant.Id)
                 {
                     _contextUpdated = false;
-                    _plotlyData.Clear();
+                    _balanceChartSeries.Clear();
                     _balanceHistory = [];
                 }
                 await ReloadChildren();
@@ -246,41 +174,6 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             await SyncChildBalanceHistorySeries();
         }
 
-        if (_plotlyThemeNeedsSync && _plotlyData.Count > 0)
-        {
-            _plotlyThemeNeedsSync = false;
-            await _plotlyChart.React(CancellationToken);
-        }
-    }
-
-    private void ApplyPlotlyTheme()
-    {
-        Palette palette = ThemeConfiguration.IsDarkMode
-            ? ThemeConfiguration.Theme.PaletteDark
-            : ThemeConfiguration.Theme.PaletteLight;
-        string surfaceColor = palette.Surface.ToString();
-        string textColor = palette.TextPrimary.ToString();
-        string mutedColor = palette.TextSecondary.ToString();
-        _plotlyLayout.PaperBgColor = surfaceColor;
-        _plotlyLayout.PlotBgColor = surfaceColor;
-        _plotlyLayout.Font = new Font { Color = textColor };
-        _plotlySurfaceColor = surfaceColor;
-
-        if (_plotlyLayout.YAxis?.FirstOrDefault() is YAxis yAxis)
-        {
-            yAxis.TickColor = mutedColor;
-            yAxis.GridColor = ThemeConfiguration.IsDarkMode
-                ? "rgba(255, 255, 255, .20)"
-                : "rgba(23, 32, 51, .16)";
-            yAxis.ZeroLineColor = ThemeConfiguration.IsDarkMode
-                ? "rgba(255, 255, 255, .42)"
-                : "rgba(23, 32, 51, .36)";
-        }
-
-        if (_plotlyLayout.XAxis?.FirstOrDefault() is XAxis xAxis)
-        {
-            xAxis.TickColor = mutedColor;
-        }
     }
 
     private async Task ReloadChildren()
@@ -330,43 +223,29 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 return;
 
             _balanceHistory = balanceHistory!;
-            var traces = new List<ITrace>();
-            foreach (var (child, index) in _balanceHistory.Select((child, index) => (child, index)))
+            var series = new List<ChartSeries<decimal>>();
+            foreach (var child in _balanceHistory)
             {
-                string chartColor = ChartColors[index % ChartColors.Length];
-                traces.Add(new Plotly.Blazor.Traces.Scatter
+                series.Add(new ChartSeries<decimal>
                 {
-                        Name = child.ChildName,
-                        X = child.BalanceHistory.Select(x => (object)x.Timestamp).ToList(),
-                        Y = child.BalanceHistory.Select(x => (object)x.Balance).ToArray(),
-                        Mode = ModeFlag.Lines | ModeFlag.Markers,
-                        Line = new Line
-                        {
-                            Color = chartColor,
-                            Dash = ChartDashes[index % ChartDashes.Length],
-                            Width = 2,
-                        },
-                        Marker = new Marker
-                        {
-                            Color = chartColor,
-                            Symbol = ChartMarkers[index % ChartMarkers.Length],
-                            Size = 8,
-                            Line = new Plotly.Blazor.Traces.ScatterLib.MarkerLib.Line
-                            {
-                                Color = _plotlySurfaceColor,
-                                Width = 2,
-                            }
-                        },
-                        Fill = index == 0 ? FillEnum.ToZeroY : FillEnum.None,
-                        FillColor = index == 0 ? $"{chartColor}1F" : null,
-                        HoverTemplate = $"<b>{child.ChildName}</b><br>%{{x|%b %-d, %Y}}<br>Balance: £%{{y:,.2f}}<extra></extra>",
-                        XCalendar = XCalendarEnum.Gregorian,
+                    Name = child.ChildName,
+                    Data = new ChartData<decimal>(child.BalanceHistory.Select(entry =>
+                        (entry.Timestamp.UtcDateTime, entry.Balance)).ToArray()),
+                    TooltipYValueFormat = "C2",
                 });
             }
 
-            _plotlyData = traces;
-            if (_plotlyChart is not null)
-                await _plotlyChart.React(CancellationToken);
+            _balanceChartOptions.SeriesDisplayOverrides = series.Count == 0
+                ? []
+                : new Dictionary<IChartSeries, SeriesDisplayOverride>
+                {
+                    [series[0]] = new SeriesDisplayOverride
+                    {
+                        LineDisplayType = LineDisplayType.Area,
+                        FillOpacity = 0.12,
+                    },
+                };
+            _balanceChartSeries = series;
         }
         finally
         {

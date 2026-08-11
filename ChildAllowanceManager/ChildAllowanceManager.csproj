@@ -19,7 +19,6 @@
         <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.10" />
         <PackageReference Include="MudBlazor" Version="9.8.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-        <PackageReference Include="Plotly.Blazor" Version="7.2.0" />
         <PackageReference Include="Quartz.AspNetCore" Version="3.19.1" />
     </ItemGroup>
 

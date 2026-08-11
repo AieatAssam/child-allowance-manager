@@ -212,6 +212,9 @@ public class PostgresEndToEndTests
             TenantName = "Worker Family",
             UrlSuffix = "worker"
         });
+        var tenantToday = TimeZoneInfo.ConvertTime(
+            DateTimeOffset.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById(tenant.TimeZoneId)).Date;
 
         var due = await children.AddChild(new ChildConfiguration
         {
@@ -225,7 +228,7 @@ public class PostgresEndToEndTests
             FirstName = "Birthday",
             LastName = "Child",
             TenantId = tenant.Id,
-            BirthDate = DateTime.Today,
+            BirthDate = tenantToday,
             RegularAllowance = 5m,
             BirthdayAllowance = 20m
         });
