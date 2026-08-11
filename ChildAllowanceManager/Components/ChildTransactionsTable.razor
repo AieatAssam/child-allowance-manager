@@ -13,10 +13,14 @@
           ServerData="RetrievePage"
 >
     <HeaderContent>
-        <MudTh>When</MudTh>
-        <MudTh>Movement</MudTh>
-        <MudTh>Details</MudTh>
-        <MudTh>Balance</MudTh>
+        <caption>Transactions for @Child?.Name, newest first</caption>
+        <MudTh scope="col">When</MudTh>
+        <MudTh scope="col">Movement</MudTh>
+        <MudTh scope="col">Details</MudTh>
+        @if (!IsSmallSize)
+        {
+            <MudTh scope="col">Balance</MudTh>
+        }
     </HeaderContent>
     <RowTemplate>
         @{ var localTime = context.TransactionTimestamp.ToLocalTime(); }
@@ -34,12 +38,15 @@
                 </MudText>
             </div>
         </MudTd>
-        <MudTd DataLabel="Details" Class="transaction-details">
+        <MudTd DataLabel="Details" Class="transaction-details" title="@context.Description">
             <MudText Class="transaction-description">@context.Description</MudText>
         </MudTd>
-        <MudTd DataLabel="Balance" Class="transaction-balance-cell">
-            <MudText Class="transaction-balance">@context.Balance.ToString("C2")</MudText>
-        </MudTd>
+        @if (!IsSmallSize)
+        {
+            <MudTd DataLabel="Balance" Class="transaction-balance-cell">
+                <MudText Class="transaction-balance">@context.Balance.ToString("C2")</MudText>
+            </MudTd>
+        }
     </RowTemplate>
     <NoRecordsContent>
         <MudText>No matching records found</MudText>
