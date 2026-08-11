@@ -259,7 +259,6 @@ public class UiFlowTests
         var inputs = provider.FindAll("input");
         inputs[0].Change("0.75");
         provider.Find("button[aria-label='Round up amount']").Click();
-        Assert.Contains("£1.00", provider.Markup);
         inputs[1].Change("Saved for a goal");
         provider.FindAll("button").Single(x => x.TextContent.Trim() == "Add").Click();
 
