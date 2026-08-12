@@ -41,13 +41,20 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version-file: global.json
+          global-json-file: global.json
 
       - name: Build
         run: dotnet build --configuration Release
 
       - name: Test
         run: dotnet test --configuration Release --no-build
+
+      - name: Reset database for migration check
+        env:
+          PGPASSWORD: postgres
+        run: |
+          dropdb --if-exists --force -h localhost -U postgres child_allowance_manager_test
+          createdb -h localhost -U postgres child_allowance_manager_test
 
       - name: Apply database migrations
         run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
