@@ -15,9 +15,17 @@ Allowance Manager is an application for tracking child allowance and managing it
 - Reversible restore for deleted families and children
 - Parent login via an existing Microsoft account (personal or work)
 
+## Screenshots
+
+The screenshots below show the seeded Development experience.
+
+![Balances dashboard](docs/screenshots/dashboard.jpg)
+
+![Family settings](docs/screenshots/family-settings.jpg)
+
 ## Requirements
 
-- .NET 10 SDK (pinned to the 10.0.2xx feature band via `global.json`)
+- .NET 10 SDK 10.0.301 (pinned via `global.json`)
 - PostgreSQL 14 or later
 - Azure App Registration for OAuth2 authentication
 - Blazor-compatible hosting (Azure App Service, for example)
