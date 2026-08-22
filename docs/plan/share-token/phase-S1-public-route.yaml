@@ -1,0 +1,385 @@
+phase: S1
+title: The /share/{token} route, read-only rendering, liveness polling, headers
+read_before_starting: [share-token-plan.yaml]
+context: >
+  ChildrenListPage today takes a {tenantSuffix} route parameter, resolves the tenant through
+  ITenantService, checks access, loads ChildWithBalance[] and a balance history series, and
+  renders balance cards, a chart, a history table and a transactions dialog. This phase teaches
+  the same page a second entry point - /share/{shareToken} - where the tenant comes from
+  IShareLinkService.ResolveAsync instead, and where the page is hard read-only.
+  Read ChildrenListPage.razor and ChildrenListPage.razor.cs in full before editing. They are
+  ~330 lines together and every task in this phase edits them.
+preconditions:
+  - "S0-T3 is done — IShareLinkService is registered in Program.cs."
+  - "ChildrenListPage.razor line 1 is `@page \"/{tenantSuffix}/children\"` with no [Authorize] attribute."
+already_true_do_not_change:
+  - >
+    The History button and ChildTransactionsTable are read-only - the table renders When /
+    Movement / Details / Balance with no action column. Transaction corrections and reversals
+    live elsewhere and are not reachable from this page. Do not add a guard for them here.
+  - >
+    MainLayout renders the family switcher and the account menu inside
+    <AuthorizeView><Authorized>, so an anonymous share visitor already sees neither.
+
+tasks:
+
+  - id: S1-T1
+    title: Share route parameter, token resolution, and the expired page
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ShareExpired.razor
+    mutex: children-list-page
+    steps:
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        anchor: '@page "/{tenantSuffix}/children"'
+        add_after: '@page "/share/{shareToken}"'
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: |
+          [Parameter]
+          public string? TenantSuffix { get; set; }
+        add_after: |
+          /// Present only on the /share/{shareToken} route. Its presence IS share mode.
+          /// Never logged, never stored, never rendered. See S-D11.
+          [Parameter]
+          public string? ShareToken { get; set; }
+
+          [Inject]
+          private IShareLinkService ShareLinkService { get; set; } = default!;
+
+          private bool _shareMode;
+          private string? _shareLinkId;
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: 'if (!string.IsNullOrWhiteSpace(TenantSuffix))'
+        change: |
+          Restructure OnParametersSetAsync so the tenant is resolved by whichever route
+          supplied a parameter, then the SHARED tail runs. Keep the existing _parametersGate
+          and _dataGate usage exactly as it is - do not widen or narrow the locks.
+
+          Target shape (inside the try of the _parametersGate block):
+
+            _shareMode = !string.IsNullOrWhiteSpace(ShareToken);
+
+            TenantConfiguration? tenant = null;
+            if (_shareMode)
+            {
+                ShareLink? link = null;
+                await _dataGate.WaitAsync(CancellationToken);
+                try
+                {
+                    var shareOutcome = await RunAsync(async () =>
+                    {
+                        await using var scope = ServiceScopeFactory.CreateAsyncScope();
+                        var isolatedShareLinkService =
+                            scope.ServiceProvider.GetRequiredService<IShareLinkService>();
+                        link = await isolatedShareLinkService.ResolveAsync(ShareToken!, CancellationToken);
+                    });
+                    if (!shareOutcome.Succeeded)
+                        return;
+                }
+                finally
+                {
+                    _dataGate.Release();
+                }
+
+                if (link is null)
+                {
+                    Navigation.NavigateTo("/share/expired");
+                    return;
+                }
+
+                _shareLinkId = link.Id;
+                tenant = link.Tenant;
+                Logger.LogInformation(
+                    "Share link {ShareLinkId} opened for tenant {TenantId}", link.Id, tenant!.Id);
+            }
+            else if (!string.IsNullOrWhiteSpace(TenantSuffix))
+            {
+                // ... the existing scoped ITenantService.GetTenantBySuffix block, unchanged ...
+            }
+            else
+            {
+                await base.OnParametersSetAsync();
+                return;
+            }
+
+            if (tenant is null)
+            {
+                Navigation.NavigateTo("/error/404");
+                return;
+            }
+
+            // ... the existing tail: previousTenantId, _tenantId, access check,
+            //     CanManageCurrentTenant, series reset, ReloadChildren ...
+        rules:
+          - >
+            The access check in the tail must be skipped in share mode - the token IS the
+            authorization. Write it as `if (!_shareMode && !await HasTenantAccessAsync(tenant.Id))`.
+          - >
+            Resolve through a fresh IServiceScopeFactory scope exactly like the tenant lookup
+            already does. The page's own scoped DbContext is shared with the render loop; the
+            existing code isolates every data call for that reason. Match it.
+          - "Do not put ShareToken into any log message, snackbar, page title or exception."
+      - file: ChildAllowanceManager/Components/Pages/ShareExpired.razor
+        create: |
+          @page "/share/expired"
+
+          <PageTitle>This link no longer works</PageTitle>
+
+          <div class="page-shell">
+              <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                  <MudText Typo="Typo.h6" HtmlTag="h1">This link no longer works</MudText>
+                  <MudText Typo="Typo.body2" Class="mt-2">
+                      It was turned off, or it ran out. Ask a parent in the family for a new one.
+                  </MudText>
+                  <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary" Href="/login">
+                      Sign in instead
+                  </MudButton>
+              </MudAlert>
+          </div>
+        rules:
+          - "No [Authorize]. A revoked-link visitor is anonymous by definition."
+          - >
+            The copy must not distinguish revoked from expired from never-existed. One message
+            for all three - it is friendlier and it does not confirm that a token was ever real.
+          - >
+            Match the voice of the existing NotFound and NotAuthorized blocks in
+            Components/Routes.razor - plain, short, no blame.
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by S1-T5."
+    commit: "feat(share): serve the balance board from a share token"
+
+  - id: S1-T2
+    title: Single affirmative read-only gate and share-mode browser-state suppression
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    why: >
+      See S-D7 and S-D8. This task closes a hole that predates share links - the markup gates
+      money controls on the GLOBAL roles "admin,parent" while the click handlers gate on the
+      per-tenant CanManageCurrentTenant, so a signed-in global parent currently renders live
+      Add money / Withdraw / Pause buttons on a family they do not belong to. They fail on
+      click, but they should never have drawn. Share mode would make that mismatch load-bearing.
+    steps:
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: |
+          CanManageCurrentTenant = AuthenticationState is null ||
+              TenantAuthorization.CanManage((await AuthenticationState).User, tenant.Id);
+        replace_with: |
+          CanManageCurrentTenant = !_shareMode &&
+              (AuthenticationState is null ||
+               TenantAuthorization.CanManage((await AuthenticationState).User, tenant.Id));
+        note: >
+          The `AuthenticationState is null` arm is a bunit test affordance - the cascading
+          parameter is absent in component tests. Keep it; S3-T1 makes it explicit in the tests.
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        anchor: |
+          <AuthorizeView Roles="admin,parent">
+              <Authorized>
+                  <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => RemoveHoldDay(child)">
+                      Remove one day
+                  </MudButton>
+              </Authorized>
+          </AuthorizeView>
+        replace_with: |
+          @if (CanManageCurrentTenant)
+          {
+              <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => RemoveHoldDay(child)">
+                  Remove one day
+              </MudButton>
+          }
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        anchor: '<AuthorizeView Roles="admin,parent">'
+        second_occurrence: >
+          The block inside <MudCardActions> wrapping the Add money button, the Withdraw button
+          and the MudMenu with "Pause allowance". Replace the <AuthorizeView>/<Authorized>
+          wrapper with `@if (CanManageCurrentTenant) { ... }` around the same three controls,
+          unchanged. The History MudButton sits OUTSIDE that wrapper and stays outside it -
+          transaction history is exactly what a share link is for.
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+        then: >
+          Remove the now-unused `@using Microsoft.AspNetCore.Components.Authorization` line ONLY
+          if no AuthorizeView or AuthenticationState reference remains in the .razor file. The
+          .razor.cs keeps its own using.
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: |
+          if (_tenantId is not null && !_contextUpdated)
+          {
+              await LocalStorage.SetAsync("current_tenant", _tenantId);
+              await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix!);
+              CurrentContextService.SetCurrentTenant(_tenantId);
+        replace_with: |
+          if (_tenantId is not null && !_contextUpdated)
+          {
+              if (!_shareMode)
+              {
+                  // A share display is nobody's device. Do not persist a family into its
+                  // browser storage - TenantSuffix is null here. See S-D8.
+                  await LocalStorage.SetAsync("current_tenant", _tenantId);
+                  await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix!);
+              }
+              CurrentContextService.SetCurrentTenant(_tenantId);
+        why: >
+          S-D8. Only the two ProtectedLocalStorage writes are suppressed. SetCurrentTenant stays
+          in BOTH modes - ICurrentContextService is an in-memory per-circuit holder, and
+          TenantNotificationService.OnChildStateChanged only forwards an event when
+          `tenantId == _currentContextService.GetCurrentTenant()`. Suppress it and a share
+          display never receives a push refresh, leaving the S1-T3 poll as the only refresh.
+          The Logger.LogInformation line and `_contextUpdated = true` stay where they are, and
+          the balance-history sync below the block must still run in share mode - do not move
+          it inside any guard.
+    rules:
+      - "The four `if (!CanManageCurrentTenant) return;` guards already in the click handlers stay. Defence in depth is free here."
+      - "Do not add a new [Authorize] attribute in this task. That is S3-T1, and it must land after S2."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -c AuthorizeView ChildAllowanceManager/Components/Pages/ChildrenListPage.razor` returns 0"
+      - "Verified by S1-T5."
+    commit: "fix(share): gate every money control on per-family permission"
+
+  - id: S1-T3
+    title: Five-minute liveness and refresh timer for share mode
+    files_touched: [ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs]
+    mutex: children-list-page
+    why: >
+      See S-D9. A wall display holds one Blazor Server circuit for weeks. Without a poll it
+      never notices a revocation, and it never notices midnight - the "Next allowance" line and
+      the day chip would freeze on the date the circuit opened.
+    steps:
+      - add: |
+          A CancellationTokenSource-backed loop started once, only in share mode. Sketch:
+
+            private Task? _sharePollTask;
+            private static readonly TimeSpan SharePollInterval = TimeSpan.FromMinutes(5);
+
+            private void StartSharePoll()
+            {
+                if (!_shareMode || _sharePollTask is not null)
+                    return;
+                _sharePollTask = PollShareLinkAsync();
+            }
+
+            private async Task PollShareLinkAsync()
+            {
+                using var timer = new PeriodicTimer(SharePollInterval);
+                try
+                {
+                    while (await timer.WaitForNextTickAsync(CancellationToken))
+                    {
+                        await using var scope = ServiceScopeFactory.CreateAsyncScope();
+                        var isolatedShareLinkService =
+                            scope.ServiceProvider.GetRequiredService<IShareLinkService>();
+                        var link = await isolatedShareLinkService.ResolveAsync(ShareToken!, CancellationToken);
+                        if (link is null)
+                        {
+                            await InvokeAsync(() => Navigation.NavigateTo("/share/expired", forceLoad: true));
+                            return;
+                        }
+                        await InvokeAsync(ReloadChildren);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // The circuit went away. Nothing to clean up beyond the timer's using.
+                }
+            }
+      - call_site: >
+          Call StartSharePoll() at the end of the share branch of OnParametersSetAsync, after
+          _shareLinkId is set. It self-guards against a second start, so a re-parameterisation
+          is safe.
+      - dispose: >
+          The existing `public override void Dispose()` already cancels the base
+          CancellationTokenSource, which ends WaitForNextTickAsync. Do not await _sharePollTask
+          in Dispose - Dispose is synchronous and awaiting it there deadlocks the circuit
+          teardown. Leaving the fire-and-forget task to observe cancellation is correct.
+      - do_not_wrap_in_RunAsync: >
+          RunAsync sets IsBusy and raises a snackbar on failure. A background poll must not
+          flash a busy state or a red toast on a wall display. Let ReloadChildren's own RunAsync
+          handle its errors; the poll itself catches OperationCanceledException only, and any
+          other exception ends the poll - the next page load recovers.
+    rules:
+      - "forceLoad: true on the expired navigation, so the circuit holding a revoked tenant's data is destroyed rather than reused."
+      - "5 minutes is deliberate. Do not make it configurable; there is no second consumer. See S-D10 for why a shorter interval also costs database writes."
+      - "# ponytail: polling, not push. A revocation takes up to 5 minutes to reach an open display. Push it through ITenantNotificationService if instant revocation ever matters."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by S1-T5 and S3-T2."
+    commit: "feat(share): re-check share links on open displays"
+
+  - id: S1-T4
+    title: Referrer and robots headers for /share paths
+    files_touched: [ChildAllowanceManager/Program.cs]
+    mutex: program-cs
+    why: >
+      See S-D12. The token is a bearer secret sitting in a URL path. Referer leakage and search
+      indexing are the two realistic ways it escapes the display it was pinned to.
+    steps:
+      - file: ChildAllowanceManager/Program.cs
+        anchor: |
+          app.Use(async (context, next) =>
+          {
+              context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+              await next();
+          });
+        replace_with: |
+          app.Use(async (context, next) =>
+          {
+              context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+              // A share token is a bearer secret in the URL path. Keep it out of Referer
+              // headers and out of search indexes. See share-token-plan.yaml S-D12.
+              if (context.Request.Path.StartsWithSegments("/share"))
+              {
+                  context.Response.Headers["Referrer-Policy"] = "no-referrer";
+                  context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+              }
+              await next();
+          });
+    rules:
+      - >
+        There is no ChildAllowanceManager/Middleware directory in this repository and
+        plan.yaml's reference to ResponseHeaderMiddleware.cs is stale. Do not create a
+        middleware class for two header lines.
+      - "Leave the existing FrameAncestors policy plumbing alone."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "`grep -n 'X-Robots-Tag' ChildAllowanceManager/Program.cs` returns exactly one line"
+    commit: "feat(share): keep share URLs out of referers and search indexes"
+
+  - id: S1-T5
+    title: Share-route rendering tests
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/ShareRouteTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    context: >
+      Use BunitTestContext.Create() as every other component test does. Render ChildrenListPage
+      with `.Add(p => p.ShareToken, "...")` rather than TenantSuffix. Add a
+      RecordingShareLinkService to UiTestDoubles.cs following the shape of the existing recording
+      fakes in that file - a settable Link result and a call counter.
+    required_tests:
+      - name: Share_route_renders_balances
+        assert: "The child's name and formatted balance appear in the rendered markup."
+      - name: Share_route_renders_no_money_controls
+        assert: >
+          The markup contains no "Add money", no "Withdraw", no "Pause allowance" and no
+          "Remove one day" text, for a child with HoldDaysRemaining > 0 so the hold alert
+          renders too.
+      - name: Share_route_still_renders_the_history_button
+        assert: "\"History\" is present — read-only transaction access is the point of the feature."
+      - name: Share_route_with_an_unresolvable_token_navigates_to_share_expired
+        assert: "The bunit FakeNavigationManager's Uri ends with /share/expired."
+      - name: Share_route_does_not_write_local_storage
+        assert: >
+          ProtectedLocalStorage is JSInterop-Loose in this harness, so assert on the absence of
+          the interop calls the harness recorded, not on a service fake. Note that
+          RecordingCurrentContextService (UiTestDoubles.cs:291) WILL record a SetCurrentTenant
+          call in share mode - that is correct behaviour per S-D8, not a leak. If asserting on
+          Loose JSInterop proves impractical, assert instead that
+          RecordingCurrentContextService recorded the tenant id AND that the test's
+          TenantSuffix parameter was never read, and say so in `result`.
+      - name: Suffix_route_for_a_manager_still_renders_money_controls
+        assert: "Guards against S1-T2 over-reaching and disabling the controls for real parents."
+    acceptance:
+      - "CAM_TEST_DB=cam_test_s1_t5 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes"
+    commit: "test(share): cover the share route rendering and its read-only guarantee"

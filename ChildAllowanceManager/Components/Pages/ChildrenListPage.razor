@@ -1,11 +1,12 @@
 @page "/{tenantSuffix}/children"
+@page "/share/{shareToken}"
 @using ChildAllowanceManager.Common.Models
 @using Humanizer
-@using Microsoft.AspNetCore.Components.Authorization
+@using System.Globalization
 
 <PageTitle>Allowance dashboard</PageTitle>
 
-<div class="dashboard-view">
+<div class="@($"dashboard-view {(_shareMode ? "share-display" : string.Empty)}")">
     <MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
         <div class="page-heading">
             <div class="page-heading-copy">
@@ -24,8 +25,8 @@
         @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
         {
             <MudItem xs="12" sm="6" lg="4">
-                <MudCard Class="child-card" Elevation="0" Outlined="true">
-                    <MudCardHeader>
+                <MudCard Class="@($"child-card {(child.IsBirthday ? "child-birthday " : string.Empty)}child-accent-{GetChildAccentIndex(child.Id)}")" Elevation="0" Outlined="true">
+                    <MudCardHeader Class="child-card-header">
                         <MudAvatar Class="child-avatar" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Primary)" aria-hidden="true">
                             @child.Name[0]
                         </MudAvatar>
@@ -40,22 +41,25 @@
                         </div>
                     </MudCardHeader>
                     <MudCardContent>
-                        <MudText Typo="Typo.h3" Class="@($"balance-value {(child.Balance < 0 ? "balance-negative" : "balance-positive")}")">
+                        <MudText Typo="Typo.h3"
+                                 Class="@($"balance-value {(child.Balance < 0 ? "balance-negative" : "balance-positive")}")"
+                                 data-balance-value="@child.Balance.ToString(CultureInfo.InvariantCulture)"
+                                 data-balance-motion-direction="@GetBalanceMotionDirection(child.Id)"
+                                 data-balance-motion-version="@GetBalanceMotionVersion(child.Id)">
                             @child.Balance.ToString("C2")
                         </MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">Current balance</MudText>
 
                         @if (child.HoldDaysRemaining > 0)
                         {
-                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-4">
-                                Allowance paused for @child.HoldDaysRemaining more day(s).
-                                <AuthorizeView Roles="admin,parent">
-                                    <Authorized>
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="allowance-paused">
+                                Allowance is paused for @GetHoldDaysLabel(child.HoldDaysRemaining).
+                                @if (CanManageCurrentTenant)
+                                {
                                         <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => RemoveHoldDay(child)">
                                             Remove one day
                                         </MudButton>
-                                    </Authorized>
-                                </AuthorizeView>
+                                }
                             </MudAlert>
                         }
 
@@ -73,27 +77,26 @@
                         </div>
                     </MudCardContent>
                     <MudCardActions Class="child-card-actions">
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ReceiptLong"
+                        <MudButton Class="card-action action-history" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ReceiptLong"
                                    OnClick="() => ShowTransactionsForChild(child)">
                             History
                         </MudButton>
-                        <AuthorizeView Roles="admin,parent">
-                            <Authorized>
-                                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Add"
+                        @if (CanManageCurrentTenant)
+                        {
+                                <MudButton Class="card-action action-add" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Add"
                                            OnClick="() => ShowAddFundsForChild(child)">
                                     Add money
                                 </MudButton>
-                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Remove"
+                                <MudButton Class="card-action action-withdraw" Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Remove"
                                            OnClick="() => ShowWithdrawFundsForChild(child)">
                                     Withdraw
                                 </MudButton>
-                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" aria-label="More actions">
+                                <MudMenu Class="card-more" Icon="@Icons.Material.Filled.MoreVert" aria-label="More actions">
                                     <MudMenuItem OnClick="() => ApplyHold(child)" Icon="@Icons.Material.Filled.PauseCircle">
                                         Pause allowance
                                     </MudMenuItem>
                                 </MudMenu>
-                            </Authorized>
-                        </AuthorizeView>
+                        }
                     </MudCardActions>
                 </MudCard>
             </MudItem>
@@ -108,21 +111,45 @@
                             Balance for each child over recent days.
                         </MudText>
                     </div>
+                    @if (_balanceChartSeries.Count > 0)
+                    {
+                        <div class="chart-legend" aria-label="Balance lines">
+                            @for (var index = 0; index < _balanceHistory.Length; index++)
+                            {
+                                <span class="chart-legend-item">
+                                    <span class="chart-legend-swatch chart-color-@index" aria-hidden="true"></span>
+                                    @_balanceHistory[index].ChildName
+                                </span>
+                            }
+                        </div>
+                    }
                 </div>
-                <div class="chart-note" id="balance-chart-description">
-                    <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
-                    <span>Tap or hover a point to see that day’s balance.</span>
-                </div>
-                <div class="chart-frame" aria-hidden="true">
-                    <MudChart T="decimal"
-                              ChartType="ChartType.Timeseries"
-                              ChartSeries="_balanceChartSeries"
-                              ChartOptions="_balanceChartOptions"
-                              Width="100%"
-                              Height="200px"
-                              MatchBoundsToSize="true"
-                              CanHideSeries />
-                </div>
+                @if (HasBalanceHistory)
+                {
+                    <div class="chart-note" id="balance-chart-description">
+                        <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
+                        <span>Tap or hover a point to see that day’s balance.</span>
+                    </div>
+                    <div class="chart-frame" aria-hidden="true">
+                        <MudChart T="decimal"
+                                  ChartType="ChartType.Timeseries"
+                                  ChartSeries="_balanceChartSeries"
+                                  ChartOptions="_balanceChartOptions"
+                                  Width="100%"
+                                  Height="200px"
+                                  MatchBoundsToSize="true" />
+                    </div>
+                }
+                else
+                {
+                    <div class="chart-empty-state" id="balance-chart-description">
+                        <MudIcon Icon="@Icons.Material.Outlined.ShowChart" aria-hidden="true" />
+                        <div>
+                            <MudText Typo="Typo.subtitle2">Your balance story starts here</MudText>
+                            <MudText Typo="Typo.body2">Add money or wait for an allowance to see the line grow.</MudText>
+                        </div>
+                    </div>
+                }
                 <MudExpansionPanels>
                     <MudExpansionPanel Text="View the data as a table" Expanded="false" aria-describedby="balance-chart-description">
                         <BalanceHistoryTable History="_balanceHistory" />

@@ -1,0 +1,143 @@
+phase: S3
+title: Close public access, update tests written against the wide-open behaviour, document
+read_before_starting: [share-token-plan.yaml]
+context: >
+  Commit a585680 ("feat: allow public child balance views") did two things - it deleted the
+  [Authorize] attribute and its `@using Microsoft.AspNetCore.Authorization` from
+  ChildrenListPage.razor, and it made ChildrenListPage.HasTenantAccessAsync return true for an
+  unauthenticated principal. This phase reverses both, now that share links carry the use case
+  that motivated it. Existing bunit tests were written or adjusted against the wide-open
+  behaviour and will need updating - that is expected work, not a surprise.
+preconditions:
+  - "S1-T5 and S2-T3 are done. Do NOT start this phase otherwise — see S-D13."
+  - "ChildrenListPage.razor currently has two @page directives and no [Authorize] attribute."
+
+tasks:
+
+  - id: S3-T1
+    title: Restore sign-in-only access to /{tenantSuffix}/children
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
+      - tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+    mutex: children-list-page
+    problem: >
+      An [Authorize] attribute applies to the COMPONENT, not to one @page directive, so a plain
+      `@attribute [Authorize]` would also lock the /share/{shareToken} route and break the whole
+      feature. The route-level distinction has to be made in code, not by attribute.
+    steps:
+      - decision: >
+          Do NOT add an [Authorize] attribute to ChildrenListPage. Enforce it in
+          HasTenantAccessAsync instead, which is already the single access decision on the
+          suffix route and is already called only on that route (S1-T1 made the call site
+          `if (!_shareMode && !await HasTenantAccessAsync(tenant.Id))`).
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: |
+          private async Task<bool> HasTenantAccessAsync(string tenantId)
+          {
+              if (AuthenticationState is null)
+                  return true;
+
+              var user = (await AuthenticationState).User;
+              return user.Identity?.IsAuthenticated != true || TenantAuthorization.CanView(user, tenantId);
+          }
+        replace_with: |
+          private async Task<bool> HasTenantAccessAsync(string tenantId)
+          {
+              // No cascading authentication state means a component test, not a browser.
+              if (AuthenticationState is null)
+                  return true;
+
+              var user = (await AuthenticationState).User;
+              // Signing in is how you reach a family board. A display without a sign-in uses
+              // a share link instead - see share-token-plan.yaml.
+              return user.Identity?.IsAuthenticated == true && TenantAuthorization.CanView(user, tenantId);
+          }
+        note: >
+          The change is `!= true ||` becoming `== true &&`. An anonymous visitor now fails the
+          check and the existing call site redirects them to "/".
+      - file: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+        anchor: 'Navigation.NavigateTo("/");'
+        change: >
+          In the `if (!_shareMode && !await HasTenantAccessAsync(tenant.Id))` branch, send an
+          anonymous visitor to "/login" and a signed-in visitor without access to "/". Read
+          `(await AuthenticationState!).User.Identity?.IsAuthenticated == true` once for the
+          decision. Sending an anonymous visitor to "/" would bounce them to a family list they
+          also cannot see.
+      - tests:
+          file: tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
+          and: tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+          instruction: >
+            Grep both files for ChildrenListPage. Any test that renders it WITHOUT a cascading
+            AuthenticationState still passes unchanged - the null-state affordance is preserved
+            deliberately. Any test that renders it WITH an anonymous or unauthenticated
+            principal and expects balances must now expect the redirect. Update the expectation,
+            do not weaken the production guard, and do not delete the test.
+          add_test:
+            name: Suffix_route_redirects_an_anonymous_visitor_to_login
+            where: tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+            assert: >
+              With a cascading AuthenticationState carrying an unauthenticated ClaimsPrincipal,
+              rendering ChildrenListPage with a TenantSuffix leaves the FakeNavigationManager's
+              Uri ending in /login and renders no balance figure.
+          add_test_2:
+            name: Suffix_route_redirects_a_signed_in_visitor_without_membership_to_root
+            where: tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+    rules:
+      - "Do not touch the /share/{shareToken} @page directive."
+      - "Do not re-add `@using Microsoft.AspNetCore.Authorization` or an [Authorize] attribute to this component. See `problem` above."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "CAM_TEST_DB=cam_test_s3_t1 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes"
+      - "`grep -n 'IsAuthenticated != true' ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs` returns nothing"
+    commit: "fix(share): require a sign-in or a share link to see a family board"
+
+  - id: S3-T2
+    title: End-to-end share lifecycle test on real Postgres
+    files_touched: [tests/ChildAllowanceManager.Tests/PostgresEndToEndTests.cs]
+    context: >
+      Append to the existing class, following its arrangement - CreateMigratedContextAsync, real
+      services constructed against the real context, no fakes.
+    required_test:
+      name: Share_link_lifecycle_end_to_end
+      steps:
+        - "Seed a tenant and two children with transactions using the helpers already in this file."
+        - "Mint a link. Assert the returned token resolves and yields the seeded tenant."
+        - "Assert the persisted row's TokenHash is not the token, and is 64 lowercase hex characters."
+        - "Assert GetChildrenWithBalance for the resolved tenant id returns both children — the share view reads the same data path as the signed-in board."
+        - "Revoke. Assert ResolveAsync returns null."
+        - "Mint a second link. Assert it resolves, and that the revoked token still returns null — a new link does not resurrect an old URL."
+        - "Mint a third with ExpiresAt in the past via a direct entity write. Assert it does not resolve."
+    acceptance:
+      - "CAM_TEST_DB=cam_test_s3_t2 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes"
+    commit: "test(share): cover the share-link lifecycle end to end"
+
+  - id: S3-T3
+    title: Document share links in the README
+    files_touched: [README.md]
+    steps:
+      - read_first: "README.md — match its existing heading level, tone and section ordering."
+      - add_section: |
+          A "Display links" section, for a parent, covering:
+            - what it is: a link that shows one family's balances and history on a screen with
+              no sign-in, read-only;
+            - how to make one: People page, "New display link";
+            - copy it now, it is shown once, and why;
+            - how to turn one off, and that a turned-off link stops working within five minutes
+              on a screen that is already showing it;
+            - that anyone holding the link can see balances and transaction history, so treat it
+              like a house key - fine on a fridge, not fine in a public photo.
+      - add_operator_note: |
+          One short paragraph for whoever runs the deployment:
+            - the database stores only a SHA-256 hash of each link, never the link itself;
+            - a lost link cannot be recovered, only replaced;
+            - /share paths are served with Referrer-Policy: no-referrer and
+              X-Robots-Tag: noindex, nofollow;
+            - the AddShareLinks migration is applied by the existing `--migrate` deploy step.
+    rules:
+      - "No new top-level document. This is a feature paragraph, not a design record."
+      - "Do not describe the token format or the hashing in the parent-facing section."
+    acceptance:
+      - "`git diff --check` passes"
+    commit: "docs(share): explain display links"

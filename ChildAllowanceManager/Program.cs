@@ -197,6 +197,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMembershipService, MembershipService>();
 builder.Services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();
@@ -216,6 +217,11 @@ app.Use(async (context, next) =>
             context.Response.Headers.XFrameOptions = "SAMEORIGIN";
         else
             context.Response.Headers.Remove("X-Frame-Options");
+        if (context.Request.Path.StartsWithSegments("/share"))
+        {
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        }
         return Task.CompletedTask;
     });
     await next();

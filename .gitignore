@@ -1159,3 +1159,6 @@ fabric.properties
 appsettings.Development.json
 .deployment_secrets
 .DS_Store
+
+# Local secrets
+.env

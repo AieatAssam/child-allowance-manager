@@ -1,0 +1,222 @@
+phase: S0
+title: ShareLink entity, migration, and the mint/resolve/revoke service
+read_before_starting: [share-token-plan.yaml]
+context: >
+  Nothing about share links exists yet. This phase adds the persistence and the service, and
+  touches no UI. TenantInvitation (ChildAllowanceManager.Common/Models/TenantInvitation.cs) plus
+  InvitationService (ChildAllowanceManager/Services/InvitationService.cs) are the closest
+  existing shape - a tenant-scoped, expiring, revocable grant - and are the style reference for
+  everything below. Read those two files before writing.
+preconditions:
+  - "ChildAllowanceManager/Data/AllowanceDbContext.cs contains the anchor `public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();`"
+  - "ChildAllowanceManager/Program.cs contains the anchor `builder.Services.AddScoped<IInvitationService, InvitationService>();`"
+
+tasks:
+
+  - id: S0-T1
+    title: ShareLink entity
+    files_touched: [ChildAllowanceManager.Common/Models/ShareLink.cs]
+    create: |
+      namespace ChildAllowanceManager.Common.Models;
+
+      /// A revocable, login-free read-only grant over one family's balances and transactions.
+      /// The plaintext token is never persisted - only its SHA-256 hash. Revoking sets Deleted.
+      public class ShareLink : BaseItem
+      {
+          public string TenantId { get; set; } = string.Empty;
+
+          /// What this link is for, in the parent's words - "Kitchen tablet", "Nana's frame".
+          /// Shown in the People page list so a parent can tell two links apart when revoking.
+          public string Name { get; set; } = string.Empty;
+
+          /// Lowercase hex SHA-256 of the plaintext token, 64 characters. The only copy of the
+          /// secret that this system keeps. See share-token-plan.yaml S-D1.
+          public string TokenHash { get; set; } = string.Empty;
+
+          /// Email of the parent who minted it, for the People page list.
+          public string CreatedByEmail { get; set; } = string.Empty;
+
+          /// Null means the link never expires. See S-D4.
+          public DateTimeOffset? ExpiresAt { get; set; }
+
+          /// Last successful resolution, written at most hourly. See S-D10.
+          public DateTimeOffset? LastAccessedAt { get; set; }
+
+          public TenantConfiguration? Tenant { get; set; }
+      }
+    rules:
+      - "No RevokedAt property. Revocation is Deleted + UpdatedTimestamp. See S-D2."
+      - "No ChildId property. See S-D5."
+      - "No plaintext token property. If you find yourself adding one, stop and re-read S-D1."
+    acceptance:
+      - "`dotnet build ChildAllowanceManager.sln --configuration Release` exits 0"
+    commit: "feat(share): add the ShareLink entity"
+
+  - id: S0-T2
+    title: DbContext mapping and the AddShareLinks migration
+    files_touched:
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager/Migrations/
+    mutex: dbcontext
+    exclusive_resources: [migrations]
+    steps:
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: 'public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();'
+        add_after: 'public DbSet<ShareLink> ShareLinks => Set<ShareLink>();'
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: 'ConfigureItem(modelBuilder.Entity<TenantInvitation>());'
+        add_after: 'ConfigureItem(modelBuilder.Entity<ShareLink>());'
+      - file: ChildAllowanceManager/Data/AllowanceDbContext.cs
+        anchor: 'modelBuilder.Entity<TenantInvitation>(entity =>'
+        add_after_that_whole_block: |
+          modelBuilder.Entity<ShareLink>(entity =>
+          {
+              entity.Property(x => x.Name).IsRequired().HasMaxLength(100);
+              entity.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+              entity.Property(x => x.CreatedByEmail).HasMaxLength(320);
+              // Unique across revoked rows too - a dead token must stay dead. See S-D3.
+              entity.HasIndex(x => x.TokenHash).IsUnique();
+              entity.HasIndex(x => new { x.TenantId, x.Deleted });
+              entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId)
+                  .OnDelete(DeleteBehavior.Restrict);
+          });
+        note: >
+          Append the new block after the closing `});` of the TenantInvitation block, as the
+          last statement of OnModelCreating, before the closing brace of the method.
+      - action: scaffold migration
+        command: dotnet ef migrations add AddShareLinks --project ChildAllowanceManager --startup-project ChildAllowanceManager
+        must_produce:
+          - ChildAllowanceManager/Migrations/<timestamp>_AddShareLinks.cs
+          - ChildAllowanceManager/Migrations/<timestamp>_AddShareLinks.Designer.cs
+          - "an updated ChildAllowanceManager/Migrations/AllowanceDbContextModelSnapshot.cs"
+        verify: >
+          Open the generated Up(): it must contain CreateTable("ShareLinks") and a
+          CreateIndex for IX_ShareLinks_TokenHash with unique: true and NO `filter:` argument.
+          If a filter argument is present the DbContext block was written wrong - fix the
+          DbContext, delete the migration, and scaffold again.
+    rules:
+      - "Do not hand-write the migration. Scaffold it."
+      - "Do not touch any existing migration file."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "CAM_TEST_DB=cam_test_s0_t2 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes — the harness's CreateMigratedContextAsync path proves the migration applies to a real database"
+    commit: "feat(share): map ShareLink and add the AddShareLinks migration"
+
+  - id: S0-T3
+    title: IShareLinkService and ShareLinkService
+    files_touched:
+      - ChildAllowanceManager.Common/Interfaces/IShareLinkService.cs
+      - ChildAllowanceManager/Services/ShareLinkService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    api: |
+      using ChildAllowanceManager.Common.Models;
+
+      namespace ChildAllowanceManager.Common.Interfaces;
+
+      /// The plaintext token of a newly minted link. Returned once and never recoverable.
+      public record CreatedShareLink(ShareLink Link, string Token);
+
+      public interface IShareLinkService
+      {
+          /// Mints a link. The returned Token is the ONLY copy of the secret - show it to the
+          /// parent once and discard it. Name is trimmed; empty name throws ValidationException.
+          /// expiresAt of null means the link never expires.
+          ValueTask<CreatedShareLink> CreateAsync(
+              string tenantId, string name, string createdByEmail,
+              DateTimeOffset? expiresAt, CancellationToken ct = default);
+
+          /// Resolves a plaintext token to its live link, or null when the token is unknown,
+          /// revoked or expired. Side effect - refreshes LastAccessedAt at most hourly.
+          ValueTask<ShareLink?> ResolveAsync(string token, CancellationToken ct = default);
+
+          /// Live links for a family, newest first.
+          ValueTask<IEnumerable<ShareLink>> GetForTenantAsync(string tenantId, CancellationToken ct = default);
+
+          /// Revokes a link. Returns false when there was no live link with that id in that
+          /// family. Idempotent - revoking twice returns false the second time.
+          ValueTask<bool> RevokeAsync(string shareLinkId, string tenantId, CancellationToken ct = default);
+      }
+    steps:
+      - file: ChildAllowanceManager/Services/ShareLinkService.cs
+        implement: |
+          public class ShareLinkService(AllowanceDbContext db, ILogger<ShareLinkService> logger)
+              : IShareLinkService
+        token_mint: |
+          // 256 bits of CSPRNG output, URL-path safe, no padding.
+          var bytes = RandomNumberGenerator.GetBytes(32);
+          var token = WebEncoders.Base64UrlEncode(bytes);   // Microsoft.AspNetCore.WebUtilities
+        token_hash: |
+          // Deterministic, unsalted on purpose - the hash is a lookup key over 256 bits of
+          // entropy, not a password digest. Salting would forbid the indexed equality lookup
+          // and buys nothing against a search space of 2^256.
+          private static string HashToken(string token) =>
+              Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+        create_rules:
+          - "Trim Name. If it is empty after trimming, throw new ValidationException(\"Give this link a name so you can tell it apart later.\")."
+          - "Reject a name longer than 100 characters with the same exception type."
+          - "expiresAt must be in the future when supplied; otherwise ValidationException(\"Choose an expiry date in the future.\")."
+          - "Set CreatedTimestamp and UpdatedTimestamp to DateTimeOffset.UtcNow, matching InvitationService."
+          - "Log at Information: \"Share link {ShareLinkId} created for tenant {TenantId}\". Never log the token. See S-D11."
+        resolve_rules:
+          - "Return null immediately for a null, empty or whitespace token — do not hash it."
+          - |
+            Query:
+              var now = DateTimeOffset.UtcNow;
+              var hash = HashToken(token);
+              var link = await db.ShareLinks.Include(x => x.Tenant).FirstOrDefaultAsync(
+                  x => x.TokenHash == hash && !x.Deleted &&
+                       (x.ExpiresAt == null || x.ExpiresAt > now), ct);
+          - "Also treat a soft-deleted TENANT as unresolvable — `link.Tenant is null || link.Tenant.Deleted` returns null. A deleted family must not stay visible through an old display."
+          - |
+            Throttled touch, per S-D10:
+              if (link.LastAccessedAt is null || link.LastAccessedAt < now.AddHours(-1))
+              {
+                  link.LastAccessedAt = now;
+                  link.UpdatedTimestamp = now;
+                  await db.SaveChangesAsync(ct);
+              }
+          - >
+            ResolveAsync is called on every share-page load and every 5-minute poll. Keep it to
+            the single query above. Do not add a tenant round trip - the Include covers it.
+        revoke_rules:
+          - "Match on `!x.Deleted && x.Id == shareLinkId && x.TenantId == tenantId`. The tenantId term is the authorization boundary — never revoke by id alone."
+          - "Set Deleted = true and UpdatedTimestamp = DateTimeOffset.UtcNow, then SaveChangesAsync. Return true."
+          - "Log at Information: \"Share link {ShareLinkId} revoked for tenant {TenantId}\"."
+        get_for_tenant_rules:
+          - "AsNoTracking, `!x.Deleted && x.TenantId == tenantId`, OrderByDescending(x => x.CreatedTimestamp)."
+          - "Expired-but-not-revoked links ARE returned, so the parent can see and tidy them. The UI labels them; see S2-T2."
+      - file: ChildAllowanceManager/Program.cs
+        anchor: 'builder.Services.AddScoped<IInvitationService, InvitationService>();'
+        add_after: 'builder.Services.AddScoped<IShareLinkService, ShareLinkService>();'
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by S0-T4."
+    commit: "feat(share): add the share-link service"
+
+  - id: S0-T4
+    title: Share-link service tests
+    files_touched: [tests/ChildAllowanceManager.Tests/ShareLinkServiceTests.cs]
+    context: >
+      Follow the arrangement in tests/ChildAllowanceManager.Tests/AccountAndTenantServiceTests.cs -
+      same context factory, same naming, same assertion style. Use
+      PostgresTestDatabase.CreateCleanContextAsync() unless a test needs the migrated schema.
+    required_tests:
+      - name: CreateAsync_returns_a_token_that_is_not_persisted
+        assert: "db.ShareLinks.Single().TokenHash != result.Token, and no column of the row contains the token substring."
+      - name: ResolveAsync_returns_the_link_for_a_live_token
+      - name: ResolveAsync_returns_null_for_an_unknown_token
+      - name: ResolveAsync_returns_null_after_revocation
+      - name: ResolveAsync_returns_null_for_an_expired_link
+        note: "Set ExpiresAt to the past directly on the entity; do not sleep."
+      - name: ResolveAsync_returns_null_when_the_tenant_is_soft_deleted
+      - name: ResolveAsync_does_not_rewrite_LastAccessedAt_within_an_hour
+        assert: "Resolve twice; UpdatedTimestamp is unchanged by the second call."
+      - name: RevokeAsync_will_not_revoke_across_tenants
+        assert: "Revoking link A's id with tenant B's id returns false and leaves A live."
+      - name: CreateAsync_rejects_an_empty_name
+      - name: Two_links_never_share_a_token
+        assert: "Mint 50; the distinct token count is 50 and the distinct hash count is 50."
+    acceptance:
+      - "CAM_TEST_DB=cam_test_s0_t4 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes"
+    commit: "test(share): cover the share-link service"

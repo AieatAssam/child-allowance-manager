@@ -79,6 +79,7 @@ internal sealed class RecordingChildService : IChildService
                 TenantId = x.TenantId,
                 Name = $"{x.FirstName} {x.LastName}",
                 Balance = 10m,
+                HoldDaysRemaining = x.HoldDaysRemaining,
                 NextRegularChange = x.RegularAllowance,
                 NextRegularChangeDate = DateTimeOffset.UtcNow.AddHours(4),
             }).ToArray());
@@ -273,6 +274,46 @@ internal sealed class RecordingInvitationService : IInvitationService
     public ValueTask<bool> RevokeAsync(
         string invitationId, string tenantId, CancellationToken ct = default) =>
         ValueTask.FromResult(false);
+}
+
+internal sealed class RecordingShareLinkService : IShareLinkService
+{
+    public ShareLink? Link { get; set; }
+    public int ResolveCalls { get; private set; }
+    public int CreateCalls { get; private set; }
+    public string? LastRevokeTenantId { get; private set; }
+    public string CreatedToken { get; set; } = "test-share-token";
+
+    public ValueTask<CreatedShareLink> CreateAsync(string tenantId, string name, string createdByEmail,
+        DateTimeOffset? expiresAt, CancellationToken ct = default)
+    {
+        CreateCalls++;
+        Link = new ShareLink
+        {
+            Id = "link-created",
+            TenantId = tenantId,
+            Name = name,
+            CreatedByEmail = createdByEmail,
+            ExpiresAt = expiresAt,
+            Tenant = new TenantConfiguration { Id = tenantId, UrlSuffix = tenantId }
+        };
+        return ValueTask.FromResult(new CreatedShareLink(Link, CreatedToken));
+    }
+
+    public ValueTask<ShareLink?> ResolveAsync(string token, CancellationToken ct = default)
+    {
+        ResolveCalls++;
+        return ValueTask.FromResult(Link);
+    }
+
+    public ValueTask<IEnumerable<ShareLink>> GetForTenantAsync(string tenantId, CancellationToken ct = default) =>
+        ValueTask.FromResult<IEnumerable<ShareLink>>(Link is not null && Link.TenantId == tenantId ? [Link] : []);
+
+    public ValueTask<bool> RevokeAsync(string shareLinkId, string tenantId, CancellationToken ct = default)
+    {
+        LastRevokeTenantId = tenantId;
+        return ValueTask.FromResult(true);
+    }
 }
 
 internal sealed class RecordingTenantNotificationService : ITenantNotificationService

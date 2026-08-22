@@ -115,24 +115,32 @@ public class ChildService(
 
     private static BalanceHistoryEntry[] FillHistory(IEnumerable<BalanceHistoryEntry> entries)
     {
-        var result = entries.ToArray();
-        if (result.Length == 0)
+        var orderedEntries = entries.OrderBy(x => x.Timestamp).ToArray();
+        if (orderedEntries.Length == 0)
             return [];
 
-        var firstDate = result[0].Timestamp.UtcDateTime.Date;
-        var lastDate = result[^1].Timestamp.UtcDateTime.Date;
+        var firstDate = orderedEntries[0].Timestamp.UtcDateTime.Date;
+        var lastDate = orderedEntries[^1].Timestamp.UtcDateTime.Date;
         var lastBalance = 0m;
-        var extraRecords = new List<BalanceHistoryEntry>();
+        var entryIndex = 0;
+        var result = new List<BalanceHistoryEntry>();
         for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
         {
-            var existing = result.LastOrDefault(x => x.Timestamp.UtcDateTime.Date == date);
-            if (existing is not null)
-                lastBalance = existing.Balance;
+            BalanceHistoryEntry? lastEntryForDate = null;
+            while (entryIndex < orderedEntries.Length &&
+                   orderedEntries[entryIndex].Timestamp.UtcDateTime.Date == date)
+                lastEntryForDate = orderedEntries[entryIndex++];
+
+            if (lastEntryForDate is not null)
+            {
+                lastBalance = lastEntryForDate.Balance;
+                result.Add(lastEntryForDate);
+            }
             else
-                extraRecords.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), lastBalance));
+                result.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), lastBalance));
         }
 
-        return result.Concat(extraRecords).OrderBy(x => x.Timestamp).ToArray();
+        return result.ToArray();
     }
 
     private static bool SameDayInYear(DateTime? first, DateTime? second) =>

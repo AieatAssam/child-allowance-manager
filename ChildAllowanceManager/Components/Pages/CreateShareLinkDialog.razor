@@ -1,0 +1,36 @@
+@using MudBlazor
+
+<AppDialog Title="New display link"
+           PrimaryActionText="@(_created ? "Done" : "Make the link")"
+           OnPrimary="CreateOrFinishAsync"
+           IsBusy="@IsBusy">
+    <ChildContent>
+        @if (!_created)
+        {
+            <MudForm @ref="_form">
+                <MudTextField T="string" Label="What is this link for?"
+                              Placeholder="Kitchen tablet" MaxLength="100"
+                              Required="true" @bind-Value="_name" />
+                <MudSelect T="int" Label="Stop working after" @bind-Value="_expiryChoice">
+                    <MudSelectItem Value="0">Never</MudSelectItem>
+                    <MudSelectItem Value="30">30 days</MudSelectItem>
+                    <MudSelectItem Value="365">1 year</MudSelectItem>
+                </MudSelect>
+            </MudForm>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">
+                Copy this link now. For your own safety it is not shown again — if you lose it,
+                turn it off and make a new one.
+            </MudAlert>
+            <MudTextField T="string" Label="Display link" Value="ShareUrl" ReadOnly="true"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                          OnAdornmentClick="CopyLinkAsync" />
+            <MudText Typo="Typo.body2" Class="mt-3">
+                Anyone with this link can see this family's balances and history. They cannot
+                change anything.
+            </MudText>
+        }
+    </ChildContent>
+</AppDialog>

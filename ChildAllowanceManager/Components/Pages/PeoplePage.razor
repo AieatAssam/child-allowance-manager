@@ -15,6 +15,9 @@
         <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="InviteParent">
             Invite a parent
         </MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Outlined" Disabled="@IsBusy" OnClick="CreateShareLink">
+            New display link
+        </MudButton>
     </div>
 
     <MudPaper Class="settings-card" Elevation="0">
@@ -84,10 +87,58 @@
             </MudTable>
         }
     </MudPaper>
+
+<MudPaper Class="settings-card mt-4" Elevation="0">
+    <MudText Typo="Typo.h5">Display links</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">
+        Links that show this family's balances and history on a screen, with no sign-in.
+        They cannot change anything. Turn one off and it stops working — right away
+        for a new visit, within five minutes on a screen that is already showing it.
+    </MudText>
+    @if (ShareLinks is null)
+    {
+        <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+    }
+    else if (ShareLinks.Length == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="empty-state">No display links yet.</MudAlert>
+    }
+    else
+    {
+        <MudTable Items="ShareLinks" Hover="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh>Last used</MudTh>
+                <MudTh>Stops</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Created">@context.CreatedTimestamp.ToString("d")</MudTd>
+                <MudTd DataLabel="Last used">@(context.LastAccessedAt?.ToString("d") ?? "Never")</MudTd>
+                <MudTd DataLabel="Stops">
+                    @if (context.ExpiresAt < DateTimeOffset.UtcNow)
+                    {
+                        <MudChip T="string" Color="Color.Warning">Ran out</MudChip>
+                    }
+                    else
+                    {
+                        @(context.ExpiresAt is null ? "Never" : context.ExpiresAt.Value.ToString("d"))
+                    }
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudButton Color="Color.Error" Size="Size.Small" Disabled="@IsBusy"
+                               OnClick="() => RevokeShareLink(context)">Turn off</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
 </div>
 
-<MudMessageBox @ref="Confirmation" Title="Confirm action" CancelText="Cancel">
-    <MessageContent>Are you sure you want to continue?</MessageContent>
+<MudMessageBox @ref="Confirmation" Title="@(_confirmationTitle ?? "Confirm action")" CancelText="Cancel">
+    <MessageContent>@(_confirmationMessage ?? "Are you sure you want to continue?")</MessageContent>
     <YesButton>
         <MudButton Variant="Variant.Filled" Color="Color.Error">Confirm</MudButton>
     </YesButton>

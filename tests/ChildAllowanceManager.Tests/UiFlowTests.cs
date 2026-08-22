@@ -8,6 +8,7 @@ using ChildAllowanceManager.Components;
 using ChildAllowanceManager.Components.Layout;
 using ChildAllowanceManager.Components.Pages;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -290,10 +291,13 @@ public class UiFlowTests
         context.Services.AddSingleton<ITenantNotificationService>(new RecordingTenantNotificationService());
         context.Services.AddSingleton<ITransactionService>(new RecordingTransactionService());
         context.Services.AddSingleton<ICurrentContextService>(new RecordingCurrentContextService());
+        context.Services.AddSingleton<IShareLinkService>(new RecordingShareLinkService());
         var auth = context.AddAuthorization();
         auth.SetAuthorized("Parent");
         auth.SetRoles("parent");
-        auth.SetClaims(new Claim(CustomClaimTypes.Tenant, "tenant-1"));
+        auth.SetClaims([
+            new Claim(CustomClaimTypes.Tenant, "tenant-1"),
+            new Claim(CustomClaimTypes.TenantRole, TenantRoleClaim.Format("tenant-1", ValidRoles.Parent))]);
 
         var cut = context.Render<ChildrenListPage>(parameters => parameters
             .Add(x => x.TenantSuffix, "demo")
@@ -314,5 +318,63 @@ public class UiFlowTests
         Assert.Contains("More actions", cut.Markup);
         Assert.Contains("Balance over time", cut.Markup);
         Assert.Contains("Tap or hover a point", cut.Markup);
+    }
+
+    [Fact]
+    public async Task Suffix_route_redirects_an_anonymous_visitor_to_login()
+    {
+        using var context = BunitTestContext.Create();
+        AddDashboardServices(context);
+        context.Services.AddSingleton<ITenantService>(new RecordingTenantService
+        {
+            Tenants = { new TenantConfiguration { Id = "tenant-1", UrlSuffix = "demo" } }
+        });
+        context.Services.AddSingleton<IChildService>(new RecordingChildService
+        {
+            Children = { new ChildConfiguration { TenantId = "tenant-1", FirstName = "Ada", LastName = "Lovelace" } }
+        });
+        context.Services.AddSingleton<AuthenticationStateProvider>(new FixedAuthenticationStateProvider(
+            new ClaimsPrincipal(new ClaimsIdentity())));
+        var cut = context.Render<CascadingAuthenticationState>(parameters => parameters
+            .AddChildContent<ChildrenListPage>(child => child.Add(x => x.TenantSuffix, "demo")));
+
+        Assert.EndsWith("/login", context.Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.DoesNotContain("10.00", cut.Markup);
+    }
+
+    [Fact]
+    public void Suffix_route_redirects_a_signed_in_visitor_without_membership_to_root()
+    {
+        using var context = BunitTestContext.Create();
+        AddDashboardServices(context);
+        context.Services.AddSingleton<ITenantService>(new RecordingTenantService
+        {
+            Tenants = { new TenantConfiguration { Id = "tenant-1", UrlSuffix = "demo" } }
+        });
+        context.Services.AddSingleton<IChildService>(new RecordingChildService());
+        context.Services.AddSingleton<AuthenticationStateProvider>(new FixedAuthenticationStateProvider(
+            new ClaimsPrincipal(new ClaimsIdentity("test"))));
+        var cut = context.Render<CascadingAuthenticationState>(parameters => parameters
+            .AddChildContent<ChildrenListPage>(child => child.Add(x => x.TenantSuffix, "demo")));
+
+        Assert.EndsWith("/", context.Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.DoesNotContain("10.00", cut.Markup);
+    }
+
+    private static void AddDashboardServices(BunitContext context)
+    {
+        context.Services.AddDataProtection();
+        context.Services.AddSingleton<ProtectedLocalStorage>(services =>
+            new ProtectedLocalStorage(context.JSInterop.JSRuntime,
+                services.GetRequiredService<IDataProtectionProvider>()));
+        context.Services.AddSingleton<ITenantNotificationService>(new RecordingTenantNotificationService());
+        context.Services.AddSingleton<ICurrentContextService>(new RecordingCurrentContextService());
+        context.Services.AddSingleton<IShareLinkService>(new RecordingShareLinkService());
+    }
+
+    private sealed class FixedAuthenticationStateProvider(ClaimsPrincipal principal) : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync() =>
+            Task.FromResult(new AuthenticationState(principal));
     }
 }

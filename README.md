@@ -15,6 +15,19 @@ Allowance Manager is an application for tracking child allowance and managing it
 - Reversible restore for deleted families and children
 - Parent login via an existing Microsoft account (personal or work)
 
+## Display links
+
+A display link shows one family's balances and transaction history on a screen without a
+sign-in. It is read-only, so anyone holding the link can look but cannot change anything.
+
+Parents can make one from the People page with **New display link**. Give it a name such as
+"Kitchen tablet", choose when it should stop working, and copy the link before closing the
+dialog. It is shown once for safety. If it is lost, turn it off and make a new one.
+
+Turn a link off from the People page. It stops working immediately for a new visit and within
+five minutes on a screen that is already showing it. Treat a display link like a house key:
+fine on a fridge, not fine in a public photo.
+
 ## Screenshots
 
 The screenshots below show the seeded Development experience.
@@ -47,6 +60,11 @@ dotnet run --project ChildAllowanceManager -- --migrate
 ```
 
 The command applies pending EF Core migrations and exits. The deployment workflow runs it before the production app deploy and then checks `/health/ready`; a pending migration or unavailable database leaves the app not ready. The regular `/health` endpoint is a database-free liveness probe.
+
+Display-link operations store only a SHA-256 hash of each link, never the link itself. A lost
+link cannot be recovered, only replaced. `/share` paths use `Referrer-Policy: no-referrer` and
+`X-Robots-Tag: noindex, nofollow`. The `AddShareLinks` migration is applied by this same
+`--migrate` deploy step.
 
 When `ASPNETCORE_ENVIRONMENT=Development`, the application applies migrations and seeds the local demo data automatically. The explicit `--migrate` command does not seed demo data.
 

@@ -1,0 +1,179 @@
+phase: S2
+title: Mint, copy, and revoke share links from the People page
+read_before_starting: [share-token-plan.yaml]
+context: >
+  Components/Pages/PeoplePage.razor is the family access surface - "Current members" and
+  "Pending invitations", each a MudPaper.settings-card with a MudTable and a MudButton in the
+  page heading. It carries [Authorize(Roles = "admin,parent")] and re-checks
+  ITenantAuthorizationService.CanManagePeople per tenant in OnParametersSetAsync. Share links
+  are a third kind of access to the same family, so they belong on this page, in the same
+  shape. Read PeoplePage.razor, PeoplePage.razor.cs and AddParentDialog.razor(.cs) before
+  editing - AddParentDialog is the dialog style reference.
+preconditions:
+  - "S0-T3 is done — IShareLinkService is registered in Program.cs."
+  - "PeoplePage.razor.cs contains the anchor `canManage = TenantAuthorization.CanManagePeople((await AuthenticationState).User, tenant.Id);`"
+copy_voice: >
+  The app speaks plainly to parents - "Who can see and manage this family.", "No members yet.".
+  Match it. Never use the words "token", "hash" or "credential" in user-facing copy. The user
+  concept is "a link".
+
+tasks:
+
+  - id: S2-T1
+    title: Create-share-link dialog
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/CreateShareLinkDialog.razor
+      - ChildAllowanceManager/Components/Pages/CreateShareLinkDialog.razor.cs
+    steps:
+      - pattern: |
+          Follow Components/Pages/AddParentDialog.razor(.cs). Verbatim from that file - the
+          dialog instance is MudBlazor 9's interface type, not the old class:
+
+            [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+          The body goes inside the shared AppDialog wrapper (Components/AppDialog.razor), whose
+          parameter surface is:
+            Title (required string), Subtitle (string?), ChildContent (required RenderFragment),
+            Actions (RenderFragment?), PrimaryActionText (string, default "Save"),
+            OnPrimary (EventCallback), PrimaryDisabled (bool), IsBusy (bool).
+          The page class derives from CancellableComponentBase for RunAsync / IsBusy /
+          CancellationToken.
+      - parameters: |
+          [Parameter] public string TenantId { get; set; } = default!;
+          [Parameter] public string CreatedByEmail { get; set; } = default!;
+      - form_fields:
+          - 'MudTextField<string> "What is this link for?" — placeholder "Kitchen tablet", MaxLength 100, required.'
+          - >
+            MudSelect<int> "Stop working after" with three options - Never (default),
+            30 days, 1 year. Map to `null`, `DateTimeOffset.UtcNow.AddDays(30)`,
+            `DateTimeOffset.UtcNow.AddYears(1)`. Never is the default; see S-D4.
+      - two_states: >
+          The dialog has a FORM state and, after a successful mint, a REVEAL state. Do not close
+          on success - the plaintext token is unrecoverable, so the parent must be able to copy
+          it before the dialog goes away. Swap inside AppDialog's ChildContent on a bool
+          `_created`, and swap AppDialog's PrimaryActionText with it - "Make the link" in the
+          form state, "Done" in the reveal state. OnPrimary dispatches on the same bool.
+      - reveal_state: |
+          Render, in this order:
+            - MudAlert Severity.Info: "Copy this link now. For your own safety it is not shown
+              again — if you lose it, turn it off and make a new one."
+            - A MudTextField bound to the full absolute URL, ReadOnly, with a copy adornment:
+                var url = Navigation.ToAbsoluteUri($"/share/{result.Token}").ToString();
+              Copy via IJSRuntime `navigator.clipboard.writeText`. If the clipboard call throws
+              (insecure context, permission denied), catch it and leave the field selectable -
+              the text is on screen either way. Do not surface a scary error for a copy failure.
+            - MudText Typo.body2: "Anyone with this link can see this family's balances and
+              history. They cannot change anything."
+            - A single "Done" action that closes with DialogResult.Ok(true).
+      - mint_call: |
+          var created = await ShareLinkService.CreateAsync(
+              TenantId, _name, CreatedByEmail, _expiresAt, CancellationToken);
+          Wrap it in RunAsync so a failure raises the standard snackbar and leaves the form
+          intact with the typed name preserved.
+    rules:
+      - "Never store the token in a field that outlives the dialog instance. It dies with the dialog."
+      - "Never log it, never put it in a snackbar message, never put it in the page title."
+      - "MaxLength on the name field must match the 100-character database column, so the user is stopped before the service throws."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by S2-T3."
+    commit: "feat(share): add the create-share-link dialog"
+
+  - id: S2-T2
+    title: Share links section on the People page
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+    mutex: people-page
+    steps:
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+        add_injection: '[Inject] private IShareLinkService ShareLinkService { get; set; } = default!;'
+        add_field: 'private ShareLink[]? ShareLinks;'
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+        anchor: 'invitations = (await InvitationService.GetPendingForTenantAsync(tenant.Id, CancellationToken)).ToArray();'
+        add_after: 'shareLinks = (await ShareLinkService.GetForTenantAsync(tenant.Id, CancellationToken)).ToArray();'
+        note: >
+          Declare a `ShareLink[]? shareLinks = null;` local beside the existing `members` and
+          `invitations` locals, and assign the field after the outcome check, exactly as those
+          two do. The same pattern repeats inside ReloadAsync - update both call sites.
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor
+        anchor: '<MudText Typo="Typo.h5">Pending invitations</MudText>'
+        add_after_that_whole_MudPaper: |
+          <MudPaper Class="settings-card mt-4" Elevation="0">
+              <MudText Typo="Typo.h5">Display links</MudText>
+              <MudText Typo="Typo.body2" Color="Color.Secondary">
+                  Links that show this family's balances and history on a screen, with no sign-in.
+                  They cannot change anything. Turn one off and it stops working — right away
+                  for a new visit, within five minutes on a screen that is already showing it.
+              </MudText>
+              @* MudTable over ShareLinks with the same null / empty / rows shape as the two
+                 sections above: MudProgressCircular while null, a MudAlert.empty-state reading
+                 "No display links yet." when empty, otherwise the table. *@
+          </MudPaper>
+        table_columns:
+          - 'Name — @context.Name'
+          - 'Created — @context.CreatedTimestamp.ToString("d")'
+          - 'Last used — @(context.LastAccessedAt?.ToString("d") ?? "Never")'
+          - 'Stops — @(context.ExpiresAt is null ? "Never" : context.ExpiresAt.Value.ToString("d"))'
+          - 'Actions — a red "Turn off" MudButton, Size.Small, Disabled="@IsBusy"'
+        expired_row: >
+          GetForTenantAsync returns expired-but-live rows (S0-T3). When
+          `context.ExpiresAt < DateTimeOffset.UtcNow`, render the Stops cell with a
+          MudChip Color.Warning reading "Ran out" instead of the date, so a parent can see why
+          a display went dark.
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor
+        anchor: |
+          <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="InviteParent">
+              Invite a parent
+          </MudButton>
+        add_after: |
+          <MudButton Color="Color.Primary" Variant="Variant.Outlined" Disabled="@IsBusy" OnClick="CreateShareLink">
+              New display link
+          </MudButton>
+      - file: ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+        add_handlers: |
+          CreateShareLink() — opens CreateShareLinkDialog with TenantId = _tenantId and
+          CreatedByEmail from (await AuthenticationState).User.FindFirst(ClaimTypes.Email)?.Value
+          ?? string.Empty. On a DialogResult that is not cancelled, await ReloadAsync().
+
+          RevokeShareLink(ShareLink link) — confirm first, using the same MudMessageBox
+          `Confirmation` the member-removal flow already uses on this page. Confirmation copy:
+          title "Turn off this link?", body $"\"{link.Name}\" will stop working. A screen already
+          showing it goes blank within five minutes. You can make a new link at any time."
+          On confirm, RunAsync ShareLinkService.RevokeAsync(link.Id, _tenantId!, CancellationToken)
+          with successMessage $"\"{link.Name}\" was turned off.", then ReloadAsync().
+    rules:
+      - >
+        Do not add a "show link again" or "copy" action to the table. The plaintext token does
+        not exist after the dialog closes, by design. A parent who lost the URL turns the link
+        off and makes a new one - which is the correct security behaviour anyway.
+      - "The page's existing [Authorize] attribute and CanManagePeople re-check already cover this section. Do not add a second check."
+      - "Reuse the existing `settings-card` and `empty-state` classes. Do not add CSS."
+    acceptance:
+      - "`dotnet build` exits 0"
+      - "Verified by S2-T3."
+    commit: "feat(share): manage display links from the People page"
+
+  - id: S2-T3
+    title: Share-link management flow tests
+    files_touched: [tests/ChildAllowanceManager.Tests/ShareLinkUiTests.cs]
+    context: >
+      Follow tests/ChildAllowanceManager.Tests/UiFlowTests.cs for the interaction style and
+      reuse the recording fakes in UiTestDoubles.cs (RecordingTenantService,
+      RecordingChildService, RecordingInvitationService, RecordingCurrentContextService and the
+      RecordingShareLinkService that S1-T5 adds). This task depends on S1-T5 precisely so that
+      the fake already exists - do NOT add it here, and do NOT edit UiTestDoubles.cs. If the
+      fake is missing, S1-T5 did not do its job: set status=blocked.
+    required_tests:
+      - name: People_page_lists_share_links
+      - name: People_page_shows_an_empty_state_when_there_are_none
+      - name: Create_dialog_reveals_the_url_once_and_does_not_close
+        assert: "After a successful mint the rendered markup contains \"/share/\" and the dialog is still open."
+      - name: Create_dialog_rejects_an_empty_name
+        assert: "The service fake records zero CreateAsync calls."
+      - name: Revoke_asks_for_confirmation_before_calling_the_service
+      - name: Revoke_passes_the_current_tenant_id
+        assert: "Guards the authorization boundary in RevokeAsync — the fake records the tenant id it was called with."
+    acceptance:
+      - "CAM_TEST_DB=cam_test_s2_t3 CAM_TEST_KEEP=1 bash scripts/test-postgres.sh passes"
+    commit: "test(share): cover creating and revoking display links"

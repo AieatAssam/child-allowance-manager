@@ -12,6 +12,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
     public DbSet<User> Users => Set<User>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
     public DbSet<TenantInvitation> TenantInvitations => Set<TenantInvitation>();
+    public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -51,6 +52,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
         ConfigureItem(modelBuilder.Entity<User>());
         ConfigureItem(modelBuilder.Entity<TenantMembership>());
         ConfigureItem(modelBuilder.Entity<TenantInvitation>());
+        ConfigureItem(modelBuilder.Entity<ShareLink>());
 
         modelBuilder.Entity<ChildConfiguration>(entity =>
         {
@@ -114,6 +116,16 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
             entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique().HasFilter("NOT \"Deleted\"");
             entity.HasIndex(x => x.Email);
             entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ShareLink>(entity =>
+        {
+            entity.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+            entity.Property(x => x.CreatedByEmail).HasMaxLength(320);
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.Deleted });
+            entity.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

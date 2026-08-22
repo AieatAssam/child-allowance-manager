@@ -1,0 +1,558 @@
+# share-token-plan.yaml — machine-consumable implementation index
+# Feature: revocable share-token URLs for long-lived, login-free balance/transaction displays.
+# Audience: coding agents (target implementer: gpt-5.6-luna). Not written for humans.
+#
+# READ THIS FILE FIRST. Then read EXACTLY ONE phase file (the one owning your task).
+# Never read a sibling phase file. Everything you need is in this index + your phase
+# file + the repository source.
+#
+# This plan is INDEPENDENT of plan.yaml (allowance-manager-audit-remediation, all phases
+# done). Do not modify plan.yaml. Do not modify docs/plan/phase-*.yaml.
+
+schema_version: 1
+plan_id: allowance-manager-share-tokens
+repo_root: /Users/aieat/Documents/git/child-allowance-manager
+generated: 2026-08-22
+phase_dir: docs/plan/share-token
+
+# ---------------------------------------------------------------------------
+# 0. PROBLEM STATEMENT
+# ---------------------------------------------------------------------------
+problem: >
+  Commit a585680 ("feat: allow public child balance views") removed [Authorize] from
+  /{tenantSuffix}/children and made ChildrenListPage.HasTenantAccessAsync return true for
+  unauthenticated callers. Every family's balances and full transaction history are therefore
+  readable by anyone who knows or guesses a URL suffix, permanently and un-revocably. The
+  motivating use case is legitimate - a kitchen tablet or e-ink frame that shows the children
+  their balances without anyone signing in.
+goal: >
+  Replace ambient public access with named, revocable, optionally-expiring share tokens.
+  A parent mints a link, pins it to a display, and can revoke it later without touching
+  anyone's login. Everything else returns to sign-in-only.
+non_goals:
+  - No child accounts, no child login, no per-child credentials.
+  - No write access of any kind through a share link. Read-only, always.
+  - No email/SMS delivery of share links. The parent copies the URL themselves.
+
+# ---------------------------------------------------------------------------
+# 1. ORCHESTRATOR PROTOCOL
+# ---------------------------------------------------------------------------
+orchestration:
+  fan_out: true
+  eligibility_rule: >
+    A task is eligible when status == pending AND every id in depends_on has status == done
+    AND no currently in_progress task shares a value in files_touched or mutex or
+    exclusive_resources with it.
+  conflict_rule: >
+    Two tasks MUST NOT run concurrently if their files_touched lists intersect, or if they
+    name the same mutex, or the same exclusive_resources entry.
+  claim_protocol:
+    - Re-read share-token-plan.yaml immediately before writing any status change. The index is
+      a shared write target; stale-read overwrites lose other agents' claims.
+    - To claim - set status=in_progress, owner=<agent-id>, updated=<ISO8601 UTC>.
+    - Write the claim back, then re-read and confirm owner is still you. If not, abandon and
+      pick another task.
+    - On success - status=done, updated=<ts>, and append a one-line note to `result`.
+    - On failure - status=failed, `result` = the shortest decisive error line. Do NOT modify
+      any other task's status.
+    - If a precondition in your phase file is false - status=blocked, `result` = which
+      precondition failed. Do not improvise around it.
+  branch_policy:
+    mode: single-branch
+    branch: main
+    rule: >
+      All agents commit to the working tree of repo_root. One task = one commit. Commit
+      message format - `<type>(share): <task title>` using conventional commit types
+      (feat, fix, refactor, test, chore, docs). Do not push. Do not open PRs. Do not rebase
+      or amend another agent's commit.
+  on_conflict_detected: >
+    If `git status` shows uncommitted changes in a file that is NOT in your files_touched
+    list, stop, set status=blocked, and report. Do not commit another agent's work.
+
+# ---------------------------------------------------------------------------
+# 2. SHARED FACTS ABOUT THIS REPOSITORY (do not re-derive)
+# ---------------------------------------------------------------------------
+repo_facts:
+  solution: ChildAllowanceManager.sln
+  projects:
+    web: ChildAllowanceManager/ChildAllowanceManager.csproj          # net10.0, Blazor Server (InteractiveServer)
+    common: ChildAllowanceManager.Common/ChildAllowanceManager.Common.csproj
+    tests: tests/ChildAllowanceManager.Tests/ChildAllowanceManager.Tests.csproj
+  sdk: .NET 10, pinned by global.json
+  ui_stack: MudBlazor 9.8.0, Humanizer 3.0.10
+  db: PostgreSQL via Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3, EF Core migrations
+  test_stack: xunit.v3, bunit; parallelization DISABLED via tests/ChildAllowanceManager.Tests/AssemblyInfo.cs
+  culture: en-GB, CurrencySymbol "£" set at the top of Program.cs
+  entity_base: 'BaseItem { Id (string GUID N-format), Deleted (bool), CreatedTimestamp, UpdatedTimestamp }'
+  dbcontext: ChildAllowanceManager/Data/AllowanceDbContext.cs — one DbSet property per entity, one ConfigureItem<T>(...) call and one modelBuilder.Entity<T>(...) block per entity in OnModelCreating
+  service_registration: ChildAllowanceManager/Program.cs, the block beginning `builder.Services.AddScoped<IChildService, ChildService>();`
+  service_style: 'primary constructors, e.g. `public class InvitationService(AllowanceDbContext db, ...) : IInvitationService`'
+  soft_delete_convention: Deleted=true plus UpdatedTimestamp=now. Queries filter `!x.Deleted`.
+  component_base: >
+    ChildAllowanceManager/Components/CancellableComponentBase.cs supplies CancellationToken,
+    IsBusy and RunAsync(action, successMessage, failureMessage). All pages use it. RunAsync
+    returns an OperationOutcome with .Succeeded and shows a snackbar on failure.
+  routes_today:
+    - { path: "/", component: Components/Pages/Home.razor }
+    - { path: "/{tenantSuffix}/children", component: Components/Pages/ChildrenListPage.razor, auth: "NONE — see problem statement" }
+    - { path: "/{tenantSuffix}/configuration", component: Components/Pages/ChildManagementPage.razor, auth: "[Authorize(Roles = \"admin,parent\")]" }
+    - { path: "/{tenantSuffix}/people", component: Components/Pages/PeoplePage.razor, auth: "[Authorize(Roles = \"admin,parent\")]" }
+    - { path: "/admin", component: Components/Pages/AdministrationPage.razor, auth: "[Authorize(Roles = \"admin\")]" }
+    - { path: "/login", handler: "app.Map in Program.cs" }
+    - { path: "/logout", handler: "app.Map in Program.cs" }
+  supersedes_plan_yaml: >
+    Two facts in plan.yaml are now STALE. Trust this file instead.
+    (1) There is NO ChildAllowanceManager/Middleware/ directory and no ResponseHeaderMiddleware.cs.
+        Response headers are set by an inline `app.Use(async (context, next) => ...)` block in
+        Program.cs that currently sets only XFrameOptions = "SAMEORIGIN".
+    (2) /{tenantSuffix}/children carries NO [Authorize] attribute and
+        ChildrenListPage.HasTenantAccessAsync returns true for anonymous callers.
+  authorization_today: >
+    ITenantAuthorizationService (Services/TenantAuthorizationService.cs) is the single
+    authority - CanView = global admin OR a CustomClaimTypes.Tenant claim for the tenant;
+    CanManage = global admin OR a CustomClaimTypes.TenantRole claim "<tenantId>:parent".
+    Claims are rebuilt on every request by Services/ClaimEnrichmentTransformer.cs from
+    TenantMembership rows.
+
+# ---------------------------------------------------------------------------
+# 3. VERIFICATION ENVIRONMENT (every task's acceptance runs here)
+# ---------------------------------------------------------------------------
+verification:
+  build:
+    command: dotnet build ChildAllowanceManager.sln --configuration Release
+    must: exit 0, zero warnings introduced by your diff
+  test:
+    command: CAM_TEST_DB=cam_test_<task_id_lowercased_underscored> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh
+    note: >
+      The harness is swarm-safe when CAM_TEST_DB is set per agent. Without it, concurrent
+      agents destroy each other's database.
+  migration_command:
+    scaffold: dotnet ef migrations add <Name> --project ChildAllowanceManager --startup-project ChildAllowanceManager
+    apply_at_deploy: 'dotnet run --project ChildAllowanceManager -- --migrate  (startup does not migrate outside Development)'
+  test_files:
+    tests/ChildAllowanceManager.Tests/AccountAndTenantServiceTests.cs: user, tenant, membership, invitation service logic
+    tests/ChildAllowanceManager.Tests/AllowanceServiceTests.cs: allowance/transaction service logic
+    tests/ChildAllowanceManager.Tests/PostgresEndToEndTests.cs: real-Postgres end-to-end
+    tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs: bunit render assertions
+    tests/ChildAllowanceManager.Tests/UiFlowTests.cs: bunit interaction flows
+    tests/ChildAllowanceManager.Tests/UiTestDoubles.cs: recording fakes
+    tests/ChildAllowanceManager.Tests/BunitTestContext.cs: 'BunitTestContext.Create() -> BunitContext with JSInterop Loose + AddMudServices()'
+    tests/ChildAllowanceManager.Tests/PostgresTestDatabase.cs: CreateCleanContextAsync() / CreateMigratedContextAsync()
+  anchoring_rule: >
+    Locate every edit site by the `anchor` string given in your phase file, not by line number.
+    Line numbers in this plan are hints only and WILL drift. Multi-line anchors are written
+    WITHOUT their source indentation - match on the sequence of trimmed lines, and preserve the
+    file's existing indentation when writing the replacement. If an anchor cannot be matched
+    that way, set status=blocked.
+
+# ---------------------------------------------------------------------------
+# 4. DECISIONS ALREADY MADE (do not re-open; implement as written)
+# ---------------------------------------------------------------------------
+decisions:
+
+  S-D1_token_shape:
+    ruling: 256-bit random token, Base64Url-encoded, stored ONLY as a SHA-256 hash.
+    detail: >
+      Mint with RandomNumberGenerator.GetBytes(32) then Base64Url.EncodeToText (or
+      WebEncoders.Base64UrlEncode) - 43 URL-safe characters, no padding, no '+' or '/'.
+      Persist Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))) lowercased,
+      64 chars, in ShareLink.TokenHash. The plaintext token is returned exactly once, from
+      CreateAsync, and is never stored, never logged, never re-displayable. Lookup is a single
+      indexed equality query on the hash - no scan, no timing side channel worth defending.
+    rationale: A leaked database dump must not yield working display URLs.
+    owned_by: [S0-T1, S0-T2]
+
+  S-D2_revocation_is_soft_delete:
+    ruling: Revoke == the existing soft-delete convention. Deleted=true, UpdatedTimestamp=now.
+    detail: >
+      No separate RevokedAt column. `Deleted` already means "no longer live" everywhere in this
+      codebase and UpdatedTimestamp already records when that happened; the People page renders
+      "Revoked <UpdatedTimestamp:d>" from those two fields.
+    owned_by: [S0-T1, S0-T3, S2-T2]
+
+  S-D3_unique_index_is_NOT_filtered:
+    ruling: 'IX_ShareLinks_TokenHash is UNIQUE with NO filter. Do not copy the plan.yaml D4 "WHERE NOT Deleted" convention here.'
+    detail: >
+      A revoked token must be permanently dead. A filtered index would let a future mint collide
+      with a revoked hash, and would let a bug that clears Deleted resurrect a revoked URL.
+      Uniqueness spans revoked rows. Runtime lookup applies the liveness filter in the query
+      instead - `!x.Deleted && (x.ExpiresAt == null || x.ExpiresAt > now)`.
+    owned_by: [S0-T2]
+
+  S-D4_expiry_optional:
+    ruling: ExpiresAt is nullable. NULL means never expires.
+    detail: >
+      The product need is a permanent kitchen display; forced expiry guarantees the display goes
+      dark at the worst moment. The create dialog offers 30 days / 1 year / Never and defaults to
+      Never. Revocation, not expiry, is the control that matters.
+    owned_by: [S0-T1, S2-T1]
+
+  S-D5_scope_is_whole_family:
+    ruling: A share link grants read access to one tenant - all of its live children.
+    detail: >
+      No ChildId column, no per-child links. The display device shows the family board. Adding
+      per-child scope later is an additive nullable column plus one query filter; there is no
+      defect or product need behind it today.
+    owned_by: [S0-T1]
+
+  S-D6_one_page_two_routes:
+    ruling: >
+      ChildrenListPage serves BOTH /{tenantSuffix}/children and /share/{shareToken}. Do not
+      fork a second read-only page.
+    detail: >
+      The page's balance cards, chart, history table and transactions dialog are exactly the
+      intended share view. A forked page would duplicate ~140 lines of markup and drift. The
+      page gains `[Parameter] public string? ShareToken` and a `_shareMode` flag; in share mode
+      it resolves the tenant from the token instead of the suffix.
+    rejected_alternative: >
+      Synthesising a ClaimsPrincipal with a Tenant claim for share visitors. That would make a
+      revoked token survive inside an issued auth cookie and would put a share visitor into
+      every IsInRole/HasClaim path in the app. Share access stays outside the identity system.
+    owned_by: [S1-T1]
+
+  S-D7_read_only_is_affirmative:
+    ruling: >
+      Every management control on ChildrenListPage is gated on the single boolean
+      CanManageCurrentTenant. The `<AuthorizeView Roles="admin,parent">` wrappers in the markup
+      are REMOVED and replaced with `@if (CanManageCurrentTenant)`.
+    detail: >
+      AuthorizeView Roles="admin,parent" tests GLOBAL roles. "parent" is a global role in this
+      codebase (D5 of plan.yaml kept it in the global set, and the Development /login handler
+      grants it), so today any signed-in global parent renders Add money / Withdraw / Pause /
+      Remove-one-day on ANY family's page. The .cs handlers already re-check
+      CanManageCurrentTenant, so this is currently a cosmetic hole - but in share mode it would
+      become the visible affordance for an unauthorized writer. One gate closes both.
+      In share mode CanManageCurrentTenant is hard false and is never recomputed.
+    owned_by: [S1-T2]
+
+  S-D8_share_mode_writes_nothing_to_the_browser:
+    ruling: >
+      In share mode the page must NOT write ProtectedLocalStorage "current_tenant" /
+      "current_tenant_suffix". It MUST still call ICurrentContextService.SetCurrentTenant.
+    detail: >
+      TenantSuffix is null on the share route, so the existing ProtectedLocalStorage writes
+      would store a null suffix in the browser and poison the family context of whoever later
+      signs in on that device. Those two writes are the only browser-persisting part of the
+      block and are the only part that is suppressed.
+      SetCurrentTenant is NOT suppressed. ICurrentContextService is a scoped, in-memory
+      per-circuit holder (Services/CurrentContextService.cs - a private field and a getter, no
+      persistence), and TenantNotificationService.OnChildStateChanged filters live push events
+      with `tenantId == _currentContextService.GetCurrentTenant()`. Suppressing it would leave
+      a share display with no push refresh at all and make the S-D9 poll the only refresh
+      mechanism. Keeping it costs nothing and keeps the display live to the second when a
+      parent adds money.
+    owned_by: [S1-T2]
+
+  S-D9_liveness_is_rechecked_on_the_open_circuit:
+    ruling: >
+      Revocation must take effect on a display that is already rendering. Share mode runs a
+      PeriodicTimer (5 minutes) that re-resolves the token and reloads data.
+    detail: >
+      A Blazor Server circuit pinned to a wall for months would otherwise render a revoked
+      family forever, and would also never notice midnight rolling over. When the re-resolve
+      returns null the page navigates to /share/expired. The same timer is the data refresh, so
+      it is not extra machinery.
+    owned_by: [S1-T3]
+
+  S-D10_last_used_is_throttled:
+    ruling: LastAccessedAt is written at most once per hour per link.
+    detail: >
+      `if (link.LastAccessedAt is null || link.LastAccessedAt < now.AddHours(-1))` then write.
+      A 5-minute polling kiosk otherwise issues an UPDATE forever, for a field whose only
+      consumer is a "Last used" column rendered to the day.
+    owned_by: [S0-T3]
+
+  S-D11_never_log_the_token:
+    ruling: Log ShareLink.Id. Never log the plaintext token, never log TokenHash.
+    detail: >
+      Applies to ILogger calls, exception messages and snackbar text. The token appears in the
+      URL path, which is enough exposure already - see S-D12.
+    owned_by: [S0-T3, S1-T1, S1-T4]
+
+  S-D12_share_route_headers:
+    ruling: >
+      Requests whose path starts with /share get `Referrer-Policy: no-referrer` and
+      `X-Robots-Tag: noindex, nofollow`, set in the existing inline app.Use block in Program.cs.
+    detail: >
+      A bearer secret in a URL path leaks through the Referer header to any third-party asset
+      and through search indexing if the URL is ever posted. There is no Middleware/ directory
+      in this repo - do not create one for two header lines.
+    owned_by: [S1-T4]
+
+  S-D13_lockdown_lands_last:
+    ruling: >
+      /{tenantSuffix}/children regains [Authorize] and HasTenantAccessAsync stops returning true
+      for anonymous callers ONLY after the share route and the mint/revoke UI both work.
+    detail: >
+      Phase S3 depends on S1 and S2 so that no deployed display goes dark between the lockdown
+      landing and the replacement existing.
+    owned_by: [S3-T1]
+
+  S-D14_deferred:
+    ruling: The following are explicitly deferred, not forgotten.
+    deferred:
+      - name: Rate limiting / brute-force protection on /share/{token}
+        why: >
+          The token is 256 bits of CSPRNG output. Guessing is not a threat model that a fixed
+          window limiter improves. Revisit only if share URLs are ever shortened or made
+          human-typeable.
+      - name: Per-child share links
+        why: See S-D5. Additive nullable column when a real need appears.
+      - name: Share-link access audit log (one row per view)
+        why: >
+          LastAccessedAt answers "is this display still alive". A full access log is a new
+          table and a retention question with no product driver.
+      - name: A dedicated kiosk chrome (hide the app bar, sign-in button and nav drawer)
+        why: >
+          MainLayout already renders nothing family-specific to anonymous visitors - the family
+          switcher and account menu are inside <AuthorizeView><Authorized>. A "Sign in" button
+          on a fridge display is cosmetic. Revisit on real feedback.
+
+# ---------------------------------------------------------------------------
+# 5. NAMED MUTEXES AND EXCLUSIVE RESOURCES
+# ---------------------------------------------------------------------------
+mutexes:
+  program-cs: ChildAllowanceManager/Program.cs — service registration + response headers; additive edits only
+  children-list-page: ChildAllowanceManager/Components/Pages/ChildrenListPage.razor(+.cs) — touched by S1 and S3
+  people-page: ChildAllowanceManager/Components/Pages/PeoplePage.razor(+.cs) — touched by S2
+  dbcontext: ChildAllowanceManager/Data/AllowanceDbContext.cs
+  migrations: ChildAllowanceManager/Migrations/ — only one task may scaffold a migration at a time
+exclusive_resources:
+  postgres-test-db: >
+    Only needed by tasks that do NOT set CAM_TEST_DB. Every task in this plan sets it; the
+    resource is listed for completeness.
+
+# ---------------------------------------------------------------------------
+# 6. PHASES
+# ---------------------------------------------------------------------------
+phases:
+  - id: S0
+    file: docs/plan/share-token/phase-S0-data-and-service.yaml
+    title: ShareLink entity, migration, and the mint/resolve/revoke service
+    depends_on: []
+    status: pending
+
+  - id: S1
+    file: docs/plan/share-token/phase-S1-public-route.yaml
+    title: The /share/{token} route, read-only rendering, liveness polling, headers
+    depends_on: [S0]
+    status: pending
+
+  - id: S2
+    file: docs/plan/share-token/phase-S2-management-ui.yaml
+    title: Mint, copy, and revoke share links from the People page
+    depends_on: [S0]
+    status: pending
+
+  - id: S3
+    file: docs/plan/share-token/phase-S3-lockdown.yaml
+    title: Close public access, update tests written against the wide-open behaviour, document
+    depends_on: [S1, S2]
+    status: pending
+    note: >
+      Must land last. See S-D13 - closing public access before the share route and the mint UI
+      exist takes every deployed display dark with no way to restore it.
+
+# ---------------------------------------------------------------------------
+# 7. TASK INDEX
+# files_touched is authoritative for scheduling. Full specs live in the phase file.
+# ---------------------------------------------------------------------------
+tasks:
+
+  # ---- S0 -----------------------------------------------------------------
+  - id: S0-T1
+    phase: S0
+    title: ShareLink entity
+    depends_on: []
+    files_touched: [ChildAllowanceManager.Common/Models/ShareLink.cs]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Implementation and serial no-restore build succeeded; exact required build exceeded 5 minutes with 0 errors; commit blocked because .git/index is read-only."
+
+  - id: S0-T2
+    phase: S0
+    title: DbContext mapping and the AddShareLinks migration
+    depends_on: [S0-T1]
+    files_touched:
+      - ChildAllowanceManager/Data/AllowanceDbContext.cs
+      - ChildAllowanceManager/Migrations/
+    mutex: dbcontext
+    exclusive_resources: [migrations]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Migration scaffold succeeded and unfiltered unique index verified; Postgres acceptance blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  - id: S0-T3
+    phase: S0
+    title: IShareLinkService and ShareLinkService
+    depends_on: [S0-T2]
+    files_touched:
+      - ChildAllowanceManager.Common/Interfaces/IShareLinkService.cs
+      - ChildAllowanceManager/Services/ShareLinkService.cs
+      - ChildAllowanceManager/Program.cs
+    mutex: program-cs
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Web project build succeeded; exact required solution build exceeded 5 minutes; commit blocked because .git/index is read-only."
+
+  - id: S0-T4
+    phase: S0
+    title: Share-link service tests
+    depends_on: [S0-T3]
+    files_touched: [tests/ChildAllowanceManager.Tests/ShareLinkServiceTests.cs]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Tests compile and feature UI tests pass; required Postgres harness blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  # ---- S1 -----------------------------------------------------------------
+  - id: S1-T1
+    phase: S1
+    title: Share route parameter, token resolution, and the expired page
+    depends_on: [S0-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - ChildAllowanceManager/Components/Pages/ShareExpired.razor
+    mutex: children-list-page
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Share route and expired page compile; targeted route tests pass; exact solution build exceeded 5 minutes; commit blocked because .git/index is read-only."
+
+  - id: S1-T2
+    phase: S1
+    title: Single affirmative read-only gate and share-mode browser-state suppression
+    depends_on: [S1-T1]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Read-only gate and browser-state suppression compile; targeted route tests pass; commit blocked because .git/index is read-only."
+
+  - id: S1-T3
+    phase: S1
+    title: Five-minute liveness and refresh timer for share mode
+    depends_on: [S1-T2]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+    mutex: children-list-page
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Five-minute poll compiles; targeted route tests pass; exact solution build exceeded 5 minutes; commit blocked because .git/index is read-only."
+
+  - id: S1-T4
+    phase: S1
+    title: Referrer and robots headers for /share paths
+    depends_on: []
+    files_touched: [ChildAllowanceManager/Program.cs]
+    mutex: program-cs
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Header code compiles and X-Robots-Tag grep passed; commit blocked because .git/index is read-only."
+
+  - id: S1-T5
+    phase: S1
+    title: Share-route rendering tests
+    depends_on: [S1-T3]
+    files_touched:
+      - tests/ChildAllowanceManager.Tests/ShareRouteTests.cs
+      - tests/ChildAllowanceManager.Tests/UiTestDoubles.cs
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "6/6 targeted share-route tests pass; required Postgres harness blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  # ---- S2 -----------------------------------------------------------------
+  - id: S2-T1
+    phase: S2
+    title: Create-share-link dialog
+    depends_on: [S0-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/CreateShareLinkDialog.razor
+      - ChildAllowanceManager/Components/Pages/CreateShareLinkDialog.razor.cs
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Dialog compiles and management-flow tests pass; exact solution build exceeded 5 minutes; commit blocked because .git/index is read-only."
+
+  - id: S2-T2
+    phase: S2
+    title: Share links section on the People page
+    depends_on: [S2-T1]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor
+      - ChildAllowanceManager/Components/Pages/PeoplePage.razor.cs
+    mutex: people-page
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "People-page management UI compiles and management-flow tests pass; commit blocked because .git/index is read-only."
+
+  - id: S2-T3
+    phase: S2
+    title: Share-link management flow tests
+    depends_on: [S2-T2, S1-T5]
+    note: >
+      Depends on S1-T5 solely because S1-T5 owns tests/ChildAllowanceManager.Tests/UiTestDoubles.cs,
+      where the shared RecordingShareLinkService fake lives. Serialised, not conceptually coupled.
+    files_touched: [tests/ChildAllowanceManager.Tests/ShareLinkUiTests.cs]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "6/6 targeted management-flow tests pass; required Postgres harness blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  # ---- S3 -----------------------------------------------------------------
+  - id: S3-T1
+    phase: S3
+    title: Restore sign-in-only access to /{tenantSuffix}/children
+    depends_on: [S1-T5, S2-T3]
+    files_touched:
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor
+      - ChildAllowanceManager/Components/Pages/ChildrenListPage.razor.cs
+      - tests/ChildAllowanceManager.Tests/ComponentRenderingTests.cs
+      - tests/ChildAllowanceManager.Tests/UiFlowTests.cs
+    mutex: children-list-page
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Anonymous/signed-in redirect tests and full 12-test UI-flow class pass; required Postgres harness blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  - id: S3-T2
+    phase: S3
+    title: End-to-end share lifecycle test on real Postgres
+    depends_on: [S3-T1]
+    files_touched: [tests/ChildAllowanceManager.Tests/PostgresEndToEndTests.cs]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "Lifecycle test added and test project compiles; required Postgres harness blocked by Docker socket permission; commit blocked because .git/index is read-only."
+
+  - id: S3-T3
+    phase: S3
+    title: Document share links in the README
+    depends_on: [S3-T1]
+    files_touched: [README.md]
+    status: failed
+    owner: codex-main
+    updated: 2026-08-22T15:44:04Z
+    result: "git diff --check passes; commit blocked because .git/index is read-only."
+
+# ---------------------------------------------------------------------------
+# 8. DONE MEANS
+# ---------------------------------------------------------------------------
+definition_of_done:
+  - "Anonymous GET /{suffix}/children renders the sign-in prompt, not balances."
+  - "Anonymous GET /share/{live token} renders balances, the chart, the history table and the transactions dialog, with no money controls anywhere on the page."
+  - "A signed-in global parent with no membership in that family sees no money controls on that family's board."
+  - "Revoking a link makes /share/{token} render the expired page within 5 minutes on an already-open display, and immediately on a fresh load."
+  - "The plaintext token exists in exactly two places - the URL the parent copied, and the one-time dialog. Not in the database, not in the logs."
+  - "dotnet build exits 0 with no new warnings, and the full test suite passes."

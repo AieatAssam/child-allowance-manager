@@ -83,17 +83,24 @@ public class TransactionService(
         var firstDate = (startDate ?? result[0].Timestamp).UtcDateTime.Date;
         var lastDate = (endDate ?? result[^1].Timestamp).UtcDateTime.Date;
         var lastBalance = openingBalance;
-        var extraRecords = new List<BalanceHistoryEntry>();
+        var entryIndex = 0;
+        var history = new List<BalanceHistoryEntry>();
         for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
         {
-            var existing = result.LastOrDefault(x => x.Timestamp.UtcDateTime.Date == date);
-            if (existing is not null)
-                lastBalance = existing.Balance;
+            BalanceHistoryEntry? lastEntryForDate = null;
+            while (entryIndex < result.Count && result[entryIndex].Timestamp.UtcDateTime.Date == date)
+                lastEntryForDate = result[entryIndex++];
+
+            if (lastEntryForDate is not null)
+            {
+                lastBalance = lastEntryForDate.Balance;
+                history.Add(lastEntryForDate);
+            }
             else
-                extraRecords.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), lastBalance));
+                history.Add(new BalanceHistoryEntry(new DateTimeOffset(date, TimeSpan.Zero), lastBalance));
         }
 
-        return result.Concat(extraRecords).OrderBy(x => x.Timestamp).ToArray();
+        return history.ToArray();
     }
 
     public async ValueTask<AllowanceTransaction?> GetLatestRegularTransactionForChild(
