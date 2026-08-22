@@ -310,6 +310,8 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     {
         if (AuthenticationState is null)
             return true;
-        return TenantAuthorization.CanView((await AuthenticationState).User, tenantId);
+
+        var user = (await AuthenticationState).User;
+        return user.Identity?.IsAuthenticated != true || TenantAuthorization.CanView(user, tenantId);
     }
 }
