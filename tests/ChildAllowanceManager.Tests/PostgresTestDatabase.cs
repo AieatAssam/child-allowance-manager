@@ -5,7 +5,10 @@ namespace ChildAllowanceManager.Tests;
 
 public static class PostgresTestDatabase
 {
-    public static async Task<AllowanceDbContext> CreateCleanContextAsync()
+    public static Task<AllowanceDbContext> CreateCleanContextAsync() =>
+        CreateCleanContextAsync(TestContext.Current.CancellationToken);
+
+    public static async Task<AllowanceDbContext> CreateCleanContextAsync(CancellationToken cancellationToken)
     {
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
                         ?? throw new InvalidOperationException(
@@ -14,12 +17,15 @@ public static class PostgresTestDatabase
             .UseNpgsql(connection)
             .Options;
         var db = new AllowanceDbContext(options);
-        await db.Database.EnsureDeletedAsync();
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.EnsureDeletedAsync(cancellationToken);
+        await db.Database.EnsureCreatedAsync(cancellationToken);
         return db;
     }
 
-    public static async Task<AllowanceDbContext> CreateMigratedContextAsync()
+    public static Task<AllowanceDbContext> CreateMigratedContextAsync() =>
+        CreateMigratedContextAsync(TestContext.Current.CancellationToken);
+
+    public static async Task<AllowanceDbContext> CreateMigratedContextAsync(CancellationToken cancellationToken)
     {
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
                         ?? throw new InvalidOperationException(
@@ -28,8 +34,8 @@ public static class PostgresTestDatabase
             .UseNpgsql(connection)
             .Options;
         var db = new AllowanceDbContext(options);
-        await db.Database.EnsureDeletedAsync();
-        await db.Database.MigrateAsync();
+        await db.Database.EnsureDeletedAsync(cancellationToken);
+        await db.Database.MigrateAsync(cancellationToken);
         return db;
     }
 }

@@ -13,18 +13,20 @@ public class MigrationTests
     [Fact]
     public async Task Migrating_a_fresh_database_creates_the_full_schema()
     {
-        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync(cancellationToken);
 
-        Assert.Empty(await db.Children.ToListAsync());
-        Assert.Empty(await db.Transactions.ToListAsync());
-        Assert.Empty(await db.Tenants.ToListAsync());
-        Assert.Empty(await db.Users.ToListAsync());
+        Assert.Empty(await db.Children.ToListAsync(cancellationToken));
+        Assert.Empty(await db.Transactions.ToListAsync(cancellationToken));
+        Assert.Empty(await db.Tenants.ToListAsync(cancellationToken));
+        Assert.Empty(await db.Users.ToListAsync(cancellationToken));
     }
 
     [Fact]
     public async Task Model_has_no_pending_changes()
     {
-        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync(cancellationToken);
 
         Assert.Empty(db.Database.GetPendingMigrations());
 
@@ -43,10 +45,11 @@ public class MigrationTests
     [Fact]
     public async Task Legacy_initial_schema_can_be_migrated_after_baseline_compatibility()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
-        await db.Database.EnsureDeletedAsync();
-        await db.Database.MigrateAsync("20260810214537_Initial");
-        await db.Database.ExecuteSqlRawAsync("DROP TABLE \"__EFMigrationsHistory\"");
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
+        await db.Database.EnsureDeletedAsync(cancellationToken);
+        await db.Database.MigrateAsync("20260810214537_Initial", cancellationToken);
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE \"__EFMigrationsHistory\"", cancellationToken);
         var tenant = new TenantConfiguration
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -58,11 +61,11 @@ public class MigrationTests
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO "Tenants" ("Id", "TenantName", "UrlSuffix", "Deleted", "CreatedTimestamp", "UpdatedTimestamp")
             VALUES ({tenant.Id}, {tenant.TenantName}, {tenant.UrlSuffix}, FALSE, {tenant.CreatedTimestamp}, {tenant.UpdatedTimestamp});
-            """);
+            """, cancellationToken);
 
-        await BaselineCompatibility.EnsureBaselineRecordedAsync(db, CancellationToken.None);
-        await db.Database.MigrateAsync();
+        await BaselineCompatibility.EnsureBaselineRecordedAsync(db, cancellationToken);
+        await db.Database.MigrateAsync(cancellationToken);
 
-        Assert.Equal(tenant.Id, (await db.Tenants.SingleAsync()).Id);
+        Assert.Equal(tenant.Id, (await db.Tenants.SingleAsync(cancellationToken)).Id);
     }
 }

@@ -11,17 +11,18 @@ public class AccessManagementTests
     [Fact]
     public async Task Membership_queries_hide_revoked_access()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant());
         var users = new UserService(db, new MembershipService(db));
-        var user = await users.InitializeUserAsync("person@example.com", "Person", "tenant-1", default);
-        await users.AddUserToTenantAsync("second@example.com", "Second", "tenant-1", ValidRoles.Parent, default);
+        var user = await users.InitializeUserAsync("person@example.com", "Person", "tenant-1", cancellationToken);
+        await users.AddUserToTenantAsync("second@example.com", "Second", "tenant-1", ValidRoles.Parent, cancellationToken);
         var memberships = new MembershipService(db);
 
-        Assert.Single(await memberships.GetMembershipsForUserAsync(user.Id));
-        Assert.True(await memberships.RevokeAsync(user.Id, "tenant-1"));
-        Assert.Empty(await memberships.GetMembershipsForUserAsync(user.Id));
-        Assert.Null(await memberships.GetRoleAsync(user.Id, "tenant-1"));
+        Assert.Single(await memberships.GetMembershipsForUserAsync(user.Id, cancellationToken));
+        Assert.True(await memberships.RevokeAsync(user.Id, "tenant-1", cancellationToken));
+        Assert.Empty(await memberships.GetMembershipsForUserAsync(user.Id, cancellationToken));
+        Assert.Null(await memberships.GetRoleAsync(user.Id, "tenant-1", cancellationToken));
     }
 
     [Fact]
@@ -42,68 +43,72 @@ public class AccessManagementTests
     [Fact]
     public async Task Invalid_invitation_email_is_rejected()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant());
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var service = new InvitationService(
             db, new UserService(db, new MembershipService(db)), new MembershipService(db));
 
         await Assert.ThrowsAsync<DataAnnotationsValidationException>(() =>
-            service.InviteAsync("tenant-1", "not-an-email", ValidRoles.Parent).AsTask());
+            service.InviteAsync("tenant-1", "not-an-email", ValidRoles.Parent, cancellationToken).AsTask());
     }
 
     [Fact]
     public async Task Pending_invitation_is_normalized_and_expires_after_fourteen_days()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant());
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var service = new InvitationService(
             db, new UserService(db, new MembershipService(db)), new MembershipService(db));
 
         var invitation = await service.InviteAsync(
-            "tenant-1", "  Person@Example.com ", ValidRoles.Parent);
+            "tenant-1", "  Person@Example.com ", ValidRoles.Parent, cancellationToken);
 
         Assert.Equal("person@example.com", invitation.Email);
         Assert.InRange(invitation.ExpiresAt - DateTimeOffset.UtcNow,
             TimeSpan.FromDays(13.9), TimeSpan.FromDays(14.1));
-        Assert.Single(await service.GetPendingForTenantAsync("tenant-1"));
+        Assert.Single(await service.GetPendingForTenantAsync("tenant-1", cancellationToken));
     }
 
     [Fact]
     public async Task Accepting_pending_invitations_creates_membership_and_marks_them_accepted()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant());
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var memberships = new MembershipService(db);
         var users = new UserService(db, memberships);
         var service = new InvitationService(db, users, memberships);
-        await service.InviteAsync("tenant-1", "person@example.com", ValidRoles.Parent);
+        await service.InviteAsync("tenant-1", "person@example.com", ValidRoles.Parent, cancellationToken);
 
-        Assert.Equal(1, await service.AcceptPendingAsync("PERSON@EXAMPLE.COM", "Person", default));
+        Assert.Equal(1, await service.AcceptPendingAsync("PERSON@EXAMPLE.COM", "Person", cancellationToken));
 
-        var user = await users.GetUserByEmailAsync("person@example.com", default);
+        var user = await users.GetUserByEmailAsync("person@example.com", cancellationToken);
         Assert.NotNull(user);
-        Assert.Equal(ValidRoles.Parent, await memberships.GetRoleAsync(user!.Id, "tenant-1"));
-        Assert.Empty(await service.GetPendingForEmailAsync("person@example.com"));
-        var storedInvitation = await db.TenantInvitations.SingleAsync();
+        Assert.Equal(ValidRoles.Parent, await memberships.GetRoleAsync(user!.Id, "tenant-1", cancellationToken));
+        Assert.Empty(await service.GetPendingForEmailAsync("person@example.com", cancellationToken));
+        var storedInvitation = await db.TenantInvitations.SingleAsync(cancellationToken);
         Assert.NotNull(storedInvitation.AcceptedAt);
     }
 
     [Fact]
     public async Task Revoking_the_last_parent_is_rejected()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant());
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var memberships = new MembershipService(db);
         var users = new UserService(db, memberships);
-        var user = await users.InitializeUserAsync("parent@example.com", "Parent", "tenant-1", default);
+        var user = await users.InitializeUserAsync("parent@example.com", "Parent", "tenant-1", cancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            memberships.RevokeAsync(user.Id, "tenant-1").AsTask());
-        Assert.Equal(ValidRoles.Parent, await memberships.GetRoleAsync(user.Id, "tenant-1"));
+            memberships.RevokeAsync(user.Id, "tenant-1", cancellationToken).AsTask());
+        Assert.Equal(ValidRoles.Parent, await memberships.GetRoleAsync(user.Id, "tenant-1", cancellationToken));
     }
 
     private static TenantConfiguration Tenant() => new()

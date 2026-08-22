@@ -12,9 +12,10 @@ public class AllowanceServiceTests
     [Fact]
     public async Task AddingChildCreatesInitialBalanceAndTransactionsUpdateIt()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(Tenant("tenant-1"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
@@ -26,7 +27,7 @@ public class AllowanceServiceTests
             RegularAllowance = 5m
         };
 
-        await children.AddChild(child);
+        await children.AddChild(child, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
@@ -34,7 +35,7 @@ public class AllowanceServiceTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 7m,
             Description = "Bonus"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
@@ -42,31 +43,32 @@ public class AllowanceServiceTests
             TransactionType = TransactionType.Withdrawal,
             TransactionAmount = -3m,
             Description = "Treat"
-        });
+        }, cancellationToken);
 
-        Assert.Equal(4m, await transactions.GetBalanceForChild(child.Id, child.TenantId));
-        Assert.Equal(3, (await transactions.GetTransactionsForChild(child.Id, child.TenantId)).Count());
-        Assert.Equal(4m, Assert.Single(await children.GetChildrenWithBalance(child.TenantId, default)).Balance);
+        Assert.Equal(4m, await transactions.GetBalanceForChild(child.Id, child.TenantId, cancellationToken));
+        Assert.Equal(3, (await transactions.GetTransactionsForChild(child.Id, child.TenantId, cancellationToken: cancellationToken)).Count());
+        Assert.Equal(4m, Assert.Single(await children.GetChildrenWithBalance(child.TenantId, cancellationToken)).Balance);
     }
 
     [Fact]
     public async Task TransactionsSupportPagingAndDailyAllowanceFiltering()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TransactionService(db, new GlobalNotificationService());
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-5);
         db.AddRange(Tenant(tenantId), Child(childId, tenantId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.DailyAllowance, 1m, timestamp),
             Transaction(childId, tenantId, TransactionType.Deposit, 2m, timestamp.AddMinutes(1)),
             Transaction(childId, tenantId, TransactionType.Withdrawal, -1m, timestamp.AddMinutes(2)));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var page = await service.GetPagedTransactionsForChild(childId, tenantId, 0, 200);
-        var withoutDaily = await service.GetPagedTransactionsForChild(childId, tenantId, 1, 10, true);
+        var page = await service.GetPagedTransactionsForChild(childId, tenantId, 0, 200, cancellationToken: cancellationToken);
+        var withoutDaily = await service.GetPagedTransactionsForChild(childId, tenantId, 1, 10, true, cancellationToken);
 
         Assert.Equal(3, page.Total);
         Assert.Equal(3, page.Items.Count);
@@ -79,19 +81,20 @@ public class AllowanceServiceTests
     [Fact]
     public async Task BalanceHistoryFillsMissingDatesWithTheLastKnownBalance()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TransactionService(db, new GlobalNotificationService());
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var first = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero);
         db.AddRange(Tenant(tenantId), Child(childId, tenantId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first, 1m),
             Transaction(childId, tenantId, TransactionType.Deposit, 2m, first.AddDays(2), 3m));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var history = (await service.GetBalanceHistoryForChild(childId, tenantId, null, null, default)).ToArray();
+        var history = (await service.GetBalanceHistoryForChild(childId, tenantId, null, null, cancellationToken)).ToArray();
 
         Assert.Equal(3, history.Length);
         Assert.Equal(first.Date, history[0].Timestamp.Date);
@@ -104,7 +107,7 @@ public class AllowanceServiceTests
     public async Task ChildBalanceHistoryBatchPathFillsMissingDates()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var service = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
@@ -131,36 +134,38 @@ public class AllowanceServiceTests
     [Fact]
     public async Task DeletingChildHidesItWithoutDeletingItsTransactions()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
         db.Tenants.Add(Tenant("tenant-1"));
         var child = new ChildConfiguration { FirstName = "Ada", LastName = "Lovelace", TenantId = "tenant-1" };
-        await children.AddChild(child);
+        await children.AddChild(child, cancellationToken);
 
-        Assert.True(await children.DeleteChild(child.Id, child.TenantId));
-        Assert.Empty(await children.GetChildren(child.TenantId));
-        Assert.NotNull(await transactions.GetLatestTransactionForChild(child.Id, child.TenantId));
+        Assert.True(await children.DeleteChild(child.Id, child.TenantId, cancellationToken));
+        Assert.Empty(await children.GetChildren(child.TenantId, cancellationToken));
+        Assert.NotNull(await transactions.GetLatestTransactionForChild(child.Id, child.TenantId, cancellationToken));
     }
 
     [Fact]
     public async Task TransactionQueriesStayScopedToTheRequestedChildAndTenant()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TransactionService(db, new GlobalNotificationService());
         var timestamp = DateTimeOffset.UtcNow;
         db.AddRange(
             Tenant("tenant-1"), Tenant("tenant-2"),
             Child("child-1", "tenant-1"), Child("child-2", "tenant-1"));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         db.Transactions.AddRange(
             Transaction("child-1", "tenant-1", TransactionType.Deposit, 1m, timestamp),
             Transaction("child-2", "tenant-1", TransactionType.Deposit, 2m, timestamp.AddMinutes(1)),
             Transaction("child-1", "tenant-2", TransactionType.Deposit, 3m, timestamp.AddMinutes(2)));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var result = await service.GetTransactionsForChild("child-1", "tenant-1");
+        var result = await service.GetTransactionsForChild("child-1", "tenant-1", cancellationToken: cancellationToken);
 
         Assert.Single(result);
         Assert.Equal(1m, result.Single().TransactionAmount);
@@ -169,21 +174,22 @@ public class AllowanceServiceTests
     [Fact]
     public async Task BalanceHistoryHonorsDateBoundsAndStillFillsGaps()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TransactionService(db, new GlobalNotificationService());
         const string childId = "child-1";
         const string tenantId = "tenant-1";
         var first = new DateTimeOffset(2026, 2, 1, 12, 0, 0, TimeSpan.Zero);
         db.AddRange(Tenant(tenantId), Child(childId, tenantId));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         db.Transactions.AddRange(
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first, 1m),
             Transaction(childId, tenantId, TransactionType.Deposit, 1m, first.AddDays(1), 2m),
             Transaction(childId, tenantId, TransactionType.Deposit, 2m, first.AddDays(3), 4m));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
         var history = (await service.GetBalanceHistoryForChild(
-            childId, tenantId, first.AddDays(1), first.AddDays(3).AddHours(1), default)).ToArray();
+            childId, tenantId, first.AddDays(1), first.AddDays(3).AddHours(1), cancellationToken)).ToArray();
 
         Assert.Equal(3, history.Length);
         Assert.Equal(2m, history[0].Balance);
@@ -194,7 +200,8 @@ public class AllowanceServiceTests
     [Fact]
     public async Task ChildBalanceUsesBirthdayAllowanceOnTheChildsBirthday()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var tenantToday = DateTime.UtcNow.Date;
         var service = new ChildService(
             db,
@@ -216,9 +223,9 @@ public class AllowanceServiceTests
         var timestamp = DateTimeOffset.UtcNow.AddDays(-1);
         db.Children.Add(child);
         db.Transactions.Add(Transaction(child.Id, child.TenantId, TransactionType.Adjustment, 2m, timestamp, 2m));
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var result = Assert.Single(await service.GetChildrenWithBalance(child.TenantId, default));
+        var result = Assert.Single(await service.GetChildrenWithBalance(child.TenantId, cancellationToken));
 
         Assert.True(result.IsBirthday);
         Assert.Equal(25m, result.NextRegularChange);
@@ -228,7 +235,8 @@ public class AllowanceServiceTests
     [Fact]
     public async Task NextAllowanceDateIsAlwaysInTheFuture()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new ChildService(
             db,
             new GlobalNotificationService(),
@@ -249,10 +257,10 @@ public class AllowanceServiceTests
             allowanceTimestamp, 5m);
         allowance.AllowanceDate = allowanceTimestamp.Date;
         db.Transactions.Add(allowance);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
         var before = DateTimeOffset.UtcNow;
-        var result = Assert.Single(await service.GetChildrenWithBalance(child.TenantId, default));
+        var result = Assert.Single(await service.GetChildrenWithBalance(child.TenantId, cancellationToken));
 
         Assert.True(result.NextRegularChangeDate > before);
     }
@@ -260,7 +268,8 @@ public class AllowanceServiceTests
     [Fact]
     public async Task UpdatingChildPersistsChangesAndRaisesNotification()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         IGlobalNotificationService.ChildStateChangedEventArgs? notification = null;
         notifications.ChildStateChanged += (_, args) => notification = args;
@@ -269,13 +278,13 @@ public class AllowanceServiceTests
         db.Tenants.Add(Tenant("tenant-1"));
         var child = new ChildConfiguration { FirstName = "Ada", LastName = "Lovelace", TenantId = "tenant-1" };
         db.Children.Add(child);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var editable = await service.GetChild(child.Id, child.TenantId);
+        var editable = await service.GetChild(child.Id, child.TenantId, cancellationToken);
         editable!.FirstName = "Augusta";
-        await service.UpdateChild(editable);
+        await service.UpdateChild(editable, cancellationToken);
 
-        Assert.Equal("Augusta", (await service.GetChild(child.Id, child.TenantId))!.FirstName);
+        Assert.Equal("Augusta", (await service.GetChild(child.Id, child.TenantId, cancellationToken))!.FirstName);
         Assert.NotNull(notification);
         Assert.Equal(child.Id, notification.ChildId);
         Assert.Equal(child.TenantId, notification.TenantId);
@@ -285,7 +294,8 @@ public class AllowanceServiceTests
     [Fact]
     public async Task ChildUpdatesCannotMoveAChildToAnotherTenant()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var service = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
@@ -295,7 +305,7 @@ public class AllowanceServiceTests
             FirstName = "Ada",
             LastName = "Lovelace",
             TenantId = "tenant-1"
-        });
+        }, cancellationToken);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.UpdateChild(new ChildConfiguration
         {
@@ -303,13 +313,14 @@ public class AllowanceServiceTests
             FirstName = "Ada",
             LastName = "Lovelace",
             TenantId = "tenant-2"
-        }).AsTask());
+        }, cancellationToken).AsTask());
     }
 
     [Fact]
     public async Task TransactionsRejectInvalidAmountsAndUnknownChildren()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TransactionService(db, new GlobalNotificationService());
         var child = new ChildConfiguration
         {
@@ -319,7 +330,7 @@ public class AllowanceServiceTests
         };
         db.Tenants.Add(Tenant(child.TenantId));
         db.Children.Add(child);
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
         await Assert.ThrowsAsync<ValidationException>(() => service.AddTransaction(new AllowanceTransaction
         {
@@ -328,7 +339,7 @@ public class AllowanceServiceTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = -1m,
             Description = "Invalid"
-        }).AsTask());
+        }, cancellationToken).AsTask());
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.AddTransaction(new AllowanceTransaction
         {
@@ -337,7 +348,7 @@ public class AllowanceServiceTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 1m,
             Description = "Unknown child"
-        }).AsTask());
+        }, cancellationToken).AsTask());
     }
 
     private static AllowanceTransaction Transaction(

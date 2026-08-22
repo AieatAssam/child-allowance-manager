@@ -13,45 +13,48 @@ public class PostgresEndToEndTests
     [Fact]
     public async Task MigrationsCreateTheFreshDatabaseSchema()
     {
-        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync(cancellationToken);
 
-        Assert.Empty(await db.Database.GetPendingMigrationsAsync());
-        Assert.True(await db.Database.CanConnectAsync());
+        Assert.Empty(await db.Database.GetPendingMigrationsAsync(cancellationToken));
+        Assert.True(await db.Database.CanConnectAsync(cancellationToken));
     }
 
     [Fact]
     public async Task DevelopmentSeederCreatesReusableDemoWorkspace()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var seeder = new DevelopmentDataSeeder(db);
 
-        await seeder.SeedAsync();
-        await seeder.SeedAsync();
+        await seeder.SeedAsync(cancellationToken);
+        await seeder.SeedAsync(cancellationToken);
 
-        var tenant = await db.Tenants.SingleAsync(x => x.Id == DevelopmentDataSeeder.TenantId);
-        var user = await db.Users.SingleAsync(x => x.Email == DevelopmentDataSeeder.UserEmail);
+        var tenant = await db.Tenants.SingleAsync(x => x.Id == DevelopmentDataSeeder.TenantId, cancellationToken);
+        var user = await db.Users.SingleAsync(x => x.Email == DevelopmentDataSeeder.UserEmail, cancellationToken);
 
         Assert.Equal("demo", tenant.UrlSuffix);
         Assert.Equal([DevelopmentDataSeeder.TenantId], user.Tenants);
         Assert.Contains(ValidRoles.Admin, user.Roles);
         Assert.Contains(ValidRoles.Parent, user.Roles);
-        Assert.Equal(2, await db.Children.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId));
-        Assert.Equal(21, await db.Transactions.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId));
-        Assert.Equal(40m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-1")).Balance);
-        Assert.Equal(3m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-3")).Balance);
+        Assert.Equal(2, await db.Children.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId, cancellationToken));
+        Assert.Equal(21, await db.Transactions.CountAsync(x => x.TenantId == DevelopmentDataSeeder.TenantId, cancellationToken));
+        Assert.Equal(40m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-1", cancellationToken)).Balance);
+        Assert.Equal(3m, (await db.Transactions.SingleAsync(x => x.Id == "development-transaction-3", cancellationToken)).Balance);
     }
 
     [Fact]
     public async Task SeededDemoTenantSupportsParentActionsAndManualDailyWorkerRun()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var (tenants, _, children, transactions) = Services(db, notifications);
-        await new DevelopmentDataSeeder(db).SeedAsync();
+        await new DevelopmentDataSeeder(db).SeedAsync(cancellationToken);
 
-        var demo = await tenants.GetTenantBySuffix(DevelopmentDataSeeder.TenantSuffix);
+        var demo = await tenants.GetTenantBySuffix(DevelopmentDataSeeder.TenantSuffix, cancellationToken);
         Assert.NotNull(demo);
-        var seededChildren = (await children.GetChildrenWithBalance(demo!.Id, default)).ToArray();
+        var seededChildren = (await children.GetChildrenWithBalance(demo!.Id, cancellationToken)).ToArray();
         var alex = seededChildren.Single(x => x.Id == "development-child-1");
         var sam = seededChildren.Single(x => x.Id == "development-child-2");
         Assert.Equal(40m, alex.Balance);
@@ -64,7 +67,7 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 7m,
             Description = "Saved gift"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = sam.Id,
@@ -72,53 +75,54 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Withdrawal,
             TransactionAmount = -1m,
             Description = "Small treat"
-        });
-        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id));
-        Assert.Equal(2m, await transactions.GetBalanceForChild(sam.Id, demo.Id));
+        }, cancellationToken);
+        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id, cancellationToken));
+        Assert.Equal(2m, await transactions.GetBalanceForChild(sam.Id, demo.Id, cancellationToken));
         Assert.Equal(6, (await transactions.GetPagedTransactionsForChild(
-            sam.Id, demo.Id, 1, 25, ignoreDailyAllowance: true)).Total);
+            sam.Id, demo.Id, 1, 25, ignoreDailyAllowance: true, cancellationToken: cancellationToken)).Total);
 
-        var alexConfiguration = (await children.GetChild(alex.Id, demo.Id))!;
+        var alexConfiguration = (await children.GetChild(alex.Id, demo.Id, cancellationToken))!;
         alexConfiguration.HoldDaysRemaining = 1;
-        await children.UpdateChild(alexConfiguration);
+        await children.UpdateChild(alexConfiguration, cancellationToken);
 
         var job = new DailyAllowanceJob(
             transactions, children, tenants,
             NullLogger<DailyAllowanceJob>.Instance);
         await job.Execute(new TestJobExecutionContext(LocalMidnightUtc(demo.TimeZoneId)));
 
-        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id));
-        Assert.Equal(5m, await transactions.GetBalanceForChild(sam.Id, demo.Id));
-        Assert.Equal(0, (await children.GetChild(alex.Id, demo.Id))!.HoldDaysRemaining);
+        Assert.Equal(47m, await transactions.GetBalanceForChild(alex.Id, demo.Id, cancellationToken));
+        Assert.Equal(5m, await transactions.GetBalanceForChild(sam.Id, demo.Id, cancellationToken));
+        Assert.Equal(0, (await children.GetChild(alex.Id, demo.Id, cancellationToken))!.HoldDaysRemaining);
     }
 
     [Fact]
     public async Task FullLifecycleKeepsServicesAndStoredDataConsistent()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var (tenants, users, children, transactions) = Services(db);
 
         var tenant = await tenants.AddTenant(new TenantConfiguration
         {
             TenantName = "The Lovelace Family",
             UrlSuffix = "lovelace"
-        });
-        Assert.Equal(tenant.Id, (await tenants.GetTenantBySuffix("LOVELACE"))!.Id);
+        }, cancellationToken);
+        Assert.Equal(tenant.Id, (await tenants.GetTenantBySuffix("LOVELACE", cancellationToken))!.Id);
         tenant.TenantName = "Lovelace Home";
-        await tenants.UpdateTenant(tenant);
-        Assert.Equal("Lovelace Home", (await tenants.GetTenant(tenant.Id))!.TenantName);
-        Assert.Single(await tenants.GetTenants());
+        await tenants.UpdateTenant(tenant, cancellationToken);
+        Assert.Equal("Lovelace Home", (await tenants.GetTenant(tenant.Id, cancellationToken))!.TenantName);
+        Assert.Single(await tenants.GetTenants(cancellationToken));
 
         var admin = await users.InitializeUserAsync(
-            " Admin@Example.com ", "Ada", tenant.Id, default);
+            " Admin@Example.com ", "Ada", tenant.Id, cancellationToken);
         await users.AddUserToTenantAsync(
-            "parent@example.com", "Charles", tenant.Id, ValidRoles.Parent, default);
-        var parent = await users.GetUserByEmailAsync("PARENT@EXAMPLE.COM", default);
+            "parent@example.com", "Charles", tenant.Id, ValidRoles.Parent, cancellationToken);
+        var parent = await users.GetUserByEmailAsync("PARENT@EXAMPLE.COM", cancellationToken);
         parent!.Name = "Charles Babbage";
-        await users.UpsertUserAsync(parent, default);
+        await users.UpsertUserAsync(parent, cancellationToken);
         Assert.Contains(ValidRoles.Admin, admin.Roles);
-        Assert.Equal(2, (await users.GetTenantUsersInRole(tenant.Id, ValidRoles.Parent, default)).Count());
-        Assert.Equal(2, (await users.GetUsersAsync(default)).Count());
+        Assert.Equal(2, (await users.GetTenantUsersInRole(tenant.Id, ValidRoles.Parent, cancellationToken)).Count());
+        Assert.Equal(2, (await users.GetUsersAsync(cancellationToken)).Count());
 
         var child = await children.AddChild(new ChildConfiguration
         {
@@ -126,12 +130,12 @@ public class PostgresEndToEndTests
             LastName = "Lovelace",
             TenantId = tenant.Id,
             RegularAllowance = 5m
-        });
+        }, cancellationToken);
         child.FirstName = "Augusta";
         child.HoldDaysRemaining = 1;
-        await children.UpdateChild(child);
-        Assert.Equal("Augusta", (await children.GetChild(child.Id, tenant.Id))!.FirstName);
-        Assert.Single(await children.GetChildren(tenant.Id));
+        await children.UpdateChild(child, cancellationToken);
+        Assert.Equal("Augusta", (await children.GetChild(child.Id, tenant.Id, cancellationToken))!.FirstName);
+        Assert.Single(await children.GetChildren(tenant.Id, cancellationToken));
 
         await transactions.AddTransaction(new AllowanceTransaction
         {
@@ -139,7 +143,7 @@ public class PostgresEndToEndTests
             TenantId = tenant.Id,
             TransactionType = TransactionType.Hold,
             Description = "School holiday (1 day)"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
@@ -147,7 +151,7 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.DailyAllowance,
             TransactionAmount = 5m,
             Description = "Daily allowance"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
@@ -155,7 +159,7 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 10m,
             Description = "Birthday gift"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
@@ -163,46 +167,47 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Withdrawal,
             TransactionAmount = -3m,
             Description = "Book"
-        });
+        }, cancellationToken);
 
-        Assert.Equal(12m, await transactions.GetBalanceForChild(child.Id, tenant.Id));
-        Assert.Equal(5, (await transactions.GetTransactionsForChild(child.Id, tenant.Id)).Count());
-        var page = await transactions.GetPagedTransactionsForChild(child.Id, tenant.Id, 0, 200);
+        Assert.Equal(12m, await transactions.GetBalanceForChild(child.Id, tenant.Id, cancellationToken));
+        Assert.Equal(5, (await transactions.GetTransactionsForChild(child.Id, tenant.Id, cancellationToken: cancellationToken)).Count());
+        var page = await transactions.GetPagedTransactionsForChild(child.Id, tenant.Id, 0, 200, cancellationToken: cancellationToken);
         var withoutDaily = await transactions.GetPagedTransactionsForChild(
-            child.Id, tenant.Id, 1, 100, true);
+            child.Id, tenant.Id, 1, 100, true, cancellationToken: cancellationToken);
         Assert.Equal(5, page.Total);
         Assert.Equal(100, page.PageSize);
         Assert.Equal(4, withoutDaily.Total);
         Assert.Equal(TransactionType.DailyAllowance,
-            (await transactions.GetLatestRegularTransactionForChild(child.Id, tenant.Id))!.TransactionType);
+            (await transactions.GetLatestRegularTransactionForChild(child.Id, tenant.Id, cancellationToken))!.TransactionType);
         Assert.Equal(TransactionType.Withdrawal,
-            (await transactions.GetLatestTransactionForChild(child.Id, tenant.Id))!.TransactionType);
-        Assert.Single(await children.GetChildrenWithBalance(tenant.Id, default));
-        Assert.Single(await children.GetChildrenWithBalanceHistory(tenant.Id, null, null, default));
+            (await transactions.GetLatestTransactionForChild(child.Id, tenant.Id, cancellationToken))!.TransactionType);
+        Assert.Single(await children.GetChildrenWithBalance(tenant.Id, cancellationToken));
+        Assert.Single(await children.GetChildrenWithBalanceHistory(tenant.Id, null, null, cancellationToken));
 
-        await users.DeleteUserAsync("parent@example.com", default);
-        Assert.Null(await users.GetUserByEmailAsync("parent@example.com", default));
-        Assert.True(await children.DeleteChild(child.Id, tenant.Id));
-        Assert.Null(await children.GetChild(child.Id, tenant.Id));
-        Assert.Equal(5, await db.Transactions.CountAsync(x => x.ChildId == child.Id));
+        await users.DeleteUserAsync("parent@example.com", cancellationToken);
+        Assert.Null(await users.GetUserByEmailAsync("parent@example.com", cancellationToken));
+        Assert.True(await children.DeleteChild(child.Id, tenant.Id, cancellationToken));
+        Assert.Null(await children.GetChild(child.Id, tenant.Id, cancellationToken));
+        Assert.Equal(5, await db.Transactions.CountAsync(x => x.ChildId == child.Id, cancellationToken));
 
         var retainedChild = await children.AddChild(new ChildConfiguration
         {
             FirstName = "Byron",
             LastName = "Lovelace",
             TenantId = tenant.Id
-        });
-        Assert.True(await tenants.DeleteTenant(tenant.Id));
-        Assert.Null(await tenants.GetTenant(tenant.Id));
-        Assert.Empty(await children.GetChildren(tenant.Id));
-        Assert.True((await db.Children.FindAsync(retainedChild.Id))!.Deleted);
-        Assert.Empty((await users.GetUserByEmailAsync("admin@example.com", default))!.Tenants);
+        }, cancellationToken);
+        Assert.True(await tenants.DeleteTenant(tenant.Id, cancellationToken));
+        Assert.Null(await tenants.GetTenant(tenant.Id, cancellationToken));
+        Assert.Empty(await children.GetChildren(tenant.Id, cancellationToken));
+        Assert.True((await db.Children.FindAsync([retainedChild.Id], cancellationToken))!.Deleted);
+        Assert.Empty((await users.GetUserByEmailAsync("admin@example.com", cancellationToken))!.Tenants);
     }
 
     [Fact]
     public async Task DailyWorkerAppliesDueAndBirthdayAllowancesAndConsumesHolds()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var (tenants, _, children, transactions) = Services(db, notifications);
         var messages = new List<string>();
@@ -212,7 +217,7 @@ public class PostgresEndToEndTests
             TenantName = "Worker Family",
             UrlSuffix = "worker",
             TimeZoneId = "UTC"
-        });
+        }, cancellationToken);
         var tenantToday = DateTime.UtcNow.Date;
 
         var due = await children.AddChild(new ChildConfiguration
@@ -221,7 +226,7 @@ public class PostgresEndToEndTests
             LastName = "Child",
             TenantId = tenant.Id,
             RegularAllowance = 5m
-        });
+        }, cancellationToken);
         var birthday = await children.AddChild(new ChildConfiguration
         {
             FirstName = "Birthday",
@@ -230,7 +235,7 @@ public class PostgresEndToEndTests
             BirthDate = tenantToday,
             RegularAllowance = 5m,
             BirthdayAllowance = 20m
-        });
+        }, cancellationToken);
         var held = await children.AddChild(new ChildConfiguration
         {
             FirstName = "Held",
@@ -238,7 +243,7 @@ public class PostgresEndToEndTests
             TenantId = tenant.Id,
             RegularAllowance = 3m,
             HoldDaysRemaining = 1
-        });
+        }, cancellationToken);
 
         var job = new DailyAllowanceJob(
             transactions, children, tenants,
@@ -246,17 +251,17 @@ public class PostgresEndToEndTests
         await job.Execute(new TestJobExecutionContext(LocalMidnightUtc(tenant.TimeZoneId)));
 
         Assert.Equal(TransactionType.DailyAllowance,
-            (await transactions.GetLatestTransactionForChild(due.Id, tenant.Id))!.TransactionType);
-        var birthdayTransaction = await transactions.GetLatestTransactionForChild(birthday.Id, tenant.Id);
+            (await transactions.GetLatestTransactionForChild(due.Id, tenant.Id, cancellationToken))!.TransactionType);
+        var birthdayTransaction = await transactions.GetLatestTransactionForChild(birthday.Id, tenant.Id, cancellationToken);
         Assert.Equal(TransactionType.BirthdayAllowance, birthdayTransaction!.TransactionType);
         Assert.Equal(20m, birthdayTransaction.TransactionAmount);
-        Assert.Equal(5m, await transactions.GetBalanceForChild(due.Id, tenant.Id));
-        Assert.Equal(20m, await transactions.GetBalanceForChild(birthday.Id, tenant.Id));
-        var heldTransactions = await transactions.GetTransactionsForChild(held.Id, tenant.Id);
+        Assert.Equal(5m, await transactions.GetBalanceForChild(due.Id, tenant.Id, cancellationToken));
+        Assert.Equal(20m, await transactions.GetBalanceForChild(birthday.Id, tenant.Id, cancellationToken));
+        var heldTransactions = await transactions.GetTransactionsForChild(held.Id, tenant.Id, cancellationToken: cancellationToken);
         Assert.Contains(heldTransactions, x => x.TransactionType == TransactionType.Hold);
         Assert.DoesNotContain(heldTransactions,
             x => x.TransactionType is TransactionType.DailyAllowance or TransactionType.BirthdayAllowance);
-        Assert.Equal(0, (await children.GetChild(held.Id, tenant.Id))!.HoldDaysRemaining);
+        Assert.Equal(0, (await children.GetChild(held.Id, tenant.Id, cancellationToken))!.HoldDaysRemaining);
         Assert.Contains(messages, message => message.Contains("daily allowance"));
         Assert.Contains(messages, message => message.Contains("birthday allowance"));
     }
@@ -264,31 +269,32 @@ public class PostgresEndToEndTests
     [Fact]
     public async Task TenantAndChildQueriesCannotCrossTenantBoundariesAndBalancesReconcile()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var (tenants, _, children, transactions) = Services(db, notifications);
         var firstTenant = await tenants.AddTenant(new TenantConfiguration
         {
             TenantName = "First Family",
             UrlSuffix = "first"
-        });
+        }, cancellationToken);
         var secondTenant = await tenants.AddTenant(new TenantConfiguration
         {
             TenantName = "Second Family",
             UrlSuffix = "second"
-        });
+        }, cancellationToken);
         var firstChild = await children.AddChild(new ChildConfiguration
         {
             FirstName = "First",
             LastName = "Child",
             TenantId = firstTenant.Id
-        });
+        }, cancellationToken);
         var secondChild = await children.AddChild(new ChildConfiguration
         {
             FirstName = "Second",
             LastName = "Child",
             TenantId = secondTenant.Id
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = firstChild.Id,
@@ -296,7 +302,7 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 7m,
             Description = "First deposit"
-        });
+        }, cancellationToken);
         await transactions.AddTransaction(new AllowanceTransaction
         {
             ChildId = secondChild.Id,
@@ -304,16 +310,16 @@ public class PostgresEndToEndTests
             TransactionType = TransactionType.Deposit,
             TransactionAmount = 11m,
             Description = "Second deposit"
-        });
+        }, cancellationToken);
 
-        Assert.Null(await children.GetChild(firstChild.Id, secondTenant.Id));
-        Assert.DoesNotContain(firstChild.Id, (await children.GetChildren(secondTenant.Id)).Select(child => child.Id));
-        Assert.Empty(await transactions.GetTransactionsForChild(firstChild.Id, secondTenant.Id));
-        Assert.Equal(0m, await transactions.GetBalanceForChild(firstChild.Id, secondTenant.Id));
+        Assert.Null(await children.GetChild(firstChild.Id, secondTenant.Id, cancellationToken));
+        Assert.DoesNotContain(firstChild.Id, (await children.GetChildren(secondTenant.Id, cancellationToken)).Select(child => child.Id));
+        Assert.Empty(await transactions.GetTransactionsForChild(firstChild.Id, secondTenant.Id, cancellationToken: cancellationToken));
+        Assert.Equal(0m, await transactions.GetBalanceForChild(firstChild.Id, secondTenant.Id, cancellationToken));
 
         foreach (var child in new[] { firstChild, secondChild })
         {
-            var ordered = (await transactions.GetTransactionsForChild(child.Id, child.TenantId))
+            var ordered = (await transactions.GetTransactionsForChild(child.Id, child.TenantId, cancellationToken: cancellationToken))
                 .OrderBy(x => x.TransactionTimestamp)
                 .ToArray();
             var balance = 0m;
@@ -322,7 +328,7 @@ public class PostgresEndToEndTests
                 balance += transaction.TransactionAmount;
                 Assert.Equal(balance, transaction.Balance);
             }
-            Assert.Equal(balance, await transactions.GetBalanceForChild(child.Id, child.TenantId));
+            Assert.Equal(balance, await transactions.GetBalanceForChild(child.Id, child.TenantId, cancellationToken));
         }
 
         var duplicate = new TenantConfiguration
@@ -331,7 +337,59 @@ public class PostgresEndToEndTests
             UrlSuffix = "first"
         };
         db.Tenants.Add(duplicate);
-        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(cancellationToken));
+    }
+
+    [Fact]
+    public async Task Share_link_lifecycle_end_to_end()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateMigratedContextAsync(cancellationToken);
+        var (tenants, _, children, transactions) = Services(db);
+        var tenant = await tenants.AddTenant(new TenantConfiguration
+        {
+            TenantName = "Share Family",
+            UrlSuffix = "share-family"
+        }, cancellationToken);
+        var first = await children.AddChild(new ChildConfiguration
+        {
+            FirstName = "Ada", LastName = "Lovelace", TenantId = tenant.Id
+        }, cancellationToken);
+        var second = await children.AddChild(new ChildConfiguration
+        {
+            FirstName = "Byron", LastName = "Lovelace", TenantId = tenant.Id
+        }, cancellationToken);
+        await transactions.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = first.Id, TenantId = tenant.Id, TransactionType = TransactionType.Deposit,
+            TransactionAmount = 5m, Description = "First gift"
+        }, cancellationToken);
+        await transactions.AddTransaction(new AllowanceTransaction
+        {
+            ChildId = second.Id, TenantId = tenant.Id, TransactionType = TransactionType.Deposit,
+            TransactionAmount = 7m, Description = "Second gift"
+        }, cancellationToken);
+        var shareLinks = new ShareLinkService(db, NullLogger<ShareLinkService>.Instance);
+
+        var firstLink = await shareLinks.CreateAsync(tenant.Id, "Kitchen tablet", "parent@example.com", null, cancellationToken);
+        var resolved = await shareLinks.ResolveAsync(firstLink.Token, cancellationToken);
+        Assert.Equal(tenant.Id, resolved?.Tenant?.Id);
+        var stored = await db.ShareLinks.SingleAsync(x => x.Id == firstLink.Link.Id, cancellationToken);
+        Assert.NotEqual(firstLink.Token, stored.TokenHash);
+        Assert.Matches("^[0-9a-f]{64}$", stored.TokenHash);
+        Assert.Equal(2, (await children.GetChildrenWithBalance(resolved!.TenantId, cancellationToken)).Count());
+
+        Assert.True(await shareLinks.RevokeAsync(firstLink.Link.Id, tenant.Id, cancellationToken));
+        Assert.Null(await shareLinks.ResolveAsync(firstLink.Token, cancellationToken));
+
+        var secondLink = await shareLinks.CreateAsync(tenant.Id, "E-ink frame", "parent@example.com", null, cancellationToken);
+        Assert.NotNull(await shareLinks.ResolveAsync(secondLink.Token, cancellationToken));
+        Assert.Null(await shareLinks.ResolveAsync(firstLink.Token, cancellationToken));
+
+        var expiredLink = await shareLinks.CreateAsync(tenant.Id, "Expired frame", "parent@example.com", null, cancellationToken);
+        expiredLink.Link.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await db.SaveChangesAsync(cancellationToken);
+        Assert.Null(await shareLinks.ResolveAsync(expiredLink.Token, cancellationToken));
     }
 
     private static (TenantService Tenants, UserService Users, ChildService Children, TransactionService Transactions)

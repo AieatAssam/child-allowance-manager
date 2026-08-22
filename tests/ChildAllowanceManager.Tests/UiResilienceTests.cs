@@ -18,7 +18,8 @@ public class UiResilienceTests
 
         var result = await runner.RunAsync(
             () => throw new Exception("database detail"),
-            failureMessage: "Nothing was changed.");
+            failureMessage: "Nothing was changed.",
+            cancellationToken: Xunit.TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Equal("Nothing was changed.", result.ErrorMessage);
@@ -35,7 +36,8 @@ public class UiResilienceTests
 
         var result = await runner.RunAsync(
             () => throw new ValidationException([
-                new ValidationFailure("amount", "Amount must be positive.")])) ;
+                new ValidationFailure("amount", "Amount must be positive.")]),
+            cancellationToken: Xunit.TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Equal("Amount must be positive.", result.ErrorMessage);
@@ -50,7 +52,8 @@ public class UiResilienceTests
         var runner = context.Services.GetRequiredService<OperationRunner>();
 
         var result = await runner.RunAsync(
-            () => throw new KeyNotFoundException("Family was not found."));
+            () => throw new KeyNotFoundException("Family was not found."),
+            cancellationToken: Xunit.TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Equal("Family was not found.", result.ErrorMessage);
@@ -65,7 +68,8 @@ public class UiResilienceTests
         var runner = context.Services.GetRequiredService<OperationRunner>();
 
         var (outcome, value) = await runner.RunAsync<string>(
-            () => Task.FromResult("saved"), successMessage: "Saved.");
+            () => Task.FromResult("saved"), successMessage: "Saved.",
+            cancellationToken: Xunit.TestContext.Current.CancellationToken);
 
         Assert.True(outcome.Succeeded);
         Assert.Equal("saved", value);

@@ -11,46 +11,48 @@ public class AccountAndTenantServiceTests
     [Fact]
     public async Task FirstUserIsAdminAndTenantMembershipIsIdempotent()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(new TenantConfiguration { Id = "tenant-1", TenantName = "Family", UrlSuffix = "family" });
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var service = new UserService(db, new MembershipService(db));
 
-        var first = await service.InitializeUserAsync(" Parent@Example.COM ", "Parent", "tenant-1", default);
-        await service.AddUserToTenantAsync("parent@example.com", "Parent Updated", "tenant-1", ValidRoles.Parent, default);
+        var first = await service.InitializeUserAsync(" Parent@Example.COM ", "Parent", "tenant-1", cancellationToken);
+        await service.AddUserToTenantAsync("parent@example.com", "Parent Updated", "tenant-1", ValidRoles.Parent, cancellationToken);
 
-        var stored = await service.GetUserByEmailAsync("parent@example.com", default);
+        var stored = await service.GetUserByEmailAsync("parent@example.com", cancellationToken);
         Assert.Contains(ValidRoles.Admin, first.Roles);
         Assert.Equal("parent@example.com", stored!.Email);
         Assert.Equal(["tenant-1"], stored.Tenants);
-        Assert.Single(await service.GetTenantUsersInRole("tenant-1", ValidRoles.Parent, default));
+        Assert.Single(await service.GetTenantUsersInRole("tenant-1", ValidRoles.Parent, cancellationToken));
         Assert.Equal("Parent Updated", stored.Name);
     }
 
     [Fact]
     public async Task DeletingTenantSoftDeletesChildrenAndRemovesUserMembership()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
         var transactions = new TransactionService(db, notifications);
         var childService = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
         var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
         var users = new UserService(db, new MembershipService(db));
-        var tenant = await tenants.AddTenant(new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" });
+        var tenant = await tenants.AddTenant(new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" }, cancellationToken);
         var child = await childService.AddChild(new ChildConfiguration
         {
             FirstName = "Ada",
             LastName = "Lovelace",
             TenantId = tenant.Id
-        });
-        await users.InitializeUserAsync("parent@example.com", "Parent", tenant.Id, default);
+        }, cancellationToken);
+        await users.InitializeUserAsync("parent@example.com", "Parent", tenant.Id, cancellationToken);
 
-        Assert.True(await tenants.DeleteTenant(tenant.Id));
+        Assert.True(await tenants.DeleteTenant(tenant.Id, cancellationToken));
 
-        Assert.Null(await tenants.GetTenant(tenant.Id));
-        Assert.Null(await childService.GetChild(child.Id, tenant.Id));
-        Assert.Empty((await users.GetUserByEmailAsync("parent@example.com", default))!.Tenants);
-        var deletedChild = await db.Children.FindAsync(child.Id);
+        Assert.Null(await tenants.GetTenant(tenant.Id, cancellationToken));
+        Assert.Null(await childService.GetChild(child.Id, tenant.Id, cancellationToken));
+        Assert.Empty((await users.GetUserByEmailAsync("parent@example.com", cancellationToken))!.Tenants);
+        var deletedChild = await db.Children.FindAsync([child.Id], cancellationToken);
         Assert.NotNull(deletedChild);
         Assert.True(deletedChild.Deleted);
     }
@@ -58,32 +60,34 @@ public class AccountAndTenantServiceTests
     [Fact]
     public async Task TenantSuffixesAreCaseInsensitiveAndMustBeUnique()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         var service = new TenantService(
             db,
             NullLogger<TenantService>.Instance);
-        await service.AddTenant(new TenantConfiguration { TenantName = "First Family", UrlSuffix = "family" });
+        await service.AddTenant(new TenantConfiguration { TenantName = "First Family", UrlSuffix = "family" }, cancellationToken);
 
-        Assert.NotNull(await service.GetTenantBySuffix("FAMILY"));
+        Assert.NotNull(await service.GetTenantBySuffix("FAMILY", cancellationToken));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.AddTenant(new TenantConfiguration { TenantName = "Second Family", UrlSuffix = "family" }).AsTask());
+            service.AddTenant(new TenantConfiguration { TenantName = "Second Family", UrlSuffix = "family" }, cancellationToken).AsTask());
     }
 
     [Fact]
     public async Task ClaimsTransformationRemovesRevokedAccess()
     {
-        await using var db = await PostgresTestDatabase.CreateCleanContextAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
         db.Tenants.Add(new TenantConfiguration { Id = "tenant-2", TenantName = "Family", UrlSuffix = "family" });
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
         var userService = new UserService(db, new MembershipService(db));
         await userService.UpsertUserAsync(new User
         {
             Email = "parent@example.com",
             Roles = [ValidRoles.Parent],
             Tenants = ["tenant-2"]
-        }, default);
-        var user = await userService.GetUserByEmailAsync("parent@example.com", default);
-        await new MembershipService(db).GrantAsync(user!.Id, "tenant-2", ValidRoles.Parent, default);
+        }, cancellationToken);
+        var user = await userService.GetUserByEmailAsync("parent@example.com", cancellationToken);
+        await new MembershipService(db).GrantAsync(user!.Id, "tenant-2", ValidRoles.Parent, cancellationToken);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.Email, "parent@example.com"),
