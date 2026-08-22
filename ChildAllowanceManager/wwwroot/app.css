@@ -14,6 +14,55 @@
     --motion-ease: cubic-bezier(.22, 1, .36, 1);
 }
 
+.mud-button,
+.mud-tab,
+.mud-input-label,
+.mud-menu-item {
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.mud-button,
+.mud-button-root {
+    min-height: 44px;
+    border-radius: var(--al-radius-sm);
+    transition: background-color var(--motion-fast) var(--motion-ease),
+                border-color var(--motion-fast) var(--motion-ease),
+                color var(--motion-fast) var(--motion-ease),
+                transform var(--motion-fast) var(--motion-ease);
+}
+
+.mud-button:hover {
+    transform: translateY(-1px);
+}
+
+.mud-button:active {
+    transform: translateY(0);
+}
+
+/* MudBlazor puts `mud-ripple` on the interactive element itself, so hiding the
+   class hides the control. Suppress only the ripple overlay pseudo-element. */
+.mud-ripple::after {
+    display: none;
+}
+
+.mud-icon-button {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--al-radius);
+}
+
+.mud-card,
+.mud-paper {
+    box-shadow: var(--al-shadow-none);
+}
+
+.mud-dialog,
+.mud-popover,
+.mud-menu-paper {
+    box-shadow: var(--al-shadow-raised);
+}
+
 body {
     background: var(--app-background);
     color: var(--app-foreground);
@@ -82,7 +131,7 @@ body {
 
 .mud-collapse-container {
     transition: grid-template-rows var(--motion-smooth) var(--motion-ease),
-                opacity var(--motion-fast) ease !important;
+                opacity var(--motion-fast) var(--motion-ease) !important;
 }
 
 .mud-collapse-container:not(.mud-collapse-entering):not(.mud-collapse-entered) {
@@ -96,7 +145,7 @@ body {
 .mud-popover {
     transform: translateY(-.35rem) scale(.98);
     transform-origin: top center;
-    transition: opacity var(--motion-fast) ease,
+    transition: opacity var(--motion-fast) var(--motion-ease),
                 transform var(--motion-fast) var(--motion-ease) !important;
 }
 
@@ -127,12 +176,12 @@ button, a, input, select, textarea {
     top: .75rem;
     left: .75rem;
     padding: .65rem .9rem;
-    border-radius: .6rem;
+    border-radius: var(--al-radius-sm);
     background: var(--al-surface);
     color: var(--app-ink);
     box-shadow: var(--app-shadow);
     transform: translateY(-180%);
-    transition: transform .18s ease;
+    transition: transform var(--motion-fast) var(--motion-ease);
 }
 
 .skip-link:focus {
@@ -141,7 +190,6 @@ button, a, input, select, textarea {
 
 .app-bar {
     border-bottom: 1px solid var(--app-border);
-    backdrop-filter: blur(14px);
 }
 
 .app-bar .mud-toolbar {
@@ -191,11 +239,6 @@ button, a, input, select, textarea {
     padding: clamp(1rem, 3vw, 2.5rem);
     padding-top: clamp(1rem, 3vw, 2.5rem);
     overflow-x: clip;
-}
-
-.mud-icon-button {
-    min-width: 44px;
-    min-height: 44px;
 }
 
 .home-state {
@@ -253,7 +296,7 @@ button, a, input, select, textarea {
     margin-top: .75rem;
     padding: clamp(.85rem, 2vw, 1.5rem);
     border: 1px solid var(--app-border);
-    border-radius: 1.25rem;
+    border-radius: var(--al-radius-lg);
     background: var(--al-surface);
 }
 
@@ -265,7 +308,7 @@ button, a, input, select, textarea {
 
 .settings-card .mud-expansion-panel {
     border: 1px solid var(--app-border);
-    border-radius: .85rem;
+    border-radius: var(--al-radius);
 }
 
 .settings-panel {
@@ -284,7 +327,7 @@ button, a, input, select, textarea {
 .settings-card .mud-card {
     margin: 1rem 0;
     border: 1px solid var(--app-border);
-    border-radius: .9rem;
+    border-radius: var(--al-radius);
     background: color-mix(in srgb, var(--app-primary) 4%, var(--al-surface));
 }
 
@@ -296,26 +339,53 @@ button, a, input, select, textarea {
     display: inline-flex;
     align-items: center;
     gap: .25rem;
+    margin-top: var(--al-space-2);
+    padding: var(--al-space-1) var(--al-space-2);
+    border: 1px solid color-mix(in srgb, var(--al-accent) 48%, var(--app-border));
+    border-radius: var(--al-radius-sm);
+    background: color-mix(in srgb, var(--al-accent) 14%, var(--al-surface));
 }
 
 .child-card,
 .chart-card {
     border: 1px solid var(--app-border);
-    border-radius: 1.25rem;
+    border-radius: var(--al-radius-lg);
     background: var(--al-surface);
     color: var(--app-ink);
     box-shadow: var(--app-shadow);
 }
 
 .child-card {
+    position: relative;
     height: 100%;
+    overflow: hidden;
+    border-top: 3px solid var(--child-accent);
     transition: transform var(--motion-fast) var(--motion-ease),
-                box-shadow var(--motion-fast) ease;
+                border-color var(--motion-fast) var(--motion-ease),
+                background-color var(--motion-fast) var(--motion-ease);
 }
 
 .child-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 18px 45px rgba(23, 32, 51, .12);
+    border-color: var(--child-accent);
+}
+
+.child-accent-0 { --child-accent: var(--al-chart-1); }
+.child-accent-1 { --child-accent: var(--al-chart-2); }
+.child-accent-2 { --child-accent: var(--al-chart-3); }
+.child-accent-3 { --child-accent: var(--al-chart-4); }
+
+.child-birthday {
+    background: color-mix(in srgb, var(--al-accent) 6%, var(--al-surface));
+}
+
+.child-card-header {
+    align-items: flex-start;
+    padding: var(--al-space-5) var(--al-space-5) var(--al-space-3);
+}
+
+.child-card .mud-card-content {
+    padding: var(--al-space-4) var(--al-space-5) var(--al-space-5);
 }
 
 .child-avatar {
@@ -329,10 +399,51 @@ button, a, input, select, textarea {
 }
 
 .balance-value {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    min-height: 2.7rem;
     margin-top: .75rem;
     font-family: var(--al-font-display);
     font-size: var(--al-text-3xl);
     font-weight: var(--al-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.025em;
+    transition: color var(--motion-fast) var(--motion-ease),
+                transform var(--motion-fast) var(--motion-ease);
+}
+
+.balance-value::after {
+    display: inline-block;
+    margin-left: .45rem;
+    font-family: var(--al-font-ui);
+    font-size: var(--al-text-lg);
+    font-weight: var(--al-weight-bold);
+    opacity: 0;
+}
+
+.balance-motion-in::after {
+    content: "↑";
+    color: var(--al-positive);
+    animation: money-cue-in var(--motion-fast) var(--motion-ease) both;
+}
+
+.balance-motion-out::after {
+    content: "↓";
+    color: var(--al-negative-text);
+    animation: money-cue-out var(--motion-fast) var(--motion-ease) both;
+}
+
+@keyframes money-cue-in {
+    from { opacity: 0; transform: translateY(.35rem); }
+    45% { opacity: 1; transform: translateY(-.1rem); }
+    to { opacity: 0; transform: translateY(-.35rem); }
+}
+
+@keyframes money-cue-out {
+    from { opacity: 0; transform: translateY(-.35rem); }
+    45% { opacity: 1; transform: translateY(.1rem); }
+    to { opacity: 0; transform: translateY(.35rem); }
 }
 
 .balance-positive {
@@ -349,8 +460,14 @@ button, a, input, select, textarea {
     gap: .75rem;
     margin-top: 1.25rem;
     padding: .85rem;
-    border-radius: .85rem;
+    border-radius: var(--al-radius);
     background: color-mix(in srgb, var(--app-success) 10%, var(--al-surface));
+}
+
+.allowance-paused {
+    margin-top: var(--al-space-4);
+    border-color: color-mix(in srgb, var(--al-primary) 35%, var(--app-border));
+    background: color-mix(in srgb, var(--al-primary) 7%, var(--al-surface));
 }
 
 .next-allowance .mud-icon-root {
@@ -359,15 +476,47 @@ button, a, input, select, textarea {
 }
 
 .child-card-actions {
-    flex-wrap: wrap;
-    gap: .25rem;
-    padding: 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-5) var(--al-space-5);
     border-top: 1px solid var(--app-border);
+}
+
+.child-card-actions .card-action {
+    width: 100%;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.child-card-actions .action-add {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+.child-card-actions .action-history {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.child-card-actions .action-withdraw {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.child-card-actions .card-more {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+}
+
+.child-card-actions .mud-icon-root {
+    font-size: 1.15rem;
 }
 
 .chart-card {
     box-sizing: border-box;
-    max-height: 320px;
     overflow: hidden;
     padding: var(--al-space-5);
     border: 1px solid var(--al-border);
@@ -381,6 +530,50 @@ button, a, input, select, textarea {
     justify-content: space-between;
     gap: 1rem;
 }
+
+/* The caption sits beside the figure; never let it break mid-phrase, and give it
+   its own line on a wall display where the figure is much larger. */
+.balance-value + .mud-typography-caption {
+    white-space: nowrap;
+}
+
+.share-display .balance-value + .mud-typography-caption {
+    display: block;
+    margin-top: .25rem;
+}
+
+/* The chart draws its own legend. The page renders an accessible one above the
+   frame, so hide the duplicate rather than showing the names twice. */
+.chart-frame .mud-chart-legend {
+    display: none;
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--al-space-2) var(--al-space-4);
+    color: var(--al-ink-muted);
+    font-size: var(--al-text-sm);
+}
+
+.chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    white-space: nowrap;
+}
+
+.chart-legend-swatch {
+    width: 1.25rem;
+    height: 2px;
+    border-radius: 2px;
+}
+
+.chart-color-0 { background: var(--al-chart-1); }
+.chart-color-1 { background: var(--al-chart-2); }
+.chart-color-2 { background: var(--al-chart-3); }
+.chart-color-3 { background: var(--al-chart-4); }
 
 .chart-support,
 .chart-note {
@@ -400,11 +593,69 @@ button, a, input, select, textarea {
     height: 200px;
     margin-top: .5rem;
     overflow: hidden;
-    border-radius: .85rem;
+    border-radius: var(--al-radius);
 }
 
 .chart-frame > div {
     height: 100%;
+}
+
+.chart-empty-state {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-4);
+    min-height: 9rem;
+    margin-top: var(--al-space-4);
+    padding: var(--al-space-5);
+    border: 1px dashed var(--app-border);
+    border-radius: var(--al-radius);
+    background: var(--al-surface-sunken);
+}
+
+.chart-empty-state > .mud-icon-root {
+    flex: 0 0 auto;
+    color: var(--al-primary);
+    font-size: 2rem;
+}
+
+.share-display .page-shell {
+    max-width: 1320px;
+}
+
+.share-display .page-title {
+    font-size: clamp(var(--al-text-2xl), 4vw, 3.5rem);
+}
+
+.share-display .child-card-header,
+.share-display .child-card-actions {
+    padding-inline: var(--al-space-6);
+}
+
+.share-display .balance-value {
+    font-size: clamp(3rem, 5vw, 4.5rem);
+    min-height: 4.5rem;
+}
+
+.share-display .next-allowance {
+    padding: var(--al-space-4);
+}
+
+.share-display .child-card-actions {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+}
+
+.share-display .child-card-actions .action-history {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.share-display .chart-card {
+    min-height: 20rem;
+}
+
+.share-display .chart-frame {
+    height: 260px;
 }
 
 .transactions-dialog-shell {
@@ -420,7 +671,7 @@ button, a, input, select, textarea {
     margin-bottom: .75rem;
     padding: .55rem .85rem;
     border: 1px solid color-mix(in srgb, var(--app-primary) 20%, var(--app-border));
-    border-radius: .75rem;
+    border-radius: var(--al-radius-sm);
     background: color-mix(in srgb, var(--al-positive) 9%, var(--al-surface));
 }
 
@@ -438,7 +689,7 @@ button, a, input, select, textarea {
 .transactions-table-shell {
     overflow-x: auto;
     border: 1px solid var(--app-border);
-    border-radius: 1rem;
+    border-radius: var(--al-radius);
     background: var(--al-surface);
     box-shadow: var(--al-shadow-none);
 }
@@ -451,8 +702,7 @@ button, a, input, select, textarea {
     color: var(--app-muted);
     font-size: .72rem;
     font-weight: 800;
-    letter-spacing: .09em;
-    text-transform: uppercase;
+    letter-spacing: normal;
 }
 
 .transactions-table .mud-table-body .mud-table-cell {
@@ -512,7 +762,7 @@ button, a, input, select, textarea {
     height: 2rem;
     flex: 0 0 2rem;
     place-items: center;
-    border-radius: .7rem;
+    border-radius: var(--al-radius-sm);
 }
 
 .transaction-direction .mud-icon-root {
@@ -576,6 +826,11 @@ button, a, input, select, textarea {
 
     .child-card-actions .mud-button {
         min-height: 44px;
+    }
+
+    .child-card-header,
+    .child-card-actions {
+        padding-inline: var(--al-space-4);
     }
 
     .chart-heading {
@@ -644,16 +899,7 @@ button, a, input, select, textarea {
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         scroll-behavior: auto !important;
-        transition-duration: .01ms !important;
-        animation-duration: .01ms !important;
-        animation-delay: 0ms !important;
-        animation-iteration-count: 1 !important;
-    }
-
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --app-shadow: 0 14px 40px rgba(0, 0, 0, .2);
+        transition: none !important;
+        animation: none !important;
     }
 }
