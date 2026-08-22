@@ -1,0 +1,133 @@
+name: Deploy container to Azure
+
+on:
+  workflow_run:
+    workflows: ["Build and publish container"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Run production database migrations
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          AzureMonitor__ConnectionString: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+          Authentication__Microsoft__ClientId: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
+          Authentication__Microsoft__ClientSecret: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
+        run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
+
+      # Fill these repository variables under Settings > Secrets and variables > Actions > Variables:
+      # AZURE_RESOURCE_GROUP, AZURE_CONTAINER_APP, ALLOWED_HOSTS
+      # Fill these repository secrets before enabling deployment:
+      # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
+      # POSTGRES_CONNECTION_STRING, APPLICATIONINSIGHTS_CONNECTION_STRING,
+      # CONTAINER_REGISTRY_USERNAME, CONTAINER_REGISTRY_PASSWORD
+      - name: Validate deployment settings
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+          AUTHENTICATION_MICROSOFT_CLIENT_ID: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
+          AUTHENTICATION_MICROSOFT_CLIENT_SECRET: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+        run: |
+          for name in \
+            AZURE_RESOURCE_GROUP AZURE_CONTAINER_APP ALLOWED_HOSTS \
+            AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
+            POSTGRES_CONNECTION_STRING APPLICATIONINSIGHTS_CONNECTION_STRING \
+            AUTHENTICATION_MICROSOFT_CLIENT_ID AUTHENTICATION_MICROSOFT_CLIENT_SECRET \
+            CONTAINER_REGISTRY_USERNAME CONTAINER_REGISTRY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Missing deployment setting: $name"
+              exit 1
+            fi
+          done
+
+      - name: Log in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure registry credentials
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+          CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
+          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+        run: |
+          az containerapp registry set \
+            --name "$AZURE_CONTAINER_APP" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --server "$REGISTRY" \
+            --username "$CONTAINER_REGISTRY_USERNAME" \
+            --password "$CONTAINER_REGISTRY_PASSWORD"
+
+      - name: Configure application secrets
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+          POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+          AUTHENTICATION_MICROSOFT_CLIENT_ID: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
+          AUTHENTICATION_MICROSOFT_CLIENT_SECRET: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
+        run: |
+          az containerapp secret set \
+            --name "$AZURE_CONTAINER_APP" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --secrets \
+              postgres-conn="$POSTGRES_CONNECTION_STRING" \
+              appinsights-conn="$APPLICATIONINSIGHTS_CONNECTION_STRING" \
+              microsoft-id="$AUTHENTICATION_MICROSOFT_CLIENT_ID" \
+              microsoft-secret="$AUTHENTICATION_MICROSOFT_CLIENT_SECRET"
+
+      - name: Deploy image revision
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+        run: |
+          az containerapp update \
+            --name "$AZURE_CONTAINER_APP" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$IMAGE_NAME:$IMAGE_TAG" \
+            --set-env-vars \
+              ASPNETCORE_ENVIRONMENT=Production \
+              AllowedHosts="$ALLOWED_HOSTS" \
+              ConnectionStrings__Postgres=secretref:postgres-conn \
+              AzureMonitor__ConnectionString=secretref:appinsights-conn \
+              Authentication__Microsoft__ClientId=secretref:microsoft-id \
+              Authentication__Microsoft__ClientSecret=secretref:microsoft-secret
