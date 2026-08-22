@@ -11,7 +11,6 @@ permissions:
   id-token: write
 
 env:
-  REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha || github.sha }}
 
@@ -46,8 +45,7 @@ jobs:
       # AZURE_RESOURCE_GROUP, AZURE_CONTAINER_APP, ALLOWED_HOSTS
       # Fill these repository secrets before enabling deployment:
       # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-      # POSTGRES_CONNECTION_STRING, APPLICATIONINSIGHTS_CONNECTION_STRING,
-      # CONTAINER_REGISTRY_USERNAME, CONTAINER_REGISTRY_PASSWORD
+      # POSTGRES_CONNECTION_STRING, APPLICATIONINSIGHTS_CONNECTION_STRING
       - name: Validate deployment settings
         env:
           AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
@@ -60,16 +58,13 @@ jobs:
           APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
           AUTHENTICATION_MICROSOFT_CLIENT_ID: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
           AUTHENTICATION_MICROSOFT_CLIENT_SECRET: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
         run: |
           for name in \
             AZURE_RESOURCE_GROUP AZURE_CONTAINER_APP ALLOWED_HOSTS \
             AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
             POSTGRES_CONNECTION_STRING APPLICATIONINSIGHTS_CONNECTION_STRING \
-            AUTHENTICATION_MICROSOFT_CLIENT_ID AUTHENTICATION_MICROSOFT_CLIENT_SECRET \
-            CONTAINER_REGISTRY_USERNAME CONTAINER_REGISTRY_PASSWORD; do
-            if [ -z "${!name}" ]; then
+            AUTHENTICATION_MICROSOFT_CLIENT_ID AUTHENTICATION_MICROSOFT_CLIENT_SECRET; do
+            if [ -z "${!name}" ] || [ "${!name}" = "FILL_ME" ]; then
               echo "Missing deployment setting: $name"
               exit 1
             fi
@@ -81,20 +76,6 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Configure registry credentials
-        env:
-          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-          AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
-          CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
-          CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
-        run: |
-          az containerapp registry set \
-            --name "$AZURE_CONTAINER_APP" \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --server "$REGISTRY" \
-            --username "$CONTAINER_REGISTRY_USERNAME" \
-            --password "$CONTAINER_REGISTRY_PASSWORD"
 
       - name: Configure application secrets
         env:
