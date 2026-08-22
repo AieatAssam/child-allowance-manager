@@ -34,7 +34,7 @@ CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
 CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
 var builder = WebApplication.CreateBuilder(args);
-if (StartupConfiguration.UseAzureMonitor(builder.Environment, builder.Configuration))
+if (StartupConfiguration.UseAzureMonitor(builder.Configuration))
     builder.Services.AddOpenTelemetry().UseAzureMonitor();
 
 // Add services to the container.

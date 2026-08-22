@@ -55,7 +55,7 @@ When `ASPNETCORE_ENVIRONMENT=Development`, the application applies migrations an
 Configuration is read from `appsettings.json` and environment variables. Nested settings use `__` in environment variable names.
 
 - **ConnectionStrings__Postgres** - required PostgreSQL connection string.
-- **AzureMonitor__ConnectionString** - required in Production and optional in local Development. When supplied, it enables Azure Monitor/Application Insights. Other non-Development environments use the production startup validation and should set it too.
+- **AzureMonitor__ConnectionString** - optional. When supplied, it enables Azure Monitor/Application Insights telemetry. Container Apps console logs are sent to the environment's configured Log Analytics workspace separately.
 - **Authentication__Microsoft__ClientId** and **Authentication__Microsoft__ClientSecret** - required outside Development for Microsoft account sign-in.
 - **FrameAncestors** - a JSON array of trusted embedding origins. The default empty array allows only `'self'`; add explicit origins when trusted embedding is needed. Wildcards are not allowed.
 - **AllowedHosts** - production defaults to `allowance-manager.azurewebsites.net`; override it with the deployed host names. Development uses `*` for local hostnames.

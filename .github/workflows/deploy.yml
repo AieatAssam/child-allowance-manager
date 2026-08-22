@@ -36,7 +36,6 @@ jobs:
         env:
           ASPNETCORE_ENVIRONMENT: Production
           ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
-          AzureMonitor__ConnectionString: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
           Authentication__Microsoft__ClientId: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
           Authentication__Microsoft__ClientSecret: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
         run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
@@ -45,7 +44,7 @@ jobs:
       # AZURE_RESOURCE_GROUP, AZURE_CONTAINER_APP, ALLOWED_HOSTS
       # Fill these repository secrets before enabling deployment:
       # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
-      # POSTGRES_CONNECTION_STRING, APPLICATIONINSIGHTS_CONNECTION_STRING
+      # POSTGRES_CONNECTION_STRING
       - name: Validate deployment settings
         env:
           AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
@@ -55,14 +54,13 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
-          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
           AUTHENTICATION_MICROSOFT_CLIENT_ID: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
           AUTHENTICATION_MICROSOFT_CLIENT_SECRET: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
         run: |
           for name in \
             AZURE_RESOURCE_GROUP AZURE_CONTAINER_APP ALLOWED_HOSTS \
             AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
-            POSTGRES_CONNECTION_STRING APPLICATIONINSIGHTS_CONNECTION_STRING \
+            POSTGRES_CONNECTION_STRING \
             AUTHENTICATION_MICROSOFT_CLIENT_ID AUTHENTICATION_MICROSOFT_CLIENT_SECRET; do
             if [ -z "${!name}" ] || [ "${!name}" = "FILL_ME" ]; then
               echo "Missing deployment setting: $name"
@@ -82,7 +80,6 @@ jobs:
           AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
           POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
-          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
           AUTHENTICATION_MICROSOFT_CLIENT_ID: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
           AUTHENTICATION_MICROSOFT_CLIENT_SECRET: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
         run: |
@@ -91,7 +88,6 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --secrets \
               postgres-conn="$POSTGRES_CONNECTION_STRING" \
-              appinsights-conn="$APPLICATIONINSIGHTS_CONNECTION_STRING" \
               microsoft-id="$AUTHENTICATION_MICROSOFT_CLIENT_ID" \
               microsoft-secret="$AUTHENTICATION_MICROSOFT_CLIENT_SECRET"
 
@@ -109,6 +105,5 @@ jobs:
               ASPNETCORE_ENVIRONMENT=Production \
               AllowedHosts="$ALLOWED_HOSTS" \
               ConnectionStrings__Postgres=secretref:postgres-conn \
-              AzureMonitor__ConnectionString=secretref:appinsights-conn \
               Authentication__Microsoft__ClientId=secretref:microsoft-id \
               Authentication__Microsoft__ClientSecret=secretref:microsoft-secret
