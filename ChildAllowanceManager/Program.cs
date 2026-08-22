@@ -210,8 +210,14 @@ var frameAncestorsPolicy = StartupPolicy.BuildFrameAncestorsPolicy(frameAncestor
 
 app.Use(async (context, next) =>
 {
-    if (frameAncestors.Length == 0)
-        context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+    context.Response.OnStarting(() =>
+    {
+        if (frameAncestors.Length == 0)
+            context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+        else
+            context.Response.Headers.Remove("X-Frame-Options");
+        return Task.CompletedTask;
+    });
     await next();
 });
 
