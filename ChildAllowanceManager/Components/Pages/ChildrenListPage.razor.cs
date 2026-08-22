@@ -271,6 +271,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task ShowAddFundsForChild(ChildWithBalance child)
     {
+        if (!CanManageCurrentTenant)
+            return;
+
         var parameters = new DialogParameters<AddFundsDialog>();
         parameters.Add(x => x.Child, child);
         await DialogService.ShowAsync<AddFundsDialog>(null, parameters);
@@ -278,6 +281,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task ShowWithdrawFundsForChild(ChildWithBalance child)
     {
+        if (!CanManageCurrentTenant)
+            return;
+
         var parameters = new DialogParameters<WithdrawFundsDialog>();
         parameters.Add(x => x.Child, child);
         await DialogService.ShowAsync<WithdrawFundsDialog>(null, parameters);
@@ -285,6 +291,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task ApplyHold(ChildWithBalance child)
     {
+        if (!CanManageCurrentTenant)
+            return;
+
         var parameters = new DialogParameters<AddHoldDialog>();
         parameters.Add(x => x.Child, child);
         await DialogService.ShowAsync<AddHoldDialog>(null, parameters);
@@ -292,6 +301,9 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     
     private async Task RemoveHoldDay(ChildWithBalance child)
     {
+        if (!CanManageCurrentTenant)
+            return;
+
         var outcome = await RunAsync(
             async () => await ChildService.RemoveHoldDayAsync(
                 child.Id, child.TenantId, requestId: null, CancellationToken),
