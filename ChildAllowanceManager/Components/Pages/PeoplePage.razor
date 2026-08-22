@@ -12,12 +12,14 @@
             <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">People</MudText>
             <MudText Color="Color.Secondary">Who can see and manage this family.</MudText>
         </div>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="InviteParent">
-            Invite a parent
-        </MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Outlined" Disabled="@IsBusy" OnClick="CreateShareLink">
-            New display link
-        </MudButton>
+        <div class="page-heading-actions">
+            <MudButton Color="Color.Primary" Variant="Variant.Outlined" Disabled="@IsBusy" OnClick="CreateShareLink">
+                New display link
+            </MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@IsBusy" OnClick="InviteParent">
+                Invite a parent
+            </MudButton>
+        </div>
     </div>
 
     <MudPaper Class="settings-card" Elevation="0">

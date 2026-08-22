@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using Bunit;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace ChildAllowanceManager.Tests;
 
@@ -112,6 +113,59 @@ public class ShareRouteTests
         cut.WaitForAssertion(() => Assert.Contains("Add money", cut.Markup));
         Assert.Contains("Withdraw", cut.Markup);
         Assert.Null(shareService.Link);
+    }
+
+    [Fact]
+    public async Task Share_route_gives_a_signed_in_parent_of_that_family_their_controls()
+    {
+        // The link decides who may look. It never takes permissions away from someone
+        // who already has them.
+        await using var context = CreateContext(out var childService, out var shareService);
+        childService.Children.Add(new ChildConfiguration
+        {
+            Id = "child-1", TenantId = "tenant-1", FirstName = "Ada", LastName = "Lovelace"
+        });
+        shareService.Link = LiveLink();
+        context.Services.AddSingleton<AuthenticationStateProvider>(new FixedAuthenticationStateProvider(
+            new ClaimsPrincipal(new ClaimsIdentity([
+                new Claim(CustomClaimTypes.Tenant, "tenant-1"),
+                new Claim(CustomClaimTypes.TenantRole, TenantRoleClaim.Format("tenant-1", ValidRoles.Parent))
+            ], "test"))));
+
+        var cut = context.Render<CascadingAuthenticationState>(parameters => parameters
+            .AddChildContent<ChildrenListPage>(child => child.Add(x => x.ShareToken, "token")));
+
+        cut.WaitForAssertion(() => Assert.Contains("Add money", cut.Markup));
+        Assert.Contains("Withdraw", cut.Markup);
+    }
+
+    [Fact]
+    public async Task Share_route_stays_read_only_for_a_signed_in_stranger()
+    {
+        await using var context = CreateContext(out var childService, out var shareService);
+        childService.Children.Add(new ChildConfiguration
+        {
+            Id = "child-1", TenantId = "tenant-1", FirstName = "Ada", LastName = "Lovelace"
+        });
+        shareService.Link = LiveLink();
+        context.Services.AddSingleton<AuthenticationStateProvider>(new FixedAuthenticationStateProvider(
+            new ClaimsPrincipal(new ClaimsIdentity([
+                new Claim(CustomClaimTypes.Tenant, "other-tenant"),
+                new Claim(CustomClaimTypes.TenantRole, TenantRoleClaim.Format("other-tenant", ValidRoles.Parent))
+            ], "test"))));
+
+        var cut = context.Render<CascadingAuthenticationState>(parameters => parameters
+            .AddChildContent<ChildrenListPage>(child => child.Add(x => x.ShareToken, "token")));
+
+        cut.WaitForAssertion(() => Assert.Contains("Ada Lovelace", cut.Markup));
+        Assert.DoesNotContain("Add money", cut.Markup);
+        Assert.DoesNotContain("Withdraw", cut.Markup);
+    }
+
+    private sealed class FixedAuthenticationStateProvider(ClaimsPrincipal principal) : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync() =>
+            Task.FromResult(new AuthenticationState(principal));
     }
 
     private static BunitContext CreateContext(

@@ -219,9 +219,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 Navigation.NavigateTo(signedIn ? "/" : "/login");
                 return;
             }
-            CanManageCurrentTenant = !_shareMode &&
-                (AuthenticationState is null ||
-                 TenantAuthorization.CanManage((await AuthenticationState).User, tenant.Id));
+            // A signed-in parent of this family keeps their own permissions even when they
+            // open the display link - the link decides who may LOOK, never who may act.
+            // Anyone else on a share link is read-only, and a share display is signed in
+            // as nobody, so it stays read-only too.
+            CanManageCurrentTenant = AuthenticationState is null
+                ? !_shareMode
+                : TenantAuthorization.CanManage((await AuthenticationState).User, tenant.Id);
             if (previousTenantId != tenant.Id)
             {
                 _contextUpdated = false;

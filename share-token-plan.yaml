@@ -222,7 +222,13 @@ decisions:
       Remove-one-day on ANY family's page. The .cs handlers already re-check
       CanManageCurrentTenant, so this is currently a cosmetic hole - but in share mode it would
       become the visible affordance for an unauthorized writer. One gate closes both.
-      In share mode CanManageCurrentTenant is hard false and is never recomputed.
+      SUPERSEDED 2026-08-23 by owner decision: a signed-in parent of THAT family keeps
+      their own permissions on the share route. The link decides who may LOOK; it never
+      removes permissions from someone who already holds them. The gate is now
+      `AuthenticationState is null ? !_shareMode : TenantAuthorization.CanManage(user, tenantId)`,
+      so an anonymous display and a signed-in stranger both stay read-only, while a parent
+      who opens the kitchen tablet's URL can still add money. S-D6's read-only guarantee
+      therefore covers everyone WITHOUT per-family manage rights, not everyone on the route.
     owned_by: [S1-T2]
 
   S-D8_share_mode_writes_nothing_to_the_browser:

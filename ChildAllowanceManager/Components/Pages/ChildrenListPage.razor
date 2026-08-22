@@ -76,7 +76,7 @@
                             </div>
                         </div>
                     </MudCardContent>
-                    <MudCardActions Class="child-card-actions">
+                    <MudCardActions Class="@($"child-card-actions{(CanManageCurrentTenant ? string.Empty : " child-card-actions-readonly")}")">
                         <MudButton Class="card-action action-history" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ReceiptLong"
                                    OnClick="() => ShowTransactionsForChild(child)">
                             History

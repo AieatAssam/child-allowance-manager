@@ -209,6 +209,31 @@ button, a, input, select, textarea {
     overflow: hidden;
 }
 
+/* On a phone the bar cannot hold the full brand and the family name at their
+   desktop sizes, so both ellipsed into nonsense. Shrink the brand first, then
+   drop it below 30rem - the family name is the useful label at that width, and
+   the page title underneath still says where you are. */
+@media (max-width: 47.9375rem) {
+    .app-brand {
+        font-size: var(--al-text-lg);
+    }
+
+    .app-family-switcher {
+        max-width: none;
+        flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 30rem) {
+    .app-brand {
+        display: none;
+    }
+
+    .app-bar .mud-toolbar {
+        gap: .25rem;
+    }
+}
+
 .app-family-switcher > .mud-typography,
 .app-family-switcher .mud-button,
 .app-family-switcher .mud-button .ml-1 {
@@ -267,6 +292,27 @@ button, a, input, select, textarea {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 2rem;
+}
+
+/* Page actions group to one side. Loose buttons in a space-between heading
+   drift into the middle of the row. */
+.page-heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+@media (max-width: 47.9375rem) {
+    .page-heading {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-heading-actions .mud-button-root {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
 }
 
 .page-kicker {
@@ -640,12 +686,15 @@ button, a, input, select, textarea {
     padding: var(--al-space-4);
 }
 
-.share-display .child-card-actions {
+/* Only History is on the card when the viewer cannot manage this family - on a share
+   display, or for someone signed in without parent rights here. Collapse the action
+   grid to that one button. A parent who opens the display link keeps the full row. */
+.child-card-actions-readonly {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
 }
 
-.share-display .child-card-actions .action-history {
+.child-card-actions-readonly .action-history {
     grid-column: 1;
     grid-row: 1;
 }
