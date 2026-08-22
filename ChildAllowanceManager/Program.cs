@@ -205,10 +205,13 @@ builder.Services.AddScoped<OperationRunner>();
 builder.Services.AddSingleton<IGlobalNotificationService, GlobalNotificationService>();
 
 var app = builder.Build();
+var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
+var frameAncestorsPolicy = StartupPolicy.BuildFrameAncestorsPolicy(frameAncestors);
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.XFrameOptions = "SAMEORIGIN";
+    if (frameAncestors.Length == 0)
+        context.Response.Headers.XFrameOptions = "SAMEORIGIN";
     await next();
 });
 
@@ -265,8 +268,6 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
-var frameAncestorsPolicy = StartupPolicy.BuildFrameAncestorsPolicy(frameAncestors);
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     // Embedding is denied by default. Add explicit origins to the FrameAncestors
