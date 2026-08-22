@@ -6,6 +6,7 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+        <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
         <UserSecretsId>576c5c0c-e163-4fa4-8ee1-e4518941a320</UserSecretsId>
         
   </PropertyGroup>
