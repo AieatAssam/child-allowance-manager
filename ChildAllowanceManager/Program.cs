@@ -267,6 +267,7 @@ app.UseAuthorization();
 
 var frameAncestors = builder.Configuration.GetSection("FrameAncestors").Get<string[]>() ?? [];
 var frameAncestorsPolicy = StartupPolicy.BuildFrameAncestorsPolicy(frameAncestors);
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
     // Embedding is denied by default. Add explicit origins to the FrameAncestors
     // configuration array to allow trusted embedders.
