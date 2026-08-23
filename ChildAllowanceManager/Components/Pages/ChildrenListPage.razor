@@ -117,7 +117,7 @@
                             @for (var index = 0; index < _balanceHistory.Length; index++)
                             {
                                 <span class="chart-legend-item">
-                                    <span class="chart-legend-swatch chart-color-@index" aria-hidden="true"></span>
+                                    <span class="chart-legend-swatch chart-color-@GetChildAccentIndex(_balanceHistory[index].ChildId)" aria-hidden="true"></span>
                                     @_balanceHistory[index].ChildName
                                 </span>
                             }
@@ -152,7 +152,7 @@
                 }
                 <MudExpansionPanels>
                     <MudExpansionPanel Text="View the data as a table" Expanded="false" aria-describedby="balance-chart-description">
-                        <BalanceHistoryTable History="_balanceHistory" />
+                        <BalanceHistoryTable History="_balanceHistory" AccentIndex="GetChildAccentIndex" />
                     </MudExpansionPanel>
                 </MudExpansionPanels>
             </MudPaper>

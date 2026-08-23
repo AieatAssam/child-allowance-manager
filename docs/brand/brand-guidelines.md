@@ -44,6 +44,30 @@ Rules:
 - `--al-negative` is below AA contrast for normal-size text on light paper. Use it only for fills, borders, icons, or text at 24px or larger (18.66px bold or larger). Use `--al-negative-text` for other normal-size text.
 - `--al-accent` fails AA against light paper at every size. It is a fill and rule colour only; never use it as text on a light surface.
 
+## Chart and child colours
+
+One colour per child, used everywhere that child appears: the card border, their line on the
+balance chart, the chart legend swatch, and the dot beside their column in the data table.
+A child keeps the same colour across all of them.
+
+| Token | Value | Name |
+| --- | --- | --- |
+| `--al-chart-1` | `#4C6FE7` | Blueberry |
+| `--al-chart-2` | `#1FA463` | Apple |
+| `--al-chart-3` | `#E8573F` | Coral |
+| `--al-chart-4` | `#C98209` | Honey |
+| `--al-chart-5` | `#8B5BD6` | Grape |
+
+Rules:
+
+- The hues are spaced so that two lines are told apart by hue alone, not by lightness, and are
+  bright enough to read as a child's own colour rather than a muted brand tint.
+- Each value clears 3:1 against both papers, which is the contrast a line or a swatch needs.
+  None of them is a text colour; use `--al-ink` and `--al-ink-muted` for text.
+- Colours are assigned by position in an id-ordered list of the family's children, so two
+  children never share one. `ChildrenListPage.ChartColors` mirrors these values for MudBlazor's
+  positional palette and must be changed in step with `tokens.css`.
+
 ## Typography
 
 Use Fraunces at weight 600 for page titles and headline balances only. Use DM Sans everywhere else. Hierarchy comes from size, weight and space, not from a third typeface.

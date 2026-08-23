@@ -53,10 +53,12 @@
     --al-leading-tight: 1.2;
     --al-leading: 1.5;
 
-    --al-chart-1: #675184;
-    --al-chart-2: #32735F;
-    --al-chart-3: #B95E4D;
-    --al-chart-4: #E9A36A;
+    /* Series colours - one per child. Distinct hues, legible on both papers. */
+    --al-chart-1: #4C6FE7;
+    --al-chart-2: #1FA463;
+    --al-chart-3: #E8573F;
+    --al-chart-4: #C98209;
+    --al-chart-5: #8B5BD6;
 }
 
 [data-theme="dark"],

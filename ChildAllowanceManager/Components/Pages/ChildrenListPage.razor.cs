@@ -13,8 +13,10 @@ namespace ChildAllowanceManager.Components.Pages;
 
 public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 {
-    // Values come from docs/brand/brand-guidelines.md.
-    private static readonly string[] ChartColors = ["#675184", "#32735F", "#B95E4D", "#E9A36A"];
+    // Series colours, one per child. Values come from docs/brand/brand-guidelines.md and must
+    // stay in step with --al-chart-* in tokens.css, which paints the legend and card accents.
+    private static readonly string[] ChartColors =
+        ["#4C6FE7", "#1FA463", "#E8573F", "#C98209", "#8B5BD6"];
 
     [Inject]
     public IChildService ChildService { get; set; } = default!;
@@ -69,6 +71,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     private string? _tenantId = null;
     private bool CanManageCurrentTenant;
     private ChildWithBalance[]? Children = null;
+    private Dictionary<string, int> _accentByChildId = [];
     private readonly SemaphoreSlim _dataGate = new(1, 1);
     private readonly SemaphoreSlim _parametersGate = new(1, 1);
     private bool _balanceHistoryNeedsSync = true;
@@ -305,6 +308,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             }
 
             Children = loaded!;
+            AssignChildAccents(Children.Select(child => child.Id));
             _balanceHistoryNeedsSync = true;
             StateHasChanged();
         }
@@ -333,6 +337,15 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 return;
 
             _balanceHistory = balanceHistory!;
+            if (_accentByChildId.Count == 0)
+                AssignChildAccents(_balanceHistory.Select(child => child.ChildId));
+
+            // The palette is positional, so order it to match the series: every child keeps the
+            // colour their card border already shows.
+            _balanceChartOptions.ChartPalette = _balanceHistory
+                .Select(child => ChartColors[GetChildAccentIndex(child.ChildId)])
+                .ToArray();
+
             var series = new List<ChartSeries<decimal>>();
             foreach (var child in _balanceHistory)
             {
@@ -440,12 +453,19 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     private static string GetHoldDaysLabel(int days) =>
         $"{days} more {(days == 1 ? "day" : "days")}";
 
-    private static int GetChildAccentIndex(string childId)
+    /// The colour a child owns, everywhere they appear - card border, chart line, legend
+    /// swatch. Assigned by position in an id-ordered list rather than by hashing the id, so
+    /// two children in the same family can never land on the same colour.
+    private int GetChildAccentIndex(string childId) =>
+        _accentByChildId.TryGetValue(childId, out var index) ? index : 0;
+
+    private void AssignChildAccents(IEnumerable<string> childIds)
     {
-        var hash = 17;
-        foreach (var character in childId)
-            hash = (hash * 31 + character) & int.MaxValue;
-        return hash % 4;
+        _accentByChildId = childIds
+            .Distinct()
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .Select((id, index) => (id, index))
+            .ToDictionary(x => x.id, x => x.index % ChartColors.Length);
     }
 
     private void StartSharePoll(string shareToken)

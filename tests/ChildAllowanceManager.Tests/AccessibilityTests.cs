@@ -89,7 +89,7 @@ public sealed class AccessibilityTests
         var source = Source("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");
         Assert.Contains("ChartType=\"ChartType.Timeseries\"", source);
         Assert.Contains("ChartSeries=\"_balanceChartSeries\"", source);
-        Assert.Contains("<BalanceHistoryTable History=\"_balanceHistory\" />", source);
+        Assert.Contains("<BalanceHistoryTable History=\"_balanceHistory\"", source);
     }
 
     [Fact]

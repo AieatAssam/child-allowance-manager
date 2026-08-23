@@ -1,5 +1,6 @@
 @using ChildAllowanceManager.Common.Models
 
+<div class="balance-history-scroll">
 <table class="balance-history-table">
     <caption>Balance for each child, by date</caption>
     <thead>
@@ -7,7 +8,12 @@
             <th scope="col">Date</th>
             @foreach (var child in _children)
             {
-                <th scope="col">@child.ChildName</th>
+                <th scope="col">
+                    <span class="balance-history-heading">
+                        <span class="balance-history-swatch chart-color-@AccentIndexFor(child.ChildId)" aria-hidden="true"></span>
+                        @child.ChildName
+                    </span>
+                </th>
             }
         </tr>
     </thead>
@@ -33,3 +39,4 @@
         }
     </tbody>
 </table>
+</div>

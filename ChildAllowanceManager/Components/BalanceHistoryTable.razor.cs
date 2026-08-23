@@ -8,6 +8,11 @@ public partial class BalanceHistoryTable : CancellableComponentBase
     [Parameter]
     public IEnumerable<ChildWithBalanceHistory> History { get; set; } = [];
 
+    /// The colour index a child owns elsewhere on the page, so the table's swatches match
+    /// their card border and chart line. Defaults to the first colour when not supplied.
+    [Parameter]
+    public Func<string, int>? AccentIndex { get; set; }
+
     private ChildWithBalanceHistory[] _children = [];
     private BalanceHistoryTableRow[] _rows = [];
 
@@ -16,6 +21,8 @@ public partial class BalanceHistoryTable : CancellableComponentBase
         _children = (History ?? []).ToArray();
         _rows = BuildRows(_children);
     }
+
+    private int AccentIndexFor(string childId) => AccentIndex?.Invoke(childId) ?? 0;
 
     private static BalanceHistoryTableRow[] BuildRows(ChildWithBalanceHistory[] children)
     {

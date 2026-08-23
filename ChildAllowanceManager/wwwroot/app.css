@@ -420,6 +420,7 @@ button, a, input, select, textarea {
 .child-accent-1 { --child-accent: var(--al-chart-2); }
 .child-accent-2 { --child-accent: var(--al-chart-3); }
 .child-accent-3 { --child-accent: var(--al-chart-4); }
+.child-accent-4 { --child-accent: var(--al-chart-5); }
 
 .child-birthday {
     background: color-mix(in srgb, var(--al-accent) 6%, var(--al-surface));
@@ -616,10 +617,115 @@ button, a, input, select, textarea {
     border-radius: 2px;
 }
 
+/* The data table under the chart. Long - 90 rows - so it scrolls inside the panel with a
+   pinned header rather than pushing the page down. */
+.balance-history-scroll {
+    max-height: 22rem;
+    overflow: auto;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    background: var(--al-surface);
+}
+
+.balance-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--al-text-sm);
+}
+
+.balance-history-table caption {
+    position: sticky;
+    left: 0;
+    padding: var(--al-space-3) var(--al-space-4);
+    color: var(--al-ink-muted);
+    font-size: var(--al-text-xs);
+    letter-spacing: .04em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.balance-history-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--al-space-2) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+    background: var(--al-surface-sunken);
+    color: var(--al-ink);
+    font-weight: var(--al-weight-semibold);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.balance-history-table thead th:first-child,
+.balance-history-table tbody th {
+    text-align: left;
+}
+
+.balance-history-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.balance-history-swatch {
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+}
+
+.balance-history-table tbody th,
+.balance-history-table tbody td {
+    padding: var(--al-space-2) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+    white-space: nowrap;
+}
+
+.balance-history-table tbody th {
+    color: var(--al-ink-muted);
+    font-weight: var(--al-weight-regular);
+}
+
+.balance-history-table tbody td {
+    color: var(--al-ink);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.balance-history-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--al-surface-sunken) 55%, transparent);
+}
+
+.balance-history-table tbody tr:hover {
+    background: var(--al-surface-sunken);
+}
+
+.balance-history-table tbody tr:last-child th,
+.balance-history-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* The panel wrapping the table is part of the chart card, not a raised surface of its own. */
+.chart-card .mud-expansion-panels,
+.chart-card .mud-expand-panel {
+    background: none;
+    box-shadow: none;
+}
+
+.chart-card .mud-expand-panel-header {
+    padding-inline: 0;
+    color: var(--al-ink);
+}
+
+.chart-card .mud-expand-panel .mud-expand-panel-content {
+    padding: 0 0 var(--al-space-2);
+}
+
 .chart-color-0 { background: var(--al-chart-1); }
 .chart-color-1 { background: var(--al-chart-2); }
 .chart-color-2 { background: var(--al-chart-3); }
 .chart-color-3 { background: var(--al-chart-4); }
+.chart-color-4 { background: var(--al-chart-5); }
 
 .chart-support,
 .chart-note {
