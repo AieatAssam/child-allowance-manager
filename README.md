@@ -13,6 +13,7 @@ Allowance Manager is an application for tracking child allowance and managing it
 - Allowance suspension for _n_ days
 - Transaction history, export and correction
 - Reversible restore for deleted families and children
+- Read-only display links for a kitchen tablet or wall screen, no sign-in needed
 - Parent login via an existing Microsoft account (personal or work)
 
 ## Display links
@@ -28,11 +29,29 @@ Turn a link off from the People page. It stops working immediately for a new vis
 five minutes on a screen that is already showing it. Treat a display link like a house key:
 fine on a fridge, not fine in a public photo.
 
+The link decides who may look, never who may act. A parent of that family who opens the link
+while signed in keeps their usual controls; everyone else sees balances and history only.
+
+Display pages can be embedded in another dashboard, such as Home Assistant. Add the embedding
+site to the `FrameAncestors` array (see Configuration) - embedding is denied by default.
+
 ## Screenshots
 
 The screenshots below show the seeded Development experience.
 
+Balances, as a parent sees them:
+
 ![Balances dashboard](docs/screenshots/dashboard.jpg)
+
+The same family through a display link - read-only, no sign-in:
+
+![A family board opened through a display link](docs/screenshots/display-link.jpg)
+
+Family access, where display links are made and turned off:
+
+![People and display links](docs/screenshots/people.jpg)
+
+Family settings:
 
 ![Family settings](docs/screenshots/family-settings.jpg)
 
