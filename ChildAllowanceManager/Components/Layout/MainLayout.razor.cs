@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ChildAllowanceManager.Common.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
@@ -20,6 +21,7 @@ public partial class MainLayout : IAsyncDisposable
     [Inject] private ICurrentContextService CurrentContextService { get; set; } = default!;
     [Inject] private ProtectedLocalStorage LocalStorage { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private ILogger<MainLayout> Logger { get; set; } = default!;
 
     private void DrawerToggle()
     {
@@ -32,17 +34,31 @@ public partial class MainLayout : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && await LocalStorage.GetAsync<string>("current_tenant") is var currentTenant &&
-            currentTenant.Success)
+        if (firstRender)
         {
-            CurrentContextService.SetCurrentTenant(currentTenant.Value!);
+            // Browser storage is not always reachable - a third-party iframe (the app embedded
+            // in a Home Assistant dashboard), private browsing, or a kiosk with site data
+            // blocked all make localStorage throw. An exception escaping OnAfterRenderAsync
+            // tears the circuit down and the user gets a blank page, so remembering the last
+            // family is best-effort. Everything the page needs comes from the URL.
+            try
+            {
+                if (await LocalStorage.GetAsync<string>("current_tenant") is { Success: true } currentTenant)
+                {
+                    CurrentContextService.SetCurrentTenant(currentTenant.Value!);
 
-            // set long lived cookie
-            // load JS module once
-            _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./Components/Layout/MainLayout.razor.js?v=2");
-            // set cookie
-            await _jsModule.InvokeVoidAsync("createCookie", "current_tenant", currentTenant.Value!, 365);
+                    // set long lived cookie
+                    // load JS module once
+                    _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                        "import", "./Components/Layout/MainLayout.razor.js?v=2");
+                    // set cookie
+                    await _jsModule.InvokeVoidAsync("createCookie", "current_tenant", currentTenant.Value!, 365);
+                }
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException or CryptographicException)
+            {
+                Logger.LogDebug(ex, "Browser storage is unavailable; continuing without a remembered family.");
+            }
         }
 
         if (firstRender)

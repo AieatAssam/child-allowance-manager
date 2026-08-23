@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ChildAllowanceManager.Common.Interfaces;
 using ChildAllowanceManager.Common.Models;
 using Microsoft.AspNetCore.Components;
@@ -249,8 +250,17 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
         {
             if (!_shareMode)
             {
-                await LocalStorage.SetAsync("current_tenant", _tenantId);
-                await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix!);
+                try
+                {
+                    await LocalStorage.SetAsync("current_tenant", _tenantId);
+                    await LocalStorage.SetAsync("current_tenant_suffix", TenantSuffix!);
+                }
+                catch (Exception ex) when (ex is JSException or InvalidOperationException or CryptographicException)
+                {
+                    // Storage is unreachable in a third-party iframe or with site data blocked.
+                    // Letting this escape OnAfterRenderAsync kills the circuit and blanks the page.
+                    Logger.LogDebug(ex, "Could not remember the current family; browser storage is unavailable.");
+                }
             }
             CurrentContextService.SetCurrentTenant(_tenantId);
             Logger.LogInformation("Current tenant updated to {TenantId}", _tenantId);
