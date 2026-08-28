@@ -194,9 +194,12 @@ builder.Services.AddCascadingAuthenticationState();
 // concurrent Blazor components do not share one context instance.
 builder.Services.AddTransient<IChildService, ChildService>();
 builder.Services.AddTransient<ITenantService, TenantService>();
-builder.Services.AddTransient<ITransactionService, TransactionService>();
-builder.Services.AddTransient<IUserService, UserService>();
-builder.Services.AddTransient<IMembershipService, MembershipService>();
+builder.Services.AddTransient<TransactionService>();
+builder.Services.AddTransient<ITransactionService>(sp => sp.GetRequiredService<TransactionService>());
+builder.Services.AddTransient<UserService>();
+builder.Services.AddTransient<IUserService>(sp => sp.GetRequiredService<UserService>());
+builder.Services.AddTransient<MembershipService>();
+builder.Services.AddTransient<IMembershipService>(sp => sp.GetRequiredService<MembershipService>());
 builder.Services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
 builder.Services.AddTransient<IInvitationService, InvitationService>();
 builder.Services.AddTransient<IShareLinkService, ShareLinkService>();
