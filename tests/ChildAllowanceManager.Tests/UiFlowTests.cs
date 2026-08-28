@@ -89,6 +89,21 @@ public class UiFlowTests
     }
 
     [Fact]
+    public async Task AdministrationShowsRetryStateWhenTenantLoadFails()
+    {
+        await using var context = BunitTestContext.Create();
+        var tenantService = new RecordingTenantService { ReadFailure = new InvalidOperationException("database unavailable") };
+        context.Services.AddSingleton<ITenantService>(tenantService);
+        context.Services.AddSingleton<IUserService>(new RecordingUserService());
+
+        var cut = context.Render<AdministrationPage>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Unable to load families", cut.Markup));
+        Assert.Contains("Try again", cut.Markup);
+        Assert.DoesNotContain("Indeterminate", cut.Markup);
+    }
+
+    [Fact]
     public async Task ConfigurationEditorsExposeConditionalAndReadOnlyControls()
     {
         await using var context = BunitTestContext.Create();
@@ -154,7 +169,7 @@ public class UiFlowTests
         using var context = BunitTestContext.Create();
         var auth = context.AddAuthorization();
         auth.SetAuthorized("Parent");
-        auth.SetRoles("parent", "admin");
+        auth.SetRoles("admin");
         var navigation = context.Services.GetRequiredService<NavigationManager>();
         navigation.NavigateTo("http://localhost/demo/children");
 
@@ -166,6 +181,25 @@ public class UiFlowTests
         Assert.Contains("Children", cut.Markup);
         Assert.Contains("Family settings", cut.Markup);
         Assert.Contains("Administration", cut.Markup);
+    }
+
+    [Fact]
+    public void NavigationMenuDoesNotCreateTenantLinksOutsideTenantRoutes()
+    {
+        using var context = BunitTestContext.Create();
+        var auth = context.AddAuthorization();
+        auth.SetAuthorized("Admin");
+        auth.SetRoles("parent", "admin");
+        var navigation = context.Services.GetRequiredService<NavigationManager>();
+        navigation.NavigateTo("http://localhost/admin");
+
+        var cut = context.Render<NavMenu>();
+
+        Assert.DoesNotContain("href=\"//configuration\"", cut.Markup);
+        Assert.DoesNotContain("href=\"//people\"", cut.Markup);
+        Assert.DoesNotContain("Family settings", cut.Markup);
+        Assert.DoesNotContain("People", cut.Markup);
+        Assert.Contains("href=\"/admin\"", cut.Markup);
     }
 
     [Fact]
