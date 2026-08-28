@@ -215,7 +215,7 @@ public class TransactionService(
         string transactionId, string tenantId, string reason, string? requestId,
         CancellationToken cancellationToken = default)
     {
-        var original = await context.Transactions.AsNoTracking().FirstOrDefaultAsync(
+        var original = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
             x => x.Id == transactionId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
             ?? throw new KeyNotFoundException($"Transaction {transactionId} was not found in tenant {tenantId}.");
         if (await db.Transactions.AnyAsync(x => x.ReversesTransactionId == transactionId, cancellationToken))
