@@ -48,11 +48,11 @@ public class FamilySwitcherTests
             new TenantConfiguration { Id = "tenant-2", TenantName = "Beta", UrlSuffix = "beta" }
         ]);
         var navigation = context.Services.GetRequiredService<NavigationManager>();
-        navigation.NavigateTo("http://localhost/beta/children");
+        navigation.NavigateTo("http://localhost/beta/people");
 
         var cut = context.Render<FamilySwitcher>();
         cut.WaitForAssertion(() => Assert.Contains("Beta", cut.Markup));
-        Assert.Equal("http://localhost/beta/children", navigation.Uri);
+        Assert.Equal("http://localhost/beta/people", navigation.Uri);
     }
 
     private static BunitContext CreateContext(

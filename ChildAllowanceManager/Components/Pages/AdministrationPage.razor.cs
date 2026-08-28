@@ -19,7 +19,9 @@ public partial class AdministrationPage : CancellableComponentBase
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
     private TenantConfiguration[] Tenants { get; set; } = [];
-    private TenantConfiguration[]? DeletedTenants { get; set; }
+    private TenantConfiguration[] DeletedTenants { get; set; } = [];
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
     
     private string? TenantBeingEditedId = null;
 
@@ -66,6 +68,8 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task ReloadTenants()
     {
+        IsLoading = true;
+        LoadError = null;
         TenantConfiguration[]? loaded = null;
         TenantConfiguration[]? deleted = null;
         var outcome = await RunAsync(
@@ -75,10 +79,15 @@ public partial class AdministrationPage : CancellableComponentBase
                 deleted = (await TenantService.GetDeletedTenants(CancellationToken)).ToArray();
             });
         if (!outcome.Succeeded)
+        {
+            IsLoading = false;
+            LoadError = outcome.ErrorMessage;
             return;
+        }
 
         Tenants = loaded!;
         DeletedTenants = deleted!;
+        IsLoading = false;
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();

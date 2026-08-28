@@ -50,7 +50,7 @@ public partial class FamilySwitcher : CancellableComponentBase
         var segments = Navigation.ToBaseRelativePath(uri)
             .Trim('/')
             .Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var suffix = segments.Length == 2 && segments[1] is "children" or "configuration"
+        var suffix = segments.Length == 2 && segments[1] is "children" or "configuration" or "people"
             ? segments[0]
             : null;
         _activeTenant = _tenants.FirstOrDefault(x => x.UrlSuffix == suffix);
