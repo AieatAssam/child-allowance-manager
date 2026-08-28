@@ -206,6 +206,7 @@ internal sealed class RecordingUserService : IUserService
 {
     public List<User> Users { get; } = [];
     public int AddToTenantCalls { get; private set; }
+    public int TenantUserRoleReadCalls { get; private set; }
 
     public ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId, CancellationToken cancellationToken)
     {
@@ -236,8 +237,12 @@ internal sealed class RecordingUserService : IUserService
     public ValueTask<IEnumerable<User>> GetUsersAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult<IEnumerable<User>>(Users.ToArray());
 
-    public ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken) =>
-        ValueTask.FromResult<IEnumerable<User>>(Users.Where(x => x.Tenants.Contains(tenantId) && x.Roles.Contains(role)).ToArray());
+    public ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken)
+    {
+        TenantUserRoleReadCalls++;
+        return ValueTask.FromResult<IEnumerable<User>>(
+            Users.Where(x => x.Tenants.Contains(tenantId) && x.Roles.Contains(role)).ToArray());
+    }
 
     public ValueTask<bool> AddUserToTenantAsync(string email, string name, string tenantId, string role, CancellationToken cancellationToken)
     {

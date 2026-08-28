@@ -89,6 +89,26 @@ public class UiFlowTests
     }
 
     [Fact]
+    public async Task AdministrationDoesNotLoadParentsForHiddenOrReadOnlyEditors()
+    {
+        await using var context = BunitTestContext.Create();
+        var tenantService = new RecordingTenantService();
+        tenantService.Tenants.Add(new TenantConfiguration { Id = "tenant-1", TenantName = "Demo family", UrlSuffix = "demo" });
+        var users = new RecordingUserService();
+        context.Services.AddSingleton<ITenantService>(tenantService);
+        context.Services.AddSingleton<IUserService>(users);
+
+        var cut = context.Render<AdministrationPage>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Demo family", cut.Markup));
+        Assert.Equal(0, users.TenantUserRoleReadCalls);
+
+        cut.Find("button[aria-label='Add family']").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Add a family", cut.Markup));
+        Assert.True(users.TenantUserRoleReadCalls > 0);
+    }
+
+    [Fact]
     public async Task AdministrationShowsRetryStateWhenTenantLoadFails()
     {
         await using var context = BunitTestContext.Create();
