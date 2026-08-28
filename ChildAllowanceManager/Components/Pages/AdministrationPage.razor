@@ -19,7 +19,7 @@
             <MudToolBar>
                 <MudText Typo="Typo.subtitle1">Families</MudText>
                 <MudSpacer/>
-                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add family" Disabled="@IsBusy" OnClick="() => AddingTenant = true"/>
+                <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add family" Disabled="@IsBusy" OnClick="BeginAddingTenant"/>
             </MudToolBar>
 
             @if (IsLoading)
@@ -30,25 +30,28 @@
             {
                 <MudAlert Severity="Severity.Error">
                     Unable to load families. Try again.
-                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="ReloadTenants">Try again</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@IsBusy" OnClick="ReloadTenants">Try again</MudButton>
                 </MudAlert>
             }
             else if (Tenants!.Any() || AddingTenant)
             {
-                <MudCollapse Expanded="AddingTenant">
-                    <MudCard>
-                        <MudCardHeader>
-                        <MudText Typo="Typo.h5">Add a family</MudText>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <TenantConfigurationEditor @bind-Tenant="NewTenant"></TenantConfigurationEditor>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddTenant()">Save</MudButton>
-                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudCollapse>
+                @if (AddingTenant)
+                {
+                    <MudCollapse Expanded="true">
+                        <MudCard>
+                            <MudCardHeader>
+                            <MudText Typo="Typo.h5">Add a family</MudText>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <TenantConfigurationEditor @bind-Tenant="NewTenant"></TenantConfigurationEditor>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@IsBusy" OnClick="async () => await AddTenant()">Save</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="() => NewTenant = new TenantConfiguration()">Clear</MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudCollapse>
+                }
                 
                 <MudExpansionPanels MultiExpansion="true">
                     @for (int idx = 0; idx < Tenants.Length; idx++)
@@ -67,13 +70,13 @@
                                 <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                                aria-label="Copy the link to this family"
                                                OnClick="() => CopyFamilyLink(Tenants[idxLocal])" />
-                                <TenantConfigurationEditor @bind-Tenant="Tenants[idxLocal]" ReadOnly="@(TenantBeingEditedId != Tenants[idxLocal].Id)"></TenantConfigurationEditor>
+                                <TenantConfigurationEditor @key="Tenants[idxLocal].Id" @bind-Tenant="Tenants[idxLocal]" ReadOnly="@(TenantBeingEditedId != Tenants[idxLocal].Id)"></TenantConfigurationEditor>
 
                                 @if (TenantBeingEditedId != Tenants[idxLocal].Id)
                                 {
                                     <MudStack Row="true" Class="settings-actions" AlignItems="AlignItems.Center">
                                         <MudButton Variant="Variant.Text" Color="Color.Default"
-                                                   OnClick="() => TenantBeingEditedId = Tenants[idxLocal].Id">Edit</MudButton>
+                                                   OnClick="() => BeginEditingTenant(Tenants[idxLocal].Id)">Edit</MudButton>
                                         <MudSpacer />
                                         <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@IsBusy" OnClick="async () => await DeleteTenant(Tenants[idxLocal])">Delete</MudButton>
                                     </MudStack>
@@ -112,7 +115,7 @@
             {
                 <MudAlert Severity="Severity.Error">
                     Unable to load deleted families. Try again.
-                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="ReloadTenants">Try again</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@IsBusy" OnClick="ReloadTenants">Try again</MudButton>
                 </MudAlert>
             }
             else if (DeletedTenants!.Any())
