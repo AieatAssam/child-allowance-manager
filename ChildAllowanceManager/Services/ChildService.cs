@@ -10,7 +10,7 @@ namespace ChildAllowanceManager.Services;
 public class ChildService(
     AllowanceDbContext db,
     IGlobalNotificationService globalNotificationService,
-    ITransactionService transactionService,
+    TransactionService transactionService,
     ILogger<ChildService> logger) : IChildService
 {
     private readonly ChildConfigurationValidator validator = new();
@@ -158,16 +158,19 @@ public class ChildService(
     public async ValueTask<ChildConfiguration> AddChild(ChildConfiguration child, CancellationToken cancellationToken = default)
     {
         await ValidateAsync(child, cancellationToken);
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
         child.CreatedTimestamp = DateTimeOffset.UtcNow;
         child.UpdatedTimestamp = child.CreatedTimestamp;
         db.Children.Add(child);
+        await db.SaveChangesAsync(cancellationToken);
         await transactionService.AddTransaction(new AllowanceTransaction
         {
             ChildId = child.Id,
             TenantId = child.TenantId,
             TransactionType = TransactionType.Adjustment,
             Description = "Initial balance"
-        }, cancellationToken);
+        }, db, cancellationToken);
+        await dbTransaction.CommitAsync(cancellationToken);
         return child;
     }
 
@@ -215,7 +218,7 @@ public class ChildService(
             TransactionType = TransactionType.Hold,
             Description = string.IsNullOrWhiteSpace(description) ? string.Empty : $"{description} ({days} days)",
             RequestId = requestId
-        }, cancellationToken);
+        }, db, cancellationToken);
         await dbTransaction.CommitAsync(cancellationToken);
         globalNotificationService.OnChildStateChanged(child.Id, child.TenantId, description);
         return child;

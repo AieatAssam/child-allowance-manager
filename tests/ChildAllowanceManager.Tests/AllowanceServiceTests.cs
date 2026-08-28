@@ -14,10 +14,11 @@ public class AllowanceServiceTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
+        await using var transactionDb = PostgresTestDatabase.CreateContext();
         db.Tenants.Add(Tenant("tenant-1"));
         await db.SaveChangesAsync(cancellationToken);
         var notifications = new GlobalNotificationService();
-        var transactions = new TransactionService(db, notifications);
+        var transactions = new TransactionService(transactionDb, notifications);
         var children = new ChildService(db, notifications, transactions, NullLogger<ChildService>.Instance);
         var child = new ChildConfiguration
         {
