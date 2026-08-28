@@ -14,7 +14,7 @@
     </div>
 
 <MudTabs Class="settings-tabs">
-    <MudTabPanel Icon="@Icons.Material.Filled.People" Text="Tenants" BadgeData="Tenants?.Count()">
+    <MudTabPanel Icon="@Icons.Material.Filled.People" Text="Tenants" BadgeData="Tenants.Count()">
         <MudPaper Class="settings-card" Elevation="0">
             <MudToolBar>
                 <MudText Typo="Typo.subtitle1">Families</MudText>
@@ -22,11 +22,18 @@
                 <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add family" Disabled="@IsBusy" OnClick="() => AddingTenant = true"/>
             </MudToolBar>
 
-            @if (Tenants == null)
+            @if (IsLoading)
             {
                 <MudProgressCircular Color="Color.Default" Indeterminate="true"/>
             }
-            else if (Tenants.Any() || AddingTenant)
+            else if (LoadError is not null)
+            {
+                <MudAlert Severity="Severity.Error">
+                    Unable to load families. Try again.
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="ReloadTenants">Try again</MudButton>
+                </MudAlert>
+            }
+            else if (Tenants!.Any() || AddingTenant)
             {
                 <MudCollapse Expanded="AddingTenant">
                     <MudCard>
@@ -95,13 +102,20 @@
             }
         </MudPaper>
     </MudTabPanel>
-    <MudTabPanel Icon="@Icons.Material.Filled.Delete" Text="Deleted" BadgeData="DeletedTenants?.Count()">
+    <MudTabPanel Icon="@Icons.Material.Filled.Delete" Text="Deleted" BadgeData="DeletedTenants.Count()">
         <MudPaper Class="settings-card" Elevation="0">
-            @if (DeletedTenants is null)
+            @if (IsLoading)
             {
                 <MudProgressCircular Color="Color.Default" Indeterminate="true" />
             }
-            else if (DeletedTenants.Any())
+            else if (LoadError is not null)
+            {
+                <MudAlert Severity="Severity.Error">
+                    Unable to load deleted families. Try again.
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="ReloadTenants">Try again</MudButton>
+                </MudAlert>
+            }
+            else if (DeletedTenants!.Any())
             {
                 <MudTable Items="DeletedTenants" Hover="true" Dense="true">
                     <HeaderContent>
