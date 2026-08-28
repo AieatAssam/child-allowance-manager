@@ -5,28 +5,40 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChildAllowanceManager.Services;
 
-public class UserService(AllowanceDbContext db, IMembershipService membershipService) : IUserService
+public class UserService(AllowanceDbContext db, MembershipService membershipService) : IUserService
 {
     public async ValueTask<User> InitializeUserAsync(
-        string email, string name, string? tenantId, CancellationToken cancellationToken)
+        string email, string name, string? tenantId, CancellationToken cancellationToken) =>
+        await InitializeUserAsync(email, name, tenantId, db, cancellationToken);
+
+    internal async ValueTask<User> InitializeUserAsync(
+        string email, string name, string? tenantId, AllowanceDbContext context,
+        CancellationToken cancellationToken)
     {
-        var user = await GetUserByEmailAsync(email, cancellationToken) ?? new User { Email = email };
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await context.Users.AsNoTracking().FirstOrDefaultAsync(
+                       x => !x.Deleted && x.Email == normalizedEmail, cancellationToken)
+                   ?? new User { Email = normalizedEmail };
         user.Name = name;
         user.LastLoggedIn = DateTimeOffset.UtcNow;
-        if (await db.Users.CountAsync(x => !x.Deleted, cancellationToken) == 0)
+        if (await context.Users.CountAsync(x => !x.Deleted, cancellationToken) == 0)
             user.Roles = [ValidRoles.Admin];
         if (!string.IsNullOrEmpty(tenantId))
             user.Tenants = user.Tenants.Append(tenantId).Distinct().ToArray();
-        user = await UpsertUserAsync(user, cancellationToken);
+        user = await UpsertUserAsync(user, context, cancellationToken);
         if (!string.IsNullOrEmpty(tenantId))
-            await membershipService.GrantAsync(user.Id, tenantId, ValidRoles.Parent, cancellationToken);
+            await membershipService.GrantAsync(user.Id, tenantId, ValidRoles.Parent, context, cancellationToken);
         return user;
     }
 
-    public async ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken)
+    public async ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken) =>
+        await UpsertUserAsync(user, db, cancellationToken);
+
+    internal async ValueTask<User> UpsertUserAsync(
+        User user, AllowanceDbContext context, CancellationToken cancellationToken)
     {
         user.Email = user.Email.Trim().ToLowerInvariant();
-        var existing = await db.Users.FirstOrDefaultAsync(
+        var existing = await context.Users.FirstOrDefaultAsync(
             x => !x.Deleted && x.Email == user.Email, cancellationToken);
         if (existing is not null)
         {
@@ -41,9 +53,9 @@ public class UserService(AllowanceDbContext db, IMembershipService membershipSer
         {
             user.CreatedTimestamp = DateTimeOffset.UtcNow;
             user.UpdatedTimestamp = user.CreatedTimestamp;
-            db.Users.Add(user);
+            context.Users.Add(user);
         }
-        await db.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
         return user;
     }
 
@@ -80,7 +92,7 @@ public class UserService(AllowanceDbContext db, IMembershipService membershipSer
                    ?? await InitializeUserAsync(email, name, null, cancellationToken);
         user.Name = name;
         await UpsertUserAsync(user, cancellationToken);
-        await membershipService.GrantAsync(user.Id, tenantId, role, cancellationToken);
+        await membershipService.GrantAsync(user.Id, tenantId, role, db, cancellationToken);
         return true;
     }
 }
