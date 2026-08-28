@@ -8,12 +8,15 @@ namespace ChildAllowanceManager.Tests;
 internal sealed class RecordingTenantService : ITenantService
 {
     public List<TenantConfiguration> Tenants { get; } = [];
+    public Exception? ReadFailure { get; set; }
     public int AddCalls { get; private set; }
     public int UpdateCalls { get; private set; }
     public int DeleteCalls { get; private set; }
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray());
+        ReadFailure is null
+            ? ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray())
+            : ValueTask.FromException<IEnumerable<TenantConfiguration>>(ReadFailure);
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
         ClaimsPrincipal principal, CancellationToken cancellationToken = default) =>
@@ -47,7 +50,9 @@ internal sealed class RecordingTenantService : ITenantService
     }
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IEnumerable<TenantConfiguration>>([]);
+        ReadFailure is null
+            ? ValueTask.FromResult<IEnumerable<TenantConfiguration>>([])
+            : ValueTask.FromException<IEnumerable<TenantConfiguration>>(ReadFailure);
 
     public ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(false);
