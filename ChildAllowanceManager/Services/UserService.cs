@@ -8,8 +8,16 @@ namespace ChildAllowanceManager.Services;
 public class UserService(AllowanceDbContext db, MembershipService membershipService) : IUserService
 {
     public async ValueTask<User> InitializeUserAsync(
-        string email, string name, string? tenantId, CancellationToken cancellationToken) =>
-        await InitializeUserAsync(email, name, tenantId, db, cancellationToken);
+        string email, string name, string? tenantId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(tenantId))
+            return await InitializeUserAsync(email, name, tenantId, db, cancellationToken);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var user = await InitializeUserAsync(email, name, tenantId, db, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return user;
+    }
 
     internal async ValueTask<User> InitializeUserAsync(
         string email, string name, string? tenantId, AllowanceDbContext context,
@@ -88,11 +96,13 @@ public class UserService(AllowanceDbContext db, MembershipService membershipServ
     public async ValueTask<bool> AddUserToTenantAsync(
         string email, string name, string tenantId, string role, CancellationToken cancellationToken)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var user = await GetUserByEmailAsync(email, cancellationToken)
-                   ?? await InitializeUserAsync(email, name, null, cancellationToken);
+                   ?? await InitializeUserAsync(email, name, null, db, cancellationToken);
         user.Name = name;
-        await UpsertUserAsync(user, cancellationToken);
+        await UpsertUserAsync(user, db, cancellationToken);
         await membershipService.GrantAsync(user.Id, tenantId, role, db, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 }
