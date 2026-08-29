@@ -20,6 +20,7 @@ public class MigrationTests
         Assert.Empty(await db.Transactions.ToListAsync(cancellationToken));
         Assert.Empty(await db.Tenants.ToListAsync(cancellationToken));
         Assert.Empty(await db.Users.ToListAsync(cancellationToken));
+        Assert.Empty(await db.DataProtectionKeys.ToListAsync(cancellationToken));
     }
 
     [Fact]
