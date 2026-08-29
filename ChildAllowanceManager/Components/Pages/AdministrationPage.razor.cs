@@ -36,18 +36,6 @@ public partial class AdministrationPage : CancellableComponentBase
         TenantBeingEditedId = tenantId;
     }
 
-    private void BeginAddingTenant()
-    {
-        TenantBeingEditedId = null;
-        AddingTenant = true;
-    }
-
-    private void BeginEditingTenant(string tenantId)
-    {
-        AddingTenant = false;
-        TenantBeingEditedId = tenantId;
-    }
-
     protected override async Task OnInitializedAsync()
     {
         await ReloadTenants();
