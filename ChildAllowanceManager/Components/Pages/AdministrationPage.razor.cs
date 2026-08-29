@@ -24,6 +24,17 @@ public partial class AdministrationPage : CancellableComponentBase
     private string? LoadError { get; set; }
     
     private string? TenantBeingEditedId = null;
+    private void BeginAddingTenant()
+    {
+        TenantBeingEditedId = null;
+        AddingTenant = true;
+    }
+
+    private void BeginEditingTenant(string tenantId)
+    {
+        AddingTenant = false;
+        TenantBeingEditedId = tenantId;
+    }
 
     private void BeginAddingTenant()
     {

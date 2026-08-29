@@ -39,8 +39,8 @@ public class UserService(AllowanceDbContext db, MembershipService membershipServ
         return user;
     }
 
-    public async ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken)
-        => await UpsertUserAsync(user, db, cancellationToken);
+    public async ValueTask<User> UpsertUserAsync(User user, CancellationToken cancellationToken) =>
+        await UpsertUserAsync(user, db, cancellationToken);
 
     internal async ValueTask<User> UpsertUserAsync(
         User user, AllowanceDbContext context, CancellationToken cancellationToken)
