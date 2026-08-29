@@ -1,11 +1,13 @@
 using ChildAllowanceManager.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 
 namespace ChildAllowanceManager.Data;
 
-public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> options) : DbContext(options)
+public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> options) : DbContext(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
     public DbSet<ChildConfiguration> Children => Set<ChildConfiguration>();
     public DbSet<AllowanceTransaction> Transactions => Set<AllowanceTransaction>();
     public DbSet<TenantConfiguration> Tenants => Set<TenantConfiguration>();
@@ -46,6 +48,7 @@ public sealed class AllowanceDbContext(DbContextOptions<AllowanceDbContext> opti
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<DataProtectionKey>();
         ConfigureItem(modelBuilder.Entity<ChildConfiguration>());
         ConfigureItem(modelBuilder.Entity<AllowanceTransaction>());
         ConfigureItem(modelBuilder.Entity<TenantConfiguration>());

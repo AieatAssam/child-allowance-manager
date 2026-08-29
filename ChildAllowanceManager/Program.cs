@@ -15,6 +15,7 @@ using ChildAllowanceManager.Workers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -62,6 +63,8 @@ if (!StartupPolicy.IsConfigured(postgresConnection))
 }
 builder.Services.AddDbContext<AllowanceDbContext>(options =>
     options.UseNpgsql(postgresConnection), ServiceLifetime.Transient);
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<AllowanceDbContext>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AllowanceDbContext>(tags: ["ready"])
     .AddCheck<MigrationHealthCheck>("migrations", tags: ["ready"]);
