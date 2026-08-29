@@ -8,12 +8,15 @@ namespace ChildAllowanceManager.Tests;
 internal sealed class RecordingTenantService : ITenantService
 {
     public List<TenantConfiguration> Tenants { get; } = [];
+    public Exception? ReadFailure { get; set; }
     public int AddCalls { get; private set; }
     public int UpdateCalls { get; private set; }
     public int DeleteCalls { get; private set; }
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetTenants(CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray());
+        ReadFailure is null
+            ? ValueTask.FromResult<IEnumerable<TenantConfiguration>>(Tenants.ToArray())
+            : ValueTask.FromException<IEnumerable<TenantConfiguration>>(ReadFailure);
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetTenantsForUser(
         ClaimsPrincipal principal, CancellationToken cancellationToken = default) =>
@@ -47,7 +50,9 @@ internal sealed class RecordingTenantService : ITenantService
     }
 
     public ValueTask<IEnumerable<TenantConfiguration>> GetDeletedTenants(CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IEnumerable<TenantConfiguration>>([]);
+        ReadFailure is null
+            ? ValueTask.FromResult<IEnumerable<TenantConfiguration>>([])
+            : ValueTask.FromException<IEnumerable<TenantConfiguration>>(ReadFailure);
 
     public ValueTask<bool> RestoreTenant(string id, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(false);
@@ -201,6 +206,7 @@ internal sealed class RecordingUserService : IUserService
 {
     public List<User> Users { get; } = [];
     public int AddToTenantCalls { get; private set; }
+    public int TenantUserRoleReadCalls { get; private set; }
 
     public ValueTask<User> InitializeUserAsync(string email, string name, string? tenantId, CancellationToken cancellationToken)
     {
@@ -231,8 +237,12 @@ internal sealed class RecordingUserService : IUserService
     public ValueTask<IEnumerable<User>> GetUsersAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult<IEnumerable<User>>(Users.ToArray());
 
-    public ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken) =>
-        ValueTask.FromResult<IEnumerable<User>>(Users.Where(x => x.Tenants.Contains(tenantId) && x.Roles.Contains(role)).ToArray());
+    public ValueTask<IEnumerable<User>> GetTenantUsersInRole(string tenantId, string role, CancellationToken cancellationToken)
+    {
+        TenantUserRoleReadCalls++;
+        return ValueTask.FromResult<IEnumerable<User>>(
+            Users.Where(x => x.Tenants.Contains(tenantId) && x.Roles.Contains(role)).ToArray());
+    }
 
     public ValueTask<bool> AddUserToTenantAsync(string email, string name, string tenantId, string role, CancellationToken cancellationToken)
     {

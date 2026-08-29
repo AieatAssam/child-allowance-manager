@@ -3,14 +3,13 @@
     @if (!string.IsNullOrEmpty(TenantSuffix))
     {
         <MudNavLink Href="@($"/{TenantSuffix}/children")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ChildCare">Children</MudNavLink>
+        <AuthorizeView Roles="parent,admin">
+            <Authorized>
+                <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ManageAccounts">Family settings</MudNavLink>
+                <MudNavLink Href="@($"/{TenantSuffix}/people")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Group">People</MudNavLink>
+            </Authorized>
+        </AuthorizeView>
     }
-    
-    <AuthorizeView Roles="parent">
-        <Authorized >
-            <MudNavLink Href="@($"/{TenantSuffix}/configuration")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ManageAccounts">Family settings</MudNavLink>
-            <MudNavLink Href="@($"/{TenantSuffix}/people")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Group">People</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
     
     <AuthorizeView Roles="admin">
         <Authorized >

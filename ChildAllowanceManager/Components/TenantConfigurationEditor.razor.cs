@@ -33,6 +33,7 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
     
     private MudForm? _form;
     private List<User> _parents = new();
+    private readonly SemaphoreSlim _parentsGate = new(1, 1);
     
     private async Task OnTenantChanged()
     {
@@ -55,23 +56,58 @@ public partial class TenantConfigurationEditor : CancellableComponentBase
     {
         if (Tenant is null)
             return;
-        var parents = await UserService.GetTenantUsersInRole(Tenant.Id, ValidRoles.Parent, CancellationToken.None);
-        _parents = parents.ToList();
-        StateHasChanged();
+
+        await _parentsGate.WaitAsync(CancellationToken);
+        try
+        {
+            var tenantId = Tenant.Id;
+            List<User>? parents = null;
+            var outcome = await Operations.RunAsync(
+                async () =>
+                {
+                    parents = (await UserService.GetTenantUsersInRole(
+                        tenantId, ValidRoles.Parent, CancellationToken)).ToList();
+                },
+                cancellationToken: CancellationToken);
+            if (outcome.Succeeded && Tenant?.Id == tenantId)
+            {
+                _parents = parents!;
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            _parentsGate.Release();
+        }
     }
 
     private async Task RemoveParentAsync(MudChip<string> chip)
     {
-        var parent = _parents.FirstOrDefault(p => p.Id == chip.Value);
-        if (parent is not null)
+        await _parentsGate.WaitAsync(CancellationToken);
+        try
         {
-            _parents.Remove(parent);
+            var parent = _parents.FirstOrDefault(p => p.Id == chip.Value);
+            if (parent is null)
+                return;
+
             parent.Tenants = parent.Tenants.Where(id => id != Tenant.Id).ToArray();
             if (parent.Tenants.Length == 0)
                 parent.Roles = parent.Roles.Where(r => r != ValidRoles.Parent).ToArray();
-            await UserService.UpsertUserAsync(parent, CancellationToken.None);
-            await ReloadParentsAsync();
+            var outcome = await Operations.RunAsync(
+                async () =>
+                {
+                    await UserService.UpsertUserAsync(parent, CancellationToken);
+                },
+                cancellationToken: CancellationToken);
+            if (outcome.Succeeded)
+                _parents.Remove(parent);
         }
+        finally
+        {
+            _parentsGate.Release();
+        }
+
+        await ReloadParentsAsync();
     }
     
     private async Task AddParentDialog()

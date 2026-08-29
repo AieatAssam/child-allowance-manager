@@ -19,9 +19,23 @@ public partial class AdministrationPage : CancellableComponentBase
     private TenantConfiguration NewTenant { get; set; } = new();
     private bool AddingTenant { get; set; } = false;
     private TenantConfiguration[] Tenants { get; set; } = [];
-    private TenantConfiguration[]? DeletedTenants { get; set; }
+    private TenantConfiguration[] DeletedTenants { get; set; } = [];
+    private bool IsLoading { get; set; } = true;
+    private string? LoadError { get; set; }
     
     private string? TenantBeingEditedId = null;
+
+    private void BeginAddingTenant()
+    {
+        TenantBeingEditedId = null;
+        AddingTenant = true;
+    }
+
+    private void BeginEditingTenant(string tenantId)
+    {
+        AddingTenant = false;
+        TenantBeingEditedId = tenantId;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,6 +80,8 @@ public partial class AdministrationPage : CancellableComponentBase
 
     private async Task ReloadTenants()
     {
+        IsLoading = true;
+        LoadError = null;
         TenantConfiguration[]? loaded = null;
         TenantConfiguration[]? deleted = null;
         var outcome = await RunAsync(
@@ -75,10 +91,15 @@ public partial class AdministrationPage : CancellableComponentBase
                 deleted = (await TenantService.GetDeletedTenants(CancellationToken)).ToArray();
             });
         if (!outcome.Succeeded)
+        {
+            IsLoading = false;
+            LoadError = outcome.ErrorMessage;
             return;
+        }
 
         Tenants = loaded!;
         DeletedTenants = deleted!;
+        IsLoading = false;
         TenantBeingEditedId = null;
         AddingTenant = false;
         NewTenant = new TenantConfiguration();

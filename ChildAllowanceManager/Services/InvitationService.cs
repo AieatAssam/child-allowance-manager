@@ -8,8 +8,8 @@ namespace ChildAllowanceManager.Services;
 
 public class InvitationService(
     AllowanceDbContext db,
-    IUserService userService,
-    IMembershipService membershipService) : IInvitationService
+    UserService userService,
+    MembershipService membershipService) : IInvitationService
 {
     public const int InvitationDaysValid = 14;
 
@@ -80,10 +80,10 @@ public class InvitationService(
             return 0;
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var user = await userService.InitializeUserAsync(email, name, null, ct);
+        var user = await userService.InitializeUserAsync(email, name, null, db, ct);
         foreach (var invitation in invitations)
         {
-            await membershipService.GrantAsync(user.Id, invitation.TenantId, invitation.Role, ct);
+            await membershipService.GrantAsync(user.Id, invitation.TenantId, invitation.Role, db, ct);
             invitation.AcceptedAt = now;
             invitation.UpdatedTimestamp = now;
         }

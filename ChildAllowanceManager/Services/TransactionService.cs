@@ -16,8 +16,12 @@ public class TransactionService(
     ICurrentContextService? currentContextService = null) : ITransactionService
 {
     private IQueryable<AllowanceTransaction> ForChild(string childId, string tenantId, bool ignoreDailyAllowance = false)
+        => ForChild(db, childId, tenantId, ignoreDailyAllowance);
+
+    private static IQueryable<AllowanceTransaction> ForChild(
+        AllowanceDbContext context, string childId, string tenantId, bool ignoreDailyAllowance = false)
     {
-        var query = db.Transactions.AsNoTracking()
+        var query = context.Transactions.AsNoTracking()
             .Where(x => x.TenantId == tenantId && x.ChildId == childId && !x.Deleted);
         return ignoreDailyAllowance
             ? query.Where(x => x.TransactionType != TransactionType.DailyAllowance)
@@ -125,7 +129,12 @@ public class TransactionService(
             .FirstOrDefaultAsync(cancellationToken) ?? 0m;
 
     public async ValueTask<AllowanceTransaction> AddTransaction(
-        AllowanceTransaction transaction, CancellationToken cancellationToken = default)
+        AllowanceTransaction transaction, CancellationToken cancellationToken = default) =>
+        await AddTransaction(transaction, db, cancellationToken);
+
+    internal async ValueTask<AllowanceTransaction> AddTransaction(
+        AllowanceTransaction transaction, AllowanceDbContext context,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(transaction.ChildId) || string.IsNullOrWhiteSpace(transaction.TenantId))
             throw new ValidationException("A transaction must have a child and tenant.");
@@ -135,27 +144,27 @@ public class TransactionService(
 
         if (!string.IsNullOrWhiteSpace(transaction.RequestId))
         {
-            var duplicate = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+            var duplicate = await context.Transactions.AsNoTracking().FirstOrDefaultAsync(
                 x => x.TenantId == transaction.TenantId && x.RequestId == transaction.RequestId,
                 cancellationToken);
             if (duplicate is not null)
                 return duplicate;
         }
 
-        var childExists = await db.Children.AnyAsync(
+        var childExists = await context.Children.AnyAsync(
             x => x.Id == transaction.ChildId && x.TenantId == transaction.TenantId && !x.Deleted,
-            cancellationToken) || db.Children.Local.Any(
+            cancellationToken) || context.Children.Local.Any(
                 x => x.Id == transaction.ChildId && x.TenantId == transaction.TenantId && !x.Deleted);
         if (!childExists)
             throw new KeyNotFoundException($"Child {transaction.ChildId} was not found in tenant {transaction.TenantId}.");
 
-        var ownsTransaction = db.Database.CurrentTransaction is null;
+        var ownsTransaction = context.Database.CurrentTransaction is null;
         await using var dbTransaction = ownsTransaction
-            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            ? await context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             : null;
         if (transaction.AllowanceDate is not null)
         {
-            var existing = await ForChild(transaction.ChildId, transaction.TenantId)
+            var existing = await ForChild(context, transaction.ChildId, transaction.TenantId)
                 .Where(x => x.AllowanceDate == transaction.AllowanceDate)
                 .FirstOrDefaultAsync(cancellationToken);
             if (existing is not null)
@@ -167,20 +176,22 @@ public class TransactionService(
         transaction.TransactionTimestamp = DateTimeOffset.UtcNow;
         transaction.CreatedTimestamp = transaction.TransactionTimestamp;
         transaction.UpdatedTimestamp = transaction.TransactionTimestamp;
-        transaction.Balance = await GetBalanceForChild(transaction.ChildId, transaction.TenantId, cancellationToken)
-            + transaction.TransactionAmount;
+        transaction.Balance = (await ForChild(context, transaction.ChildId, transaction.TenantId)
+            .OrderByDescending(x => x.TransactionTimestamp).ThenByDescending(x => x.Id)
+            .Select(x => (decimal?)x.Balance)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0m) + transaction.TransactionAmount;
 
-        db.Transactions.Add(transaction);
+        context.Transactions.Add(transaction);
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException ex) when (IsRequestIdConflict(ex, transaction.RequestId))
         {
             if (ownsTransaction && dbTransaction is not null)
                 await dbTransaction.RollbackAsync(cancellationToken);
 
-            var duplicate = await db.Transactions.AsNoTracking().FirstOrDefaultAsync(
+            var duplicate = await context.Transactions.AsNoTracking().FirstOrDefaultAsync(
                 x => x.TenantId == transaction.TenantId && x.RequestId == transaction.RequestId,
                 cancellationToken);
             if (duplicate is not null)

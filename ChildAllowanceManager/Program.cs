@@ -193,14 +193,19 @@ builder.Services.AddResponseCompression(opts =>
 
 builder.Services.AddCascadingAuthenticationState();
 
-builder.Services.AddScoped<IChildService, ChildService>();
+// Data services own transient DbContexts; keep the service lifetime transient so
+// concurrent Blazor components do not share one context instance.
+builder.Services.AddTransient<IChildService, ChildService>();
 builder.Services.AddTransient<ITenantService, TenantService>();
-builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddTransient<TransactionService>();
+builder.Services.AddTransient<ITransactionService>(sp => sp.GetRequiredService<TransactionService>());
+builder.Services.AddTransient<UserService>();
+builder.Services.AddTransient<IUserService>(sp => sp.GetRequiredService<UserService>());
+builder.Services.AddTransient<MembershipService>();
+builder.Services.AddTransient<IMembershipService>(sp => sp.GetRequiredService<MembershipService>());
 builder.Services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
-builder.Services.AddScoped<IInvitationService, InvitationService>();
-builder.Services.AddScoped<IShareLinkService, ShareLinkService>();
+builder.Services.AddTransient<IInvitationService, InvitationService>();
+builder.Services.AddTransient<IShareLinkService, ShareLinkService>();
 builder.Services.AddScoped<IClaimsTransformation, ClaimEnrichmentTransformer>();
 builder.Services.AddScoped<ICurrentContextService, CurrentContextService>();
 builder.Services.AddScoped<ITenantNotificationService, TenantNotificationService>();

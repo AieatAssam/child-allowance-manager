@@ -32,16 +32,21 @@ public class MembershipService(AllowanceDbContext db) : IMembershipService
             .ToListAsync(ct);
 
     public async ValueTask<TenantMembership> GrantAsync(
-        string userId, string tenantId, string role, CancellationToken ct = default)
+        string userId, string tenantId, string role, CancellationToken ct = default) =>
+        await GrantAsync(userId, tenantId, role, db, ct);
+
+    internal async ValueTask<TenantMembership> GrantAsync(
+        string userId, string tenantId, string role, AllowanceDbContext context,
+        CancellationToken ct = default)
     {
-        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.Deleted, ct)
+        var user = await context.Users.FirstOrDefaultAsync(x => x.Id == userId && !x.Deleted, ct)
             ?? throw new InvalidOperationException("User not found.");
-        var membership = await db.TenantMemberships.FirstOrDefaultAsync(
+        var membership = await context.TenantMemberships.FirstOrDefaultAsync(
             x => x.UserId == userId && x.TenantId == tenantId, ct);
         if (membership is null)
         {
             membership = new TenantMembership { UserId = userId, TenantId = tenantId, Role = role };
-            db.TenantMemberships.Add(membership);
+            context.TenantMemberships.Add(membership);
         }
         else
         {
@@ -56,7 +61,7 @@ public class MembershipService(AllowanceDbContext db) : IMembershipService
             user.UpdatedTimestamp = DateTimeOffset.UtcNow;
         }
 
-        await db.SaveChangesAsync(ct);
+        await context.SaveChangesAsync(ct);
         return membership;
     }
 
