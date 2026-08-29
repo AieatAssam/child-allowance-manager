@@ -243,7 +243,7 @@ public class ChildService(
             TransactionType = TransactionType.Hold,
             Description = "Hold reduced by 1 day",
             RequestId = requestId
-        }, cancellationToken);
+        }, db, cancellationToken);
         await dbTransaction.CommitAsync(cancellationToken);
         globalNotificationService.OnChildStateChanged(child.Id, child.TenantId, "Hold reduced by 1 day");
         return child;

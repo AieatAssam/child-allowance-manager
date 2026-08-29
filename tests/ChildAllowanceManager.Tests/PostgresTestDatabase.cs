@@ -32,13 +32,7 @@ public static class PostgresTestDatabase
 
     public static async Task<AllowanceDbContext> CreateMigratedContextAsync(CancellationToken cancellationToken)
     {
-        var connection = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
-                        ?? throw new InvalidOperationException(
-                             "ConnectionStrings__Postgres must point at the Docker PostgreSQL test database. Run: CAM_TEST_DB=<name> CAM_TEST_KEEP=1 bash scripts/test-postgres.sh");
-        var options = new DbContextOptionsBuilder<AllowanceDbContext>()
-            .UseNpgsql(connection)
-            .Options;
-        var db = new AllowanceDbContext(options);
+        var db = CreateContext();
         await db.Database.EnsureDeletedAsync(cancellationToken);
         await db.Database.MigrateAsync(cancellationToken);
         return db;
