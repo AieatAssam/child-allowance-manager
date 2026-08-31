@@ -8,9 +8,7 @@
 <div class="page-shell settings-view">
     <div class="page-heading">
         <div class="page-heading-copy">
-            <MudText Typo="Typo.overline" Class="page-kicker">Family access</MudText>
             <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">People</MudText>
-            <MudText Color="Color.Secondary">Who can see and manage this family.</MudText>
         </div>
         <div class="page-heading-actions">
             <MudButton Color="Color.Primary" Variant="Variant.Outlined" Disabled="@IsBusy" OnClick="CreateShareLink">
@@ -22,11 +20,27 @@
         </div>
     </div>
 
+    @if (LoadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+            We couldn’t load family access. Check your connection and try again.
+            <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@IsBusy"
+                       OnClick="ReloadAsync">Try again</MudButton>
+        </MudAlert>
+    }
+
     <MudPaper Class="settings-card" Elevation="0">
-        <MudText Typo="Typo.h5">Current members</MudText>
+        <MudText Typo="Typo.h5" HtmlTag="h2">Current members</MudText>
         @if (Members is null)
         {
-            <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+            @if (LoadError is null)
+            {
+                <div class="skeleton-stack" role="status" aria-label="Loading members">
+                    <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-short"></span>
+                </div>
+            }
         }
         else if (Members.Length == 0)
         {
@@ -57,10 +71,16 @@
     </MudPaper>
 
     <MudPaper Class="settings-card mt-4" Elevation="0">
-        <MudText Typo="Typo.h5">Pending invitations</MudText>
+        <MudText Typo="Typo.h5" HtmlTag="h2">Pending invitations</MudText>
         @if (Invitations is null)
         {
-            <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+            @if (LoadError is null)
+            {
+                <div class="skeleton-stack" role="status" aria-label="Loading invitations">
+                    <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+                </div>
+            }
         }
         else if (Invitations.Length == 0)
         {
@@ -91,7 +111,7 @@
     </MudPaper>
 
 <MudPaper Class="settings-card mt-4" Elevation="0">
-    <MudText Typo="Typo.h5">Display links</MudText>
+    <MudText Typo="Typo.h5" HtmlTag="h2">Display links</MudText>
     <MudText Typo="Typo.body2" Color="Color.Secondary">
         Links that show this family's balances and history on a screen, with no sign-in.
         They cannot change anything. Turn one off and it stops working — right away
@@ -99,7 +119,13 @@
     </MudText>
     @if (ShareLinks is null)
     {
-        <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+        @if (LoadError is null)
+        {
+            <div class="skeleton-stack" role="status" aria-label="Loading display links">
+                <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+            </div>
+        }
     }
     else if (ShareLinks.Length == 0)
     {

@@ -314,7 +314,7 @@ app.Map("/login", signinApp =>
             var principal = new ClaimsPrincipal(new ClaimsIdentity(
                 claims, CookieAuthenticationDefaults.AuthenticationScheme));
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-            context.Response.Redirect($"/{DevelopmentDataSeeder.TenantSuffix}/children");
+            context.Response.Redirect("/");
             return;
         }
 

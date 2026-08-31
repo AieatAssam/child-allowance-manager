@@ -6,12 +6,11 @@
 
 <PageTitle>Allowance dashboard</PageTitle>
 
-<div class="@($"dashboard-view {(_shareMode ? "share-display" : string.Empty)}")">
+<div class="@($"dashboard-view {(_shareMode ? "share-display" : string.Empty)}")" aria-busy="@(Children is null)">
     <MudContainer MaxWidth="MaxWidth.Large" Class="page-shell">
         <div class="page-heading">
             <div class="page-heading-copy">
                 <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Balances</MudText>
-                <MudText Color="Color.Secondary">What each child has, and what is coming next.</MudText>
             </div>
             @if (Children?.FirstOrDefault() is { } firstChild)
             {
@@ -22,7 +21,40 @@
         </div>
 
         <MudGrid Spacing="3">
-        @foreach (var child in Children ?? Array.Empty<ChildWithBalance>())
+        @if (Children is null && _loadError is not null)
+        {
+            <MudItem xs="12">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+                    We couldn’t load the balances. Check your connection and try again.
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@IsBusy"
+                               OnClick="ReloadChildren">Try again</MudButton>
+                </MudAlert>
+            </MudItem>
+        }
+        else if (Children is null)
+        {
+            @for (var index = 0; index < 3; index++)
+            {
+                <MudItem xs="12" sm="6" lg="4">
+                    <div class="skeleton-card" role="status" aria-label="Loading balance">
+                        <span class="skeleton-block skeleton-avatar"></span>
+                        <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                        <span class="skeleton-block skeleton-balance"></span>
+                        <span class="skeleton-block skeleton-line skeleton-line-short"></span>
+                        <span class="skeleton-block skeleton-detail"></span>
+                    </div>
+                </MudItem>
+            }
+            <MudItem xs="12">
+                <div class="skeleton-chart" aria-hidden="true">
+                    <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                    <span class="skeleton-block skeleton-chart-area"></span>
+                </div>
+            </MudItem>
+        }
+        else
+        {
+        @foreach (var child in Children!)
         {
             <MudItem xs="12" sm="6" lg="4">
                 <MudCard Class="@($"child-card {(child.IsBirthday ? "child-birthday " : string.Empty)}child-accent-{GetChildAccentIndex(child.Id)}")" Elevation="0" Outlined="true">
@@ -41,8 +73,8 @@
                         </div>
                     </MudCardHeader>
                     <MudCardContent>
-                        <MudText Typo="Typo.h3"
-                                 Class="@($"balance-value {(child.Balance < 0 ? "balance-negative" : "balance-positive")}")"
+                            <MudText Typo="Typo.h3"
+                                 Class="@($"balance-value {(child.Balance < 0 ? "balance-negative" : child.Balance > 0 ? "balance-positive" : "balance-neutral")}")"
                                  data-balance-value="@child.Balance.ToString(CultureInfo.InvariantCulture)"
                                  data-balance-motion-direction="@GetBalanceMotionDirection(child.Id)"
                                  data-balance-motion-version="@GetBalanceMotionVersion(child.Id)">
@@ -52,7 +84,7 @@
 
                         @if (child.HoldDaysRemaining > 0)
                         {
-                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="allowance-paused">
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="allowance-paused">
                                 Allowance is paused for @GetHoldDaysLabel(child.HoldDaysRemaining).
                                 @if (CanManageCurrentTenant)
                                 {
@@ -64,7 +96,7 @@
                         }
 
                         <div class="next-allowance">
-                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Success" aria-hidden="true" />
+                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Primary" aria-hidden="true" />
                             <div>
                                 <MudText Typo="Typo.body2">Next allowance</MudText>
                                 <MudText Typo="Typo.body2">
@@ -106,10 +138,7 @@
             <MudPaper Class="chart-card" Elevation="0">
                 <div class="chart-heading">
                     <div>
-                        <MudText Typo="Typo.subtitle1">Balance over time</MudText>
-                        <MudText Typo="Typo.body2" Class="chart-support">
-                            Balance for each child over recent days.
-                        </MudText>
+                        <MudText Typo="Typo.subtitle1" HtmlTag="h2">Balance over time</MudText>
                     </div>
                     @if (_balanceChartSeries.Count > 0)
                     {
@@ -124,7 +153,13 @@
                         </div>
                     }
                 </div>
-                @if (HasBalanceHistory)
+                @if (_balanceHistoryLoading)
+                {
+                    <div class="skeleton-chart chart-loading" role="status" aria-label="Loading balance history">
+                        <span class="skeleton-block skeleton-chart-area"></span>
+                    </div>
+                }
+                else if (HasBalanceHistory)
                 {
                     <div class="chart-note" id="balance-chart-description">
                         <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Small" aria-hidden="true" />
@@ -157,6 +192,7 @@
                 </MudExpansionPanels>
             </MudPaper>
         </MudItem>
+        }
         </MudGrid>
     </MudContainer>
 </div>

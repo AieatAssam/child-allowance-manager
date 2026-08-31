@@ -1,11 +1,10 @@
 <AppDialog Title="@($"{Child.Name}’s activity")"
-           Subtitle="@($"Current balance: {Child.Balance:C2}")"
            PrimaryActionText="Done"
            OnPrimary="() => MudDialog.Close()">
     <ChildContent>
         <div class="transactions-dialog-shell">
             <div class="transactions-toolbar">
-                <MudText Typo="Typo.subtitle2" Class="transactions-toolbar-label">Activity</MudText>
+                <MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="transactions-toolbar-label">Activity</MudText>
                 <MudCheckBox T="bool"
                              @bind-Value="_hideRegularTransactions"
                              Color="Color.Primary"

@@ -65,10 +65,17 @@ public partial class MainLayout : IAsyncDisposable
         {
             // system light/dark theme support,
             // based on example from https://crispycode.net/exploring-the-mudthemeprovider-in-mudblazor/
-            _useDarkMode = await _themeProvider.GetSystemDarkModeAsync();
-            _themeConfiguration.IsDarkMode = _useDarkMode;
-            await _themeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
-            StateHasChanged();
+            try
+            {
+                _useDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+                _themeConfiguration.IsDarkMode = _useDarkMode;
+                await _themeProvider.WatchSystemDarkModeAsync(OnSystemPreferenceChanged);
+                StateHasChanged();
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                Logger.LogDebug(ex, "System theme detection is unavailable; using the default theme.");
+            }
         }
     }
     
