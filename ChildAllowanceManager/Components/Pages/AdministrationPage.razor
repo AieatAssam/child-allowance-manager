@@ -9,7 +9,6 @@
     <div class="page-heading">
         <div class="page-heading-copy">
             <MudText Typo="Typo.h3" HtmlTag="h1" Class="page-title">Administration</MudText>
-            <MudText Color="Color.Secondary">Create, rename and remove families.</MudText>
         </div>
     </div>
 
@@ -17,14 +16,18 @@
     <MudTabPanel Icon="@Icons.Material.Filled.People" Text="Tenants" BadgeData="Tenants.Count()">
         <MudPaper Class="settings-card" Elevation="0">
             <MudToolBar>
-                <MudText Typo="Typo.subtitle1">Families</MudText>
+                <MudText Typo="Typo.subtitle1" HtmlTag="h2">Families</MudText>
                 <MudSpacer/>
                 <MudIconButton Icon="@Icons.Material.Outlined.Add" aria-label="Add family" Disabled="@IsBusy" OnClick="BeginAddingTenant"/>
             </MudToolBar>
 
             @if (IsLoading)
             {
-                <MudProgressCircular Color="Color.Default" Indeterminate="true"/>
+                <div class="skeleton-stack" role="status" aria-label="Loading families">
+                    <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-short"></span>
+                </div>
             }
             else if (LoadError is not null)
             {
@@ -109,7 +112,10 @@
         <MudPaper Class="settings-card" Elevation="0">
             @if (IsLoading)
             {
-                <MudProgressCircular Color="Color.Default" Indeterminate="true" />
+                <div class="skeleton-stack" role="status" aria-label="Loading deleted families">
+                    <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+                    <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+                </div>
             }
             else if (LoadError is not null)
             {

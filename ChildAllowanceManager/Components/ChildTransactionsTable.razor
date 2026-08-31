@@ -8,7 +8,7 @@
           RowsPerPage="25" 
           Hover="true" 
           Breakpoint="Breakpoint.Sm" 
-          LoadingProgressColor="Color.Info"
+          LoadingProgressColor="Color.Primary"
           Striped="true"
           ServerData="RetrievePage"
 >
@@ -52,7 +52,11 @@
         <MudText>No matching records found</MudText>
     </NoRecordsContent>
     <LoadingContent>
-        <MudText>Loading...</MudText>
+        <div class="skeleton-stack" role="status" aria-label="Loading transactions">
+            <span class="skeleton-block skeleton-line skeleton-line-wide"></span>
+            <span class="skeleton-block skeleton-line skeleton-line-medium"></span>
+            <span class="skeleton-block skeleton-line skeleton-line-short"></span>
+        </div>
     </LoadingContent>
     <PagerContent>
         <MudTablePager Class="pa-4"/>

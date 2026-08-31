@@ -33,6 +33,7 @@ public partial class ChildManagementPage : CancellableComponentBase
     
     private ChildConfiguration[]? Children { get; set; } = null;
     private ChildConfiguration[]? DeletedChildren { get; set; }
+    private string? LoadError { get; set; }
 
     private ChildConfiguration NewChild { get; set; } = new ChildConfiguration();
     private bool AddingChild = false;
@@ -128,6 +129,7 @@ public partial class ChildManagementPage : CancellableComponentBase
         {
             return;
         }
+        LoadError = null;
         ChildConfiguration[]? loaded = null;
         ChildConfiguration[]? deleted = null;
         var outcome = await RunAsync(
@@ -137,7 +139,11 @@ public partial class ChildManagementPage : CancellableComponentBase
                 deleted = (await ChildService.GetDeletedChildren(_tenantId, CancellationToken)).ToArray();
             });
         if (!outcome.Succeeded)
+        {
+            LoadError = outcome.ErrorMessage ?? "Unable to load children.";
+            StateHasChanged();
             return;
+        }
 
         Children = loaded!;
         DeletedChildren = deleted!;

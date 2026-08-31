@@ -1,10 +1,23 @@
 @page "/"
 <PageTitle>Child Allowance Manager</PageTitle>
 
-<main class="home-state" aria-busy="@(!_initialised)">
-    @if (!_initialised)
+<main class="home-state" aria-busy="@(!_initialised && _loadError is null)">
+    @if (!_initialised && _loadError is null)
     {
-        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" aria-label="Loading" />
+        <div class="skeleton-home" role="status" aria-label="Loading family information">
+            <span class="skeleton-block skeleton-home-title"></span>
+            <span class="skeleton-block skeleton-home-copy"></span>
+            <span class="skeleton-block skeleton-home-action"></span>
+        </div>
+    }
+    else if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="home-alert">
+            <MudText Typo="Typo.h5" HtmlTag="h1">We couldn’t load your families</MudText>
+            <MudText Typo="Typo.body1" Class="mt-2">Check your connection and try again.</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                       Disabled="@IsBusy" OnClick="RetryAsync">Try again</MudButton>
+        </MudAlert>
     }
     else
     {

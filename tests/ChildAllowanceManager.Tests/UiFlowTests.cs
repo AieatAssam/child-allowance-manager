@@ -289,7 +289,7 @@ public class UiFlowTests
             .ShowAsync<ChildTransactionsDialog>(null, parameters);
 
         provider.WaitForAssertion(() => Assert.Contains("Skate park", provider.Markup));
-        Assert.Contains("Current balance", provider.Markup);
+        Assert.DoesNotContain("Current balance", provider.Markup);
         Assert.Contains("Hide daily allowances", provider.Markup);
 
         provider.Find("button[aria-label^='Close ']").Click();

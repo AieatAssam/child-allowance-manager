@@ -40,16 +40,21 @@
     transform: translateY(0);
 }
 
-/* MudBlazor puts `mud-ripple` on the interactive element itself, so hiding the
-   class hides the control. Suppress only the ripple overlay pseudo-element. */
-.mud-ripple::after {
-    display: none;
-}
-
 .mud-icon-button {
     min-width: 44px;
     min-height: 44px;
     border-radius: var(--al-radius);
+}
+
+.mud-nav-link {
+    border-radius: var(--al-radius-sm);
+    transition: background-color var(--motion-fast) var(--motion-ease),
+                color var(--motion-fast) var(--motion-ease),
+                transform var(--motion-fast) var(--motion-ease);
+}
+
+.mud-nav-link:hover {
+    transform: translateX(2px);
 }
 
 .mud-card,
@@ -166,7 +171,7 @@ button, a, input, select, textarea {
 }
 
 :focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--app-primary) 72%, white);
+    outline: 3px solid var(--al-focus);
     outline-offset: 3px;
 }
 
@@ -274,6 +279,62 @@ button, a, input, select, textarea {
 
 .home-alert {
     width: min(100%, 42rem);
+}
+
+.skeleton-block {
+    display: block;
+    border-radius: var(--al-radius-sm);
+    background: linear-gradient(100deg, var(--al-surface-sunken) 25%, var(--al-border) 50%, var(--al-surface-sunken) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+    to { background-position: -200% 0; }
+}
+
+.skeleton-home {
+    width: min(100%, 42rem);
+    padding: var(--al-space-6);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-lg);
+    background: var(--al-surface);
+}
+
+.skeleton-home-title { width: 62%; height: 2rem; }
+.skeleton-home-copy { width: 88%; height: 1rem; margin-top: var(--al-space-4); }
+.skeleton-home-action { width: 8rem; height: 2.75rem; margin-top: var(--al-space-5); }
+
+.skeleton-card {
+    min-height: 16rem;
+    padding: var(--al-space-5);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-lg);
+    background: var(--al-surface);
+}
+
+.skeleton-avatar { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
+.skeleton-line { height: .9rem; margin-top: var(--al-space-3); }
+.skeleton-line-wide { width: 68%; }
+.skeleton-line-medium { width: 48%; }
+.skeleton-line-short { width: 30%; }
+.skeleton-balance { width: 42%; height: 2.5rem; margin-top: var(--al-space-6); }
+.skeleton-detail { width: 92%; height: 3.5rem; margin-top: var(--al-space-5); }
+
+.skeleton-chart {
+    min-height: 13rem;
+    padding: var(--al-space-5);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-lg);
+    background: var(--al-surface);
+}
+
+.skeleton-chart-area { width: 100%; height: 9rem; margin-top: var(--al-space-5); }
+
+.skeleton-stack {
+    display: grid;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) 0;
 }
 
 .page-shell {
@@ -494,11 +555,15 @@ button, a, input, select, textarea {
 }
 
 .balance-positive {
-    color: var(--app-success);
+    color: var(--al-positive);
 }
 
 .balance-negative {
     color: var(--al-negative-text);
+}
+
+.balance-neutral {
+    color: var(--al-ink-muted);
 }
 
 .next-allowance {
@@ -508,13 +573,13 @@ button, a, input, select, textarea {
     margin-top: 1.25rem;
     padding: .85rem;
     border-radius: var(--al-radius);
-    background: color-mix(in srgb, var(--app-success) 10%, var(--al-surface));
+    background: color-mix(in srgb, var(--al-primary) 10%, var(--al-surface));
 }
 
 .allowance-paused {
     margin-top: var(--al-space-4);
-    border-color: color-mix(in srgb, var(--al-primary) 35%, var(--app-border));
-    background: color-mix(in srgb, var(--al-primary) 7%, var(--al-surface));
+    border-color: color-mix(in srgb, var(--al-warning) 35%, var(--al-border));
+    background: color-mix(in srgb, var(--al-warning) 7%, var(--al-surface));
 }
 
 .next-allowance .mud-icon-root {
@@ -727,7 +792,6 @@ button, a, input, select, textarea {
 .chart-color-3 { background: var(--al-chart-4); }
 .chart-color-4 { background: var(--al-chart-5); }
 
-.chart-support,
 .chart-note {
     display: flex;
     align-items: center;

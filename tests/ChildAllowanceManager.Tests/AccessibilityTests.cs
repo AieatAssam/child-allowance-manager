@@ -102,8 +102,8 @@ public sealed class AccessibilityTests
         }
 
         // Home has one h1 in each mutually exclusive signed-out, family-picker,
-        // and no-family state; the rendered state still contains exactly one.
-        Assert.Equal(3, Count(Source("ChildAllowanceManager/Components/Pages/Home.razor"), "HtmlTag=\"h1\""));
+        // no-family, and load-error state; the rendered state still contains exactly one.
+        Assert.Equal(4, Count(Source("ChildAllowanceManager/Components/Pages/Home.razor"), "HtmlTag=\"h1\""));
     }
 
     [Fact]

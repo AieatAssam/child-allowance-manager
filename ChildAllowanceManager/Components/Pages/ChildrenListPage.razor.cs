@@ -67,6 +67,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 
     private bool _shareMode;
     private string? _shareLinkId;
+    private string? _loadError;
 
     private string? _tenantId = null;
     private bool CanManageCurrentTenant;
@@ -75,6 +76,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
     private readonly SemaphoreSlim _dataGate = new(1, 1);
     private readonly SemaphoreSlim _parametersGate = new(1, 1);
     private bool _balanceHistoryNeedsSync = true;
+    private bool _balanceHistoryLoading = true;
     private ChildWithBalanceHistory[] _balanceHistory = [];
     private readonly Dictionary<string, string> _balanceMotionDirections = [];
     private readonly Dictionary<string, int> _balanceMotionVersions = [];
@@ -235,6 +237,7 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
                 _contextUpdated = false;
                 _balanceChartSeries.Clear();
                 _balanceHistory = [];
+                _balanceHistoryLoading = true;
             }
             await ReloadChildren();
 
@@ -276,7 +279,14 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             await SyncChildBalanceHistorySeries();
         }
 
-        await JSRuntime.InvokeVoidAsync("AllowanceMotion.animateBalances");
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("AllowanceMotion.animateBalances");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            Logger.LogDebug(ex, "Balance motion is unavailable; leaving balances static.");
+        }
     }
 
     private async Task ReloadChildren()
@@ -295,8 +305,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             var outcome = await RunAsync(async () =>
                 loaded = (await isolatedChildService.GetChildrenWithBalance(_tenantId, CancellationToken)).ToArray());
             if (!outcome.Succeeded)
+            {
+                _loadError = outcome.ErrorMessage ?? "Unable to load balances.";
+                StateHasChanged();
                 return;
+            }
 
+            _loadError = null;
             if (Children is not null)
             {
                 foreach (var child in loaded!)
@@ -334,9 +349,13 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             var outcome = await RunAsync(async () => balanceHistory = (await isolatedChildService.GetChildrenWithBalanceHistory(
                 _tenantId, DateTimeOffset.UtcNow.Subtract(BalanceHistoryWindow), null, CancellationToken)).ToArray());
             if (!outcome.Succeeded)
+            {
+                _balanceHistoryLoading = false;
                 return;
+            }
 
             _balanceHistory = balanceHistory!;
+            _balanceHistoryLoading = false;
             if (_accentByChildId.Count == 0)
                 AssignChildAccents(_balanceHistory.Select(child => child.ChildId));
 

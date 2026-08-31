@@ -24,6 +24,7 @@ public partial class PeoplePage : CancellableComponentBase
     private TenantMembership[]? Members;
     private TenantInvitation[]? Invitations;
     private ShareLink[]? ShareLinks;
+    private string? LoadError;
     private MudMessageBox Confirmation { get; set; } = null!;
     private string? _confirmationTitle;
     private string? _confirmationMessage;
@@ -38,6 +39,7 @@ public partial class PeoplePage : CancellableComponentBase
         TenantInvitation[]? invitations = null;
         ShareLink[]? shareLinks = null;
         var canManage = false;
+        LoadError = null;
         var outcome = await RunAsync(async () =>
         {
             tenant = await TenantService.GetTenantBySuffix(TenantSuffix, CancellationToken);
@@ -53,7 +55,11 @@ public partial class PeoplePage : CancellableComponentBase
             shareLinks = (await ShareLinkService.GetForTenantAsync(tenant.Id, CancellationToken)).ToArray();
         });
         if (!outcome.Succeeded)
+        {
+            LoadError = outcome.ErrorMessage ?? "Unable to load family access.";
+            StateHasChanged();
             return;
+        }
 
         if (tenant is null)
         {
@@ -82,6 +88,7 @@ public partial class PeoplePage : CancellableComponentBase
         TenantMembership[]? members = null;
         TenantInvitation[]? invitations = null;
         ShareLink[]? shareLinks = null;
+        LoadError = null;
         var outcome = await RunAsync(async () =>
         {
             members = (await MembershipService.GetMembershipsForTenantAsync(_tenantId, CancellationToken)).ToArray();
@@ -93,6 +100,11 @@ public partial class PeoplePage : CancellableComponentBase
             Members = members;
             Invitations = invitations;
             ShareLinks = shareLinks;
+        }
+        else
+        {
+            LoadError = outcome.ErrorMessage ?? "Unable to load family access.";
+            StateHasChanged();
         }
     }
 

@@ -29,6 +29,14 @@ public class ComponentRenderingTests
     }
 
     [Fact]
+    public void Development_login_enters_family_resolver()
+    {
+        var markup = ReadSource("ChildAllowanceManager/Program.cs");
+        Assert.Contains("context.Response.Redirect(\"/\");", markup);
+        Assert.DoesNotContain("context.Response.Redirect($\"/{DevelopmentDataSeeder.TenantSuffix}/children\");", markup);
+    }
+
+    [Fact]
     public void Dashboard_shows_an_exact_date_not_a_slogan()
     {
         var markup = ReadSource("ChildAllowanceManager/Components/Pages/ChildrenListPage.razor");

@@ -14,6 +14,10 @@
         </MudStack>
     </TitleContent>
     <DialogContent>
+        @if (IsBusy)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" aria-label="Saving" />
+        }
         @ChildContent
     </DialogContent>
     <DialogActions>
