@@ -132,6 +132,7 @@ public class TimezoneTests
         public JobDataMap MergedJobDataMap { get; } = new();
         public IJobDetail JobDetail => null!;
         public IJob JobInstance => null!;
+        public int RetryAttempt => 0;
         public DateTimeOffset FireTimeUtc => scheduled;
         public DateTimeOffset? ScheduledFireTimeUtc => scheduled;
         public DateTimeOffset? PreviousFireTimeUtc => null;

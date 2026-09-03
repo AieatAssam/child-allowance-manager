@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2026-09-04",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "warm-paper ledger",
+    "enrichment": "none",
+    "nav": "N3 side rail",
+    "footer": "Ft2 inline rule",
+    "brief": "Allowance Manager multi-page app redesign"
+  }
+]

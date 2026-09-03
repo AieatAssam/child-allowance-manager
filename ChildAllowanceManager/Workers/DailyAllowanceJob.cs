@@ -12,10 +12,12 @@ public class DailyAllowanceJob(
     ITenantService tenantService,
     ILogger<DailyAllowanceJob> logger) : IJob
 {
-    public async Task Execute(IJobExecutionContext context)
+    public ValueTask Execute(IJobExecutionContext context) => Execute(context, context.CancellationToken);
+
+    public async ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken)
     {
         // create daily transactions for all children
-        var tenants = await tenantService.GetTenants(context.CancellationToken);
+        var tenants = await tenantService.GetTenants(cancellationToken);
         foreach (var tenant in tenants)
         {
             var fireTimeUtc = context.ScheduledFireTimeUtc ?? DateTimeOffset.UtcNow;
@@ -33,11 +35,11 @@ public class DailyAllowanceJob(
                 continue;
 
             var scheduledDate = tenantLocalNow.Date;
-            var children = await childService.GetChildrenWithBalance(tenant.Id, context.CancellationToken);
+            var children = await childService.GetChildrenWithBalance(tenant.Id, cancellationToken);
             foreach (var child in children)
             {
                 var latestRegular = await transactionService.GetLatestRegularTransactionForChild(
-                    child.Id, child.TenantId, context.CancellationToken);
+                    child.Id, child.TenantId, cancellationToken);
                 if (child.HoldDaysRemaining > 0 ||
                     (latestRegular?.AllowanceDate >= scheduledDate) == true)
                 {
@@ -57,12 +59,12 @@ public class DailyAllowanceJob(
                 };
                 logger.LogInformation("Adding allowance transaction for {Child} with type {TransactionType}",
                     child.Name, transaction.TransactionType);
-                await transactionService.AddTransaction(transaction, context.CancellationToken);
+                await transactionService.AddTransaction(transaction, cancellationToken);
 
             }
             
             // process hold at the end of the tenant processing to ensure it is not cleared early
-            await ProcessHoldForTenantAsync(tenant.Id, scheduledDate, context.CancellationToken);
+            await ProcessHoldForTenantAsync(tenant.Id, scheduledDate, cancellationToken);
         }
     }
 
