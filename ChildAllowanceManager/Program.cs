@@ -175,7 +175,7 @@ builder.Services.AddQuartz(q =>
         .WithDescription("Hourly; pays each family at its own local 00:01")
         .WithCronSchedule("0 1 * * * ?", x => x
             .InTimeZone(TimeZoneInfo.Utc)
-            .WithMisfireHandlingInstructionFireAndProceed()));
+            .WithMisfireInstruction(CronTriggerMisfireInstruction.FireAndProceed)));
 });
 builder.Services.AddQuartzHostedService(config =>
 {

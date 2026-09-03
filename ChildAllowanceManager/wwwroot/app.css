@@ -1,3 +1,7 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S4 R5 V4
+ * genre: playful · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * nav: N3 side rail · footer: Ft2 inline rule · enrichment: none
+ */
 :root {
     --app-background: var(--al-paper);
     --app-foreground: var(--al-ink);
@@ -9,9 +13,9 @@
     --app-primary: var(--al-primary);
     --app-success: var(--al-positive);
     --app-shadow: var(--al-shadow-none);
-    --motion-fast: 160ms;
-    --motion-smooth: 280ms;
-    --motion-ease: cubic-bezier(.22, 1, .36, 1);
+    --motion-fast: var(--al-dur-short);
+    --motion-smooth: var(--al-dur-long);
+    --motion-ease: var(--al-ease-out);
 }
 
 .mud-button,
@@ -20,6 +24,13 @@
 .mud-menu-item {
     text-transform: none;
     letter-spacing: normal;
+}
+
+.mud-button,
+.mud-nav-link,
+.mud-tab,
+.mud-menu-item {
+    white-space: nowrap;
 }
 
 .mud-button,
@@ -79,72 +90,20 @@ html, body {
     background: var(--app-bg);
     color: var(--app-ink);
     font-family: var(--al-font-ui);
+    overflow-x: clip;
 }
 
 body {
     margin: 0;
-    overflow-x: hidden;
-}
-
-@keyframes app-enter {
-    from {
-        opacity: 0;
-        transform: translateY(.65rem) scale(.995);
-    }
-}
-
-@keyframes item-enter {
-    from {
-        opacity: 0;
-        transform: translateY(.85rem);
-    }
-}
-
-.page-shell,
-.home-state {
-    animation: app-enter var(--motion-smooth) var(--motion-ease) both;
-}
-
-.page-heading > *,
-.dashboard-view .mud-grid > .mud-grid-item,
-.settings-card .mud-expansion-panel,
-.transactions-table .mud-table-body .mud-table-row,
-.birthday-label,
-.child-card .mud-alert,
-.empty-state {
-    animation: item-enter var(--motion-smooth) var(--motion-ease) both;
-}
-
-.page-heading > :nth-child(2),
-.dashboard-view .mud-grid > .mud-grid-item:nth-child(2),
-.settings-card .mud-expansion-panel:nth-child(2),
-.transactions-table .mud-table-body .mud-table-row:nth-child(2) {
-    animation-delay: 45ms;
-}
-
-.dashboard-view .mud-grid > .mud-grid-item:nth-child(3),
-.settings-card .mud-expansion-panel:nth-child(3),
-.transactions-table .mud-table-body .mud-table-row:nth-child(3) {
-    animation-delay: 90ms;
-}
-
-.dashboard-view .mud-grid > .mud-grid-item:nth-child(n + 4),
-.settings-card .mud-expansion-panel:nth-child(n + 4),
-.transactions-table .mud-table-body .mud-table-row:nth-child(n + 4) {
-    animation-delay: 135ms;
+    overflow-x: clip;
 }
 
 .mud-collapse-container {
-    transition: grid-template-rows var(--motion-smooth) var(--motion-ease),
-                opacity var(--motion-fast) var(--motion-ease) !important;
+    transition: opacity var(--motion-fast) var(--motion-ease) !important;
 }
 
 .mud-collapse-container:not(.mud-collapse-entering):not(.mud-collapse-entered) {
     opacity: 0;
-}
-
-.mud-dialog {
-    animation: app-enter 220ms var(--motion-ease) both;
 }
 
 .mud-popover {
@@ -160,10 +119,6 @@ body {
 
 .mud-popover:not(.mud-popover-open) {
     transition-duration: var(--motion-fast) !important;
-}
-
-.mud-snackbar {
-    animation: item-enter var(--motion-smooth) var(--motion-ease) both;
 }
 
 button, a, input, select, textarea {
@@ -194,7 +149,10 @@ button, a, input, select, textarea {
 }
 
 .app-bar {
+    min-height: 68px;
     border-bottom: 1px solid var(--app-border);
+    background: var(--al-paper) !important;
+    color: var(--app-ink) !important;
 }
 
 .app-bar .mud-toolbar {
@@ -206,6 +164,19 @@ button, a, input, select, textarea {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.app-brand-group {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.app-mark {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
 }
 
 .app-family-switcher {
@@ -259,15 +230,54 @@ button, a, input, select, textarea {
 
 .app-drawer {
     border-right: 1px solid var(--app-border);
+    background: var(--al-surface) !important;
+}
+
+.nav-menu {
+    display: grid;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-3);
+}
+
+.nav-section-label {
+    padding: var(--al-space-3) var(--al-space-3) var(--al-space-1);
+    color: var(--app-muted);
+    font-family: var(--al-font-ui);
+    font-size: var(--al-text-xs);
+    font-weight: var(--al-weight-bold);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.nav-menu .mud-nav-link {
+    min-height: 44px;
+    padding-inline: var(--al-space-3);
+    color: var(--app-muted);
+    font-weight: var(--al-weight-semibold);
+}
+
+.nav-menu .mud-nav-link.active {
+    background: color-mix(in oklch, var(--al-primary) 10%, var(--al-surface));
+    color: var(--app-primary);
+    box-shadow: inset 3px 0 0 var(--app-primary);
+}
+
+.nav-menu .mud-nav-link .mud-nav-link-icon {
+    color: currentColor;
 }
 
 .app-main {
     position: relative;
     isolation: isolate;
-    min-height: calc(100vh - 64px);
-    margin-top: 64px;
-    padding: clamp(1rem, 3vw, 2.5rem);
-    padding-top: clamp(1rem, 3vw, 2.5rem);
+    min-height: calc(100dvh - 68px);
+    margin-top: 68px;
+    padding: clamp(var(--al-space-4), 3vw, var(--al-space-7));
+    padding-top: clamp(var(--al-space-4), 3vw, var(--al-space-7));
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0 31px,
+        color-mix(in oklch, var(--al-border) 60%, transparent) 31px 32px
+    );
     overflow-x: clip;
 }
 
@@ -341,6 +351,7 @@ button, a, input, select, textarea {
     position: relative;
     z-index: 1;
     max-width: 1180px;
+    margin-inline: auto;
 }
 
 .dashboard-view {
@@ -352,7 +363,9 @@ button, a, input, select, textarea {
     align-items: flex-end;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: var(--al-space-6);
+    padding-bottom: var(--al-space-4);
+    border-bottom: 1px solid var(--app-border);
 }
 
 /* Page actions group to one side. Loose buttons in a space-between heading
@@ -388,7 +401,10 @@ button, a, input, select, textarea {
 
 .page-title {
     margin: .25rem 0 .5rem;
+    font-size: clamp(var(--al-text-2xl), 4vw, 3rem);
+    line-height: var(--al-leading-tight);
     text-wrap: balance;
+    overflow-wrap: anywhere;
 }
 
 .settings-view {
@@ -405,6 +421,7 @@ button, a, input, select, textarea {
     border: 1px solid var(--app-border);
     border-radius: var(--al-radius-lg);
     background: var(--al-surface);
+    box-shadow: inset 0 2px 0 color-mix(in oklch, var(--al-accent) 70%, transparent);
 }
 
 .settings-card .mud-toolbar {
@@ -435,7 +452,7 @@ button, a, input, select, textarea {
     margin: 1rem 0;
     border: 1px solid var(--app-border);
     border-radius: var(--al-radius);
-    background: color-mix(in srgb, var(--app-primary) 4%, var(--al-surface));
+    background: color-mix(in oklch, var(--app-primary) 4%, var(--al-surface));
 }
 
 .empty-state {
@@ -448,9 +465,9 @@ button, a, input, select, textarea {
     gap: .25rem;
     margin-top: var(--al-space-2);
     padding: var(--al-space-1) var(--al-space-2);
-    border: 1px solid color-mix(in srgb, var(--al-accent) 48%, var(--app-border));
+    border: 1px solid color-mix(in oklch, var(--al-accent) 48%, var(--app-border));
     border-radius: var(--al-radius-sm);
-    background: color-mix(in srgb, var(--al-accent) 14%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-accent) 14%, var(--al-surface));
 }
 
 .child-card,
@@ -465,8 +482,7 @@ button, a, input, select, textarea {
 .child-card {
     position: relative;
     height: 100%;
-    overflow: hidden;
-    border-top: 3px solid var(--child-accent);
+    border-top: 1px solid var(--app-border);
     transition: transform var(--motion-fast) var(--motion-ease),
                 border-color var(--motion-fast) var(--motion-ease),
                 background-color var(--motion-fast) var(--motion-ease);
@@ -477,6 +493,17 @@ button, a, input, select, textarea {
     border-color: var(--child-accent);
 }
 
+.child-card::before {
+    content: "";
+    position: absolute;
+    top: var(--al-space-5);
+    right: var(--al-space-5);
+    width: var(--al-space-2);
+    height: var(--al-space-2);
+    border-radius: 50%;
+    background: var(--child-accent);
+}
+
 .child-accent-0 { --child-accent: var(--al-chart-1); }
 .child-accent-1 { --child-accent: var(--al-chart-2); }
 .child-accent-2 { --child-accent: var(--al-chart-3); }
@@ -484,7 +511,7 @@ button, a, input, select, textarea {
 .child-accent-4 { --child-accent: var(--al-chart-5); }
 
 .child-birthday {
-    background: color-mix(in srgb, var(--al-accent) 6%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-accent) 6%, var(--al-surface));
 }
 
 .child-card-header {
@@ -573,13 +600,13 @@ button, a, input, select, textarea {
     margin-top: 1.25rem;
     padding: .85rem;
     border-radius: var(--al-radius);
-    background: color-mix(in srgb, var(--al-primary) 10%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-primary) 10%, var(--al-surface));
 }
 
 .allowance-paused {
     margin-top: var(--al-space-4);
-    border-color: color-mix(in srgb, var(--al-warning) 35%, var(--al-border));
-    background: color-mix(in srgb, var(--al-warning) 7%, var(--al-surface));
+    border-color: color-mix(in oklch, var(--al-warning) 35%, var(--al-border));
+    background: color-mix(in oklch, var(--al-warning) 7%, var(--al-surface));
 }
 
 .next-allowance .mud-icon-root {
@@ -758,7 +785,7 @@ button, a, input, select, textarea {
 }
 
 .balance-history-table tbody tr:nth-child(even) {
-    background: color-mix(in srgb, var(--al-surface-sunken) 55%, transparent);
+    background: color-mix(in oklch, var(--al-surface-sunken) 55%, transparent);
 }
 
 .balance-history-table tbody tr:hover {
@@ -889,9 +916,9 @@ button, a, input, select, textarea {
     gap: 1rem;
     margin-bottom: .75rem;
     padding: .55rem .85rem;
-    border: 1px solid color-mix(in srgb, var(--app-primary) 20%, var(--app-border));
+    border: 1px solid color-mix(in oklch, var(--app-primary) 20%, var(--app-border));
     border-radius: var(--al-radius-sm);
-    background: color-mix(in srgb, var(--al-positive) 9%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-positive) 9%, var(--al-surface));
 }
 
 .transactions-toolbar-label {
@@ -914,7 +941,7 @@ button, a, input, select, textarea {
 }
 
 .transactions-table .mud-table-head {
-    background: color-mix(in srgb, var(--al-primary-strong) 8%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-primary-strong) 8%, var(--al-surface));
 }
 
 .transactions-table .mud-table-head .mud-table-cell {
@@ -926,7 +953,7 @@ button, a, input, select, textarea {
 
 .transactions-table .mud-table-body .mud-table-cell {
     padding: .65rem .9rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--app-border) 70%, var(--app-ink) 30%);
+    border-bottom: 1px solid color-mix(in oklch, var(--app-border) 70%, var(--app-ink) 30%);
     color: var(--app-ink);
     vertical-align: middle;
 }
@@ -936,7 +963,7 @@ button, a, input, select, textarea {
 }
 
 .transactions-table .mud-table-row:hover {
-    background: color-mix(in srgb, var(--al-positive) 7%, var(--al-surface));
+    background: color-mix(in oklch, var(--al-positive) 7%, var(--al-surface));
 }
 
 .transaction-date,
@@ -989,17 +1016,17 @@ button, a, input, select, textarea {
 }
 
 .transaction-in .transaction-direction {
-    background: color-mix(in srgb, var(--app-success) 16%, transparent);
+    background: color-mix(in oklch, var(--app-success) 16%, transparent);
     color: var(--app-success);
 }
 
 .transaction-out .transaction-direction {
-    background: color-mix(in srgb, var(--al-negative) 16%, transparent);
+    background: color-mix(in oklch, var(--al-negative) 16%, transparent);
     color: var(--al-negative-text);
 }
 
 .transaction-neutral .transaction-direction {
-    background: color-mix(in srgb, var(--app-muted) 14%, transparent);
+    background: color-mix(in oklch, var(--app-muted) 14%, transparent);
     color: var(--app-muted);
 }
 

@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-04",
+  "framework": ".NET 10 Blazor Server",
+  "component_library": "MudBlazor 9.9.0",
+  "font_stack": "Fraunces display + DM Sans body, with system fallbacks",
+  "palette": "semantic --al-* tokens in wwwroot/tokens.css",
+  "motion": "motion-cut project; no motion library detected",
+  "spacing": "4-point --al-space-1 through --al-space-8 scale",
+  "assets": "wwwroot/brand/mark.svg, favicon.svg, social-preview.svg",
+  "preserved": ["MudBlazor provider", "warm-paper palette", "Fraunces + DM Sans", "existing routes and component ownership"]
+}
