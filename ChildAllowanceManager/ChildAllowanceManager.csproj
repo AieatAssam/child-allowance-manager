@@ -17,7 +17,7 @@
         <PackageReference Include="Humanizer" Version="3.0.10" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="10.0.11" />
         <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.11" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
         <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.11" />
         <PackageReference Include="MudBlazor" Version="9.9.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
