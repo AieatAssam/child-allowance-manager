@@ -216,6 +216,8 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
             _tenantId = tenant.Id;
             if (!_shareMode && !await HasTenantAccessAsync(tenant.Id))
             {
+                // Not theirs: OnAfterRenderAsync must not remember it as the current family.
+                _tenantId = null;
                 Children = null;
                 _balanceHistory = [];
                 _balanceChartSeries.Clear();
@@ -468,6 +470,16 @@ public partial class ChildrenListPage : CancellableComponentBase, IDisposable
 
     private int GetBalanceMotionVersion(string childId) =>
         _balanceMotionVersions.GetValueOrDefault(childId);
+
+    /// How far the balance has moved since seven days ago, from the history the chart already
+    /// loads. Null until that history arrives.
+    private decimal? GetWeekChange(ChildWithBalance child)
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-7);
+        var weekAgo = _balanceHistory.FirstOrDefault(history => history.ChildId == child.Id)?
+            .BalanceHistory.LastOrDefault(entry => entry.Timestamp <= cutoff);
+        return weekAgo is null ? null : child.Balance - weekAgo.Balance;
+    }
 
     private static string GetHoldDaysLabel(int days) =>
         $"{days} more {(days == 1 ? "day" : "days")}";

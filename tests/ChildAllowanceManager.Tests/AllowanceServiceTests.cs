@@ -105,6 +105,24 @@ public class AllowanceServiceTests
     }
 
     [Fact]
+    public async Task BalanceHistoryBucketsByTheFamilysLocalDay()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
+        var service = new TransactionService(db, new GlobalNotificationService());
+        // 23:30 UTC on 30 June is already 00:30 on 1 July in London (BST).
+        var lateEvening = new DateTimeOffset(2026, 6, 30, 23, 30, 0, TimeSpan.Zero);
+        db.AddRange(Tenant("tenant-1"), Child("child-1", "tenant-1"));
+        await db.SaveChangesAsync(cancellationToken);
+        db.Transactions.Add(Transaction("child-1", "tenant-1", TransactionType.Deposit, 1m, lateEvening, 1m));
+        await db.SaveChangesAsync(cancellationToken);
+
+        var entry = Assert.Single(await service.GetBalanceHistoryForChild("child-1", "tenant-1", null, null, cancellationToken));
+
+        Assert.Equal(new DateTime(2026, 7, 1), entry.Timestamp.UtcDateTime.Date);
+    }
+
+    [Fact]
     public async Task ChildBalanceHistoryBatchPathFillsMissingDates()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

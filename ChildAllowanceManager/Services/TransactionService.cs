@@ -72,9 +72,16 @@ public class TransactionService(
             .OrderByDescending(x => x.TransactionTimestamp).ThenByDescending(x => x.Id)
             .Select(x => (decimal?)x.Balance)
             .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+
+        // Days are the family's days, not UTC's: 00:30 on the 15th in London must not be
+        // drawn on the 14th. Everything below buckets on the re-labelled wall-clock time.
+        var zone = await FamilyZoneAsync(db, tenantId, cancellationToken);
+        result = result.Select(entry => entry with { Timestamp = ToFamilyTime(entry.Timestamp, zone) }).ToList();
+        if (startDate is not null) startDate = ToFamilyTime(startDate.Value, zone);
+        if (endDate is not null) endDate = ToFamilyTime(endDate.Value, zone);
         if (result.Count == 0)
         {
-            var openFrom = (startDate ?? DateTimeOffset.UtcNow).UtcDateTime.Date;
+            var openFrom = (startDate ?? ToFamilyTime(DateTimeOffset.UtcNow, zone)).UtcDateTime.Date;
             var openTo = endDate?.UtcDateTime.Date ?? openFrom;
             if (openTo < openFrom)
                 openTo = openFrom;
@@ -105,6 +112,23 @@ public class TransactionService(
         }
 
         return history.ToArray();
+    }
+
+    /// The instant shown on the family's wall clock, labelled as UTC so that date bucketing
+    /// downstream (chart, table) lands on the family's calendar day.
+    internal static DateTimeOffset ToFamilyTime(DateTimeOffset timestamp, TimeZoneInfo zone) =>
+        new(TimeZoneInfo.ConvertTime(timestamp, zone).DateTime, TimeSpan.Zero);
+
+    internal static async Task<TimeZoneInfo> FamilyZoneAsync(
+        AllowanceDbContext context, string tenantId, CancellationToken cancellationToken)
+    {
+        var id = await context.Tenants.AsNoTracking()
+            .Where(tenant => tenant.Id == tenantId)
+            .Select(tenant => tenant.TimeZoneId)
+            .FirstOrDefaultAsync(cancellationToken);
+        return !string.IsNullOrWhiteSpace(id) && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone)
+            ? zone
+            : TimeZoneInfo.Utc;
     }
 
     public async ValueTask<AllowanceTransaction?> GetLatestRegularTransactionForChild(

@@ -59,9 +59,9 @@
             <MudItem xs="12" sm="6" lg="4">
                 <MudCard Class="@($"child-card {(child.IsBirthday ? "child-birthday " : string.Empty)}child-accent-{GetChildAccentIndex(child.Id)}")" Elevation="0" Outlined="true">
                     <MudCardHeader Class="child-card-header">
-                        <MudAvatar Class="child-avatar" Color="@(child.HoldDaysRemaining > 0 ? Color.Warning : Color.Primary)" aria-hidden="true">
-                            @child.Name[0]
-                        </MudAvatar>
+                        <span class="@($"child-buddy{(child.HoldDaysRemaining > 0 ? " child-buddy-resting" : string.Empty)}")" aria-hidden="true">
+                            <img src="@($"art/buddy-{GetChildAccentIndex(child.Id)}.png")" alt="" width="72" height="72" decoding="async" />
+                        </span>
                         <div class="child-card-heading">
                             <MudText Typo="Typo.h6">@child.Name</MudText>
                             @if (child.IsBirthday)
@@ -81,6 +81,13 @@
                             @child.Balance.ToString("C2")
                         </MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">Current balance</MudText>
+                        @if (GetWeekChange(child) is { } weekChange && weekChange != 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="@($"week-change {(weekChange > 0 ? "week-change-up" : "week-change-down")}")">
+                                <MudIcon Icon="@(weekChange > 0 ? Icons.Material.Outlined.TrendingUp : Icons.Material.Outlined.TrendingDown)" Size="Size.Small" aria-hidden="true" />
+                                @(weekChange > 0 ? "Up" : "Down") @Math.Abs(weekChange).ToString("C2") this week
+                            </MudText>
+                        }
 
                         @if (child.HoldDaysRemaining > 0)
                         {
@@ -178,7 +185,7 @@
                 else
                 {
                     <div class="chart-empty-state" id="balance-chart-description">
-                        <MudIcon Icon="@Icons.Material.Outlined.ShowChart" aria-hidden="true" />
+                        <img class="chart-empty-art" src="art/jar.png" alt="" width="120" height="120" loading="lazy" decoding="async" />
                         <div>
                             <MudText Typo="Typo.subtitle2">Your balance story starts here</MudText>
                             <MudText Typo="Typo.body2">Add money or wait for an allowance to see the line grow.</MudText>

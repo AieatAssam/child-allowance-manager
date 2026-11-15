@@ -2,6 +2,7 @@
 @using ChildAllowanceManager.Common.Models
 @using Microsoft.AspNetCore.Authorization
 @inject Microsoft.JSInterop.IJSRuntime JS
+@inject ISnackbar Snackbar
 @attribute [Authorize(Roles = "admin")]
 <PageTitle>Administration</PageTitle>
 
@@ -153,6 +154,17 @@
 </div>
 
 @code {
-    private async Task CopyFamilyLink(TenantConfiguration tenant) =>
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Navigation.ToAbsoluteUri($"/{tenant.UrlSuffix}/children").ToString());
+    private async Task CopyFamilyLink(TenantConfiguration tenant)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Navigation.ToAbsoluteUri($"/{tenant.UrlSuffix}/children").ToString());
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            // Clipboard is refused on insecure origins or without permission; that must not
+            // trip the error boundary and blank the page.
+            Snackbar.Add("Could not copy the link.", Severity.Warning);
+        }
+    }
 }

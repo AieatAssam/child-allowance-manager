@@ -41,6 +41,27 @@ public class AccessManagementTests
     }
 
     [Fact]
+    public async Task Removed_parent_can_be_invited_again_after_accepting()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
+        db.Tenants.Add(Tenant());
+        await db.SaveChangesAsync(cancellationToken);
+        var users = new UserService(db, new MembershipService(db));
+        var memberships = new MembershipService(db);
+        var service = new InvitationService(db, users, memberships);
+        await users.InitializeUserAsync("owner@example.com", "Owner", "tenant-1", cancellationToken);
+        await service.InviteAsync("tenant-1", "person@example.com", ValidRoles.Parent, cancellationToken);
+        await service.AcceptPendingAsync("person@example.com", "Person", cancellationToken);
+        var person = (await users.GetUserByEmailAsync("person@example.com", cancellationToken))!;
+        Assert.True(await memberships.RevokeAsync(person.Id, "tenant-1", cancellationToken));
+
+        await service.InviteAsync("tenant-1", "person@example.com", ValidRoles.Parent, cancellationToken);
+
+        Assert.Single(await service.GetPendingForTenantAsync("tenant-1", cancellationToken));
+    }
+
+    [Fact]
     public async Task Invalid_invitation_email_is_rejected()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

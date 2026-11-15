@@ -48,8 +48,13 @@ implementation tokens. New rules use those names instead of one-off spacing.
 ## Motion
 
 - Easings: `--al-ease-out`, `--al-ease-in`, `--al-ease-in-out`.
-- Reveal pattern: none for page load; balance changes may use the existing
-  short directional cue.
+- Reveal pattern: the children's dashboard cards settle in once on load
+  (transform only, so a stalled animation never hides a balance). Other pages
+  have no load reveal.
+- Money motion, dashboard only: coins drop into a card when its balance rises
+  and lift out when it falls; the child's buddy hops or shakes with them. A
+  birthday card scatters confetti once per load. All of it is decoration added
+  by `balance-motion.js` and removed after two seconds; the text is the record.
 - Reduced-motion fallback: opacity-only, no more than 150ms.
 
 ## Microinteractions stance
@@ -70,6 +75,12 @@ All touch targets remain at least 44px.
 - App pages may use existing MudBlazor components and tables.
 - App pages do not use decorative hero enrichment, gradients, blobs or fake
   device/browser chrome.
+- The children's dashboard is the one illustrated surface. It uses the
+  generated cut-paper set in `wwwroot/art/`: one buddy per child colour
+  (`buddy-0` to `buddy-4`, matching `--al-chart-1` to `-5`), a coin, a jar for
+  the empty chart, and a paper grain whose strength is `--al-grain-opacity`.
+  New art for it must match that set: flat layered paper, no text, transparent
+  background.
 - Shared display pages keep the same dashboard layout and simply enlarge the
   data surfaces for distance viewing.
 

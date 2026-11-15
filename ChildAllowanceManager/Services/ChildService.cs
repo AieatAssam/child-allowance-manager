@@ -40,9 +40,14 @@ public class ChildService(
                     Entry = new BalanceHistoryEntry(transaction.TransactionTimestamp, transaction.Balance)
                 })
                 .ToListAsync(cancellationToken);
+            var zone = await TransactionService.FamilyZoneAsync(db, tenantId, cancellationToken);
             var historyByChild = transactions
                 .GroupBy(transaction => transaction.ChildId)
-                .ToDictionary(group => group.Key, group => FillHistory(group.Select(transaction => transaction.Entry)));
+                .ToDictionary(group => group.Key, group => FillHistory(group.Select(transaction =>
+                    transaction.Entry with
+                    {
+                        Timestamp = TransactionService.ToFamilyTime(transaction.Entry.Timestamp, zone)
+                    })));
 
             return children.Select(child => new ChildWithBalanceHistory(
                 child.Id,
@@ -202,10 +207,17 @@ public class ChildService(
         if (days <= 0)
             throw new ValidationException("Hold days must be greater than zero.");
 
-        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        // Serializable, like AddTransaction's own path: the audit row copies the latest balance,
+        // and a weaker level lets a concurrent deposit be overwritten by that stale copy.
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, cancellationToken);
         var child = await db.Children.FirstOrDefaultAsync(
             x => x.Id == childId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
             ?? throw new KeyNotFoundException($"Child {childId} was not found in tenant {tenantId}.");
+        // A replayed request must not move the counter a second time.
+        if (!string.IsNullOrWhiteSpace(requestId) && await db.Transactions.AnyAsync(
+                x => x.TenantId == tenantId && x.RequestId == requestId, cancellationToken))
+            return child;
 
         child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining + days);
         child.UpdatedTimestamp = DateTimeOffset.UtcNow;
@@ -227,10 +239,17 @@ public class ChildService(
     public async ValueTask<ChildConfiguration> RemoveHoldDayAsync(
         string childId, string tenantId, string? requestId, CancellationToken cancellationToken = default)
     {
-        await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        // Serializable, like AddTransaction's own path: the audit row copies the latest balance,
+        // and a weaker level lets a concurrent deposit be overwritten by that stale copy.
+        await using var dbTransaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, cancellationToken);
         var child = await db.Children.FirstOrDefaultAsync(
             x => x.Id == childId && x.TenantId == tenantId && !x.Deleted, cancellationToken)
             ?? throw new KeyNotFoundException($"Child {childId} was not found in tenant {tenantId}.");
+        // A replayed request must not move the counter a second time.
+        if (!string.IsNullOrWhiteSpace(requestId) && await db.Transactions.AnyAsync(
+                x => x.TenantId == tenantId && x.RequestId == requestId, cancellationToken))
+            return child;
 
         child.HoldDaysRemaining = Math.Max(0, child.HoldDaysRemaining - 1);
         child.UpdatedTimestamp = DateTimeOffset.UtcNow;
