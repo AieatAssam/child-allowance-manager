@@ -142,6 +142,7 @@ public class ComponentRenderingTests
         Assert.DoesNotContain("Parents", cut.Markup);
         Assert.DoesNotContain("Add parent", cut.Markup);
         Assert.Contains("Time zone", cut.Markup);
+        Assert.NotEmpty(cut.FindAll("input"));
         Assert.All(cut.FindAll("input"), input =>
             Assert.True(input.HasAttribute("readonly") || input.HasAttribute("disabled")));
     }
@@ -155,6 +156,7 @@ public class ComponentRenderingTests
             .Add(x => x.ReadOnly, true));
 
         Assert.DoesNotContain("Birthday Allowance", cut.Markup);
+        Assert.NotEmpty(cut.FindAll("input"));
         Assert.All(cut.FindAll("input"), input => Assert.True(input.HasAttribute("readonly") || input.HasAttribute("disabled")));
     }
 

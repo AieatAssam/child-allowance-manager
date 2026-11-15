@@ -66,7 +66,13 @@ public partial class ChildTransactionsTable : CancellableComponentBase
         await base.OnAfterRenderAsync(firstRender);
     }
 
-    public async ValueTask DisposeAsync() => await BrowserViewportService.UnsubscribeAsync(this);
+    public async ValueTask DisposeAsync()
+    {
+        // Blazor calls only DisposeAsync when both exist, so cancel in-flight loads here too.
+        Dispose();
+        await BrowserViewportService.UnsubscribeAsync(this);
+    }
+
     Task IBrowserViewportObserver.NotifyBrowserViewportChangeAsync(BrowserViewportEventArgs browserViewportEventArgs)
     {
         var currentDensity = _table.Dense;

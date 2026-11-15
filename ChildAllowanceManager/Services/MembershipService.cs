@@ -68,6 +68,11 @@ public class MembershipService(AllowanceDbContext db) : IMembershipService
     public async ValueTask<bool> RevokeAsync(
         string userId, string tenantId, CancellationToken ct = default)
     {
+        // Serializable so two parents removing each other at once cannot both pass the
+        // last-parent check and leave the family with nobody.
+        await using var dbTransaction = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct)
+            : null;
         var membership = await db.TenantMemberships.FirstOrDefaultAsync(
             x => !x.Deleted && x.UserId == userId && x.TenantId == tenantId, ct);
         if (membership is null)
@@ -88,6 +93,8 @@ public class MembershipService(AllowanceDbContext db) : IMembershipService
         }
 
         await db.SaveChangesAsync(ct);
+        if (dbTransaction is not null)
+            await dbTransaction.CommitAsync(ct);
         return true;
     }
 

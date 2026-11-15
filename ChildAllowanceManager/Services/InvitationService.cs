@@ -26,7 +26,7 @@ public class InvitationService(
 
         var now = DateTimeOffset.UtcNow;
         var invitation = await db.TenantInvitations.FirstOrDefaultAsync(
-            x => !x.Deleted && x.TenantId == tenantId && x.Email == email && x.AcceptedAt == null, ct);
+            x => !x.Deleted && x.TenantId == tenantId && x.Email == email, ct);
         if (invitation is null)
         {
             invitation = new TenantInvitation
@@ -41,6 +41,7 @@ public class InvitationService(
         else
         {
             invitation.Role = role;
+            invitation.AcceptedAt = null;
             invitation.ExpiresAt = now.AddDays(InvitationDaysValid);
             invitation.UpdatedTimestamp = now;
         }

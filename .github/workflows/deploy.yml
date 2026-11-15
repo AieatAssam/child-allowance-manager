@@ -16,7 +16,8 @@ env:
 
 jobs:
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # Tag builds and non-main runs publish an image but must not deploy on their own.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     concurrency:
       group: production-deployment
@@ -31,14 +32,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-
-      - name: Run production database migrations
-        env:
-          ASPNETCORE_ENVIRONMENT: Production
-          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
-          Authentication__Microsoft__ClientId: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
-          Authentication__Microsoft__ClientSecret: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
-        run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
 
       # Fill these repository variables under Settings > Secrets and variables > Actions > Variables:
       # AZURE_RESOURCE_GROUP, AZURE_CONTAINER_APP, ALLOWED_HOSTS
@@ -67,6 +60,14 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Run production database migrations
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          Authentication__Microsoft__ClientId: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_ID }}
+          Authentication__Microsoft__ClientSecret: ${{ secrets.AUTHENTICATION_MICROSOFT_CLIENT_SECRET }}
+        run: dotnet run --project ChildAllowanceManager --configuration Release -- --migrate
 
       - name: Log in to Azure with OIDC
         uses: azure/login@v2

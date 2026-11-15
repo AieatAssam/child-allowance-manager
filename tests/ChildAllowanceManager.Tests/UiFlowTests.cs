@@ -140,6 +140,7 @@ public class UiFlowTests
         var readOnlyCut = context.Render<ChildConfigurationEditor>(parameters => parameters
             .Add(x => x.Child, child)
             .Add(x => x.ReadOnly, true));
+        Assert.NotEmpty(readOnlyCut.FindAll("input"));
         Assert.All(readOnlyCut.FindAll("input"), input =>
             Assert.True(input.HasAttribute("readonly") || input.HasAttribute("disabled")));
 

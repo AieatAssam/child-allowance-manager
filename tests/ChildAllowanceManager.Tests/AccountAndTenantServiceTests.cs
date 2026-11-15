@@ -105,4 +105,27 @@ public class AccountAndTenantServiceTests
         Assert.Contains(transformed.Claims, c => c.Type == ClaimTypes.Role && c.Value == ValidRoles.Parent);
         Assert.Contains(transformed.Claims, c => c.Type == CustomClaimTypes.Tenant && c.Value == "tenant-2");
     }
+
+    [Fact]
+    public async Task RestoringTenantLeavesEarlierRemovalsRemoved()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var db = await PostgresTestDatabase.CreateCleanContextAsync(cancellationToken);
+        var notifications = new GlobalNotificationService();
+        var childService = new ChildService(
+            db, notifications, new TransactionService(db, notifications), NullLogger<ChildService>.Instance);
+        var tenants = new TenantService(db, NullLogger<TenantService>.Instance);
+        var tenant = await tenants.AddTenant(new TenantConfiguration { TenantName = "Family", UrlSuffix = "family" }, cancellationToken);
+        var kept = await childService.AddChild(
+            new ChildConfiguration { FirstName = "Ada", LastName = "Lovelace", TenantId = tenant.Id }, cancellationToken);
+        var removedEarlier = await childService.AddChild(
+            new ChildConfiguration { FirstName = "Grace", LastName = "Hopper", TenantId = tenant.Id }, cancellationToken);
+        Assert.True(await childService.DeleteChild(removedEarlier.Id, tenant.Id, cancellationToken));
+
+        Assert.True(await tenants.DeleteTenant(tenant.Id, cancellationToken));
+        Assert.True(await tenants.RestoreTenant(tenant.Id, cancellationToken));
+
+        Assert.NotNull(await childService.GetChild(kept.Id, tenant.Id, cancellationToken));
+        Assert.Null(await childService.GetChild(removedEarlier.Id, tenant.Id, cancellationToken));
+    }
 }

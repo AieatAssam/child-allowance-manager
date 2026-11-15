@@ -1,6 +1,7 @@
 /* Hallmark · pre-emit critique: P5 H5 E4 S4 R5 V4
  * genre: playful · macrostructure: Workbench · design-system: design.md · designed-as-app
- * nav: N3 side rail · footer: Ft2 inline rule · enrichment: none
+ * nav: N3 side rail · footer: Ft2 inline rule · enrichment: generated cut-paper art (dashboard only)
+ * signature: a cut-paper buddy per child that hops when money arrives
  */
 :root {
     --app-background: var(--al-paper);
@@ -96,14 +97,6 @@ html, body {
 body {
     margin: 0;
     overflow-x: clip;
-}
-
-.mud-collapse-container {
-    transition: opacity var(--motion-fast) var(--motion-ease) !important;
-}
-
-.mud-collapse-container:not(.mud-collapse-entering):not(.mud-collapse-entered) {
-    opacity: 0;
 }
 
 .mud-popover {
@@ -245,8 +238,6 @@ button, a, input, select, textarea {
     font-family: var(--al-font-ui);
     font-size: var(--al-text-xs);
     font-weight: var(--al-weight-bold);
-    letter-spacing: .08em;
-    text-transform: uppercase;
 }
 
 .nav-menu .mud-nav-link {
@@ -392,7 +383,6 @@ button, a, input, select, textarea {
 .page-kicker {
     color: var(--app-primary);
     font-weight: 800;
-    letter-spacing: .12em;
 }
 
 .page-heading-copy {
@@ -493,17 +483,6 @@ button, a, input, select, textarea {
     border-color: var(--child-accent);
 }
 
-.child-card::before {
-    content: "";
-    position: absolute;
-    top: var(--al-space-5);
-    right: var(--al-space-5);
-    width: var(--al-space-2);
-    height: var(--al-space-2);
-    border-radius: 50%;
-    background: var(--child-accent);
-}
-
 .child-accent-0 { --child-accent: var(--al-chart-1); }
 .child-accent-1 { --child-accent: var(--al-chart-2); }
 .child-accent-2 { --child-accent: var(--al-chart-3); }
@@ -523,14 +502,9 @@ button, a, input, select, textarea {
     padding: var(--al-space-4) var(--al-space-5) var(--al-space-5);
 }
 
-.child-avatar {
-    font-family: var(--al-font-ui);
-    font-weight: 800;
-}
-
 .child-card-heading {
     min-width: 0;
-    margin-left: .75rem;
+    margin-left: var(--al-space-4);
 }
 
 .balance-value {
@@ -731,9 +705,7 @@ button, a, input, select, textarea {
     padding: var(--al-space-3) var(--al-space-4);
     color: var(--al-ink-muted);
     font-size: var(--al-text-xs);
-    letter-spacing: .04em;
     text-align: left;
-    text-transform: uppercase;
 }
 
 .balance-history-table thead th {
@@ -1140,6 +1112,176 @@ button, a, input, select, textarea {
         width: 9rem;
         white-space: nowrap;
     }
+}
+
+/* The children's dashboard: a cut-paper buddy per child, coins that follow the money,
+   and handmade paper under it all. Decoration only - every fact stays in the text. */
+.dashboard-view {
+    position: relative;
+}
+
+.dashboard-view::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url("art/grain.jpg") 0 0 / 256px 256px;
+    opacity: var(--al-grain-opacity);
+    pointer-events: none;
+}
+
+.dashboard-view > * {
+    position: relative;
+}
+
+.child-card {
+    overflow: hidden;
+    animation: card-arrive var(--motion-smooth) var(--motion-ease) both;
+}
+
+.mud-grid-item:nth-child(2) > .child-card { animation-delay: 70ms; }
+.mud-grid-item:nth-child(3) > .child-card { animation-delay: 140ms; }
+.mud-grid-item:nth-child(n + 4) > .child-card { animation-delay: 210ms; }
+
+@keyframes card-arrive {
+    /* Transform only: a stalled animation must never leave a balance invisible. */
+    from { transform: translateY(18px) rotate(-.8deg); }
+    to { transform: none; }
+}
+
+.child-card-header {
+    align-items: center;
+    background: color-mix(in oklch, var(--child-accent) 9%, var(--al-surface));
+    border-bottom: 1px solid color-mix(in oklch, var(--child-accent) 22%, var(--app-border));
+}
+
+.child-buddy {
+    flex: 0 0 auto;
+    display: block;
+    width: 4.5rem;
+    height: 4.5rem;
+    transform-origin: 50% 90%;
+    transition: transform var(--motion-fast) var(--motion-ease),
+                filter var(--motion-fast) var(--motion-ease);
+}
+
+.child-buddy img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 0 color-mix(in oklch, var(--child-accent) 30%, transparent));
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .child-card:hover .child-buddy {
+        transform: rotate(-6deg) scale(1.06);
+    }
+}
+
+/* Allowance paused: the buddy rests, greyed and tipped, until the hold ends. */
+.child-buddy-resting {
+    transform: rotate(8deg) translateY(2px);
+    filter: grayscale(.75) opacity(.75);
+}
+
+.buddy-hop { animation: buddy-hop 760ms var(--motion-ease) both; }
+.buddy-shake { animation: buddy-shake 520ms var(--al-ease-in-out) both; }
+
+@keyframes buddy-hop {
+    0% { transform: none; }
+    20% { transform: translateY(3px) scale(1.08, .9); }
+    48% { transform: translateY(-16px) scale(.95, 1.08) rotate(-5deg); }
+    72% { transform: translateY(0) scale(1.06, .94); }
+    100% { transform: none; }
+}
+
+@keyframes buddy-shake {
+    0%, 100% { transform: none; }
+    25% { transform: rotate(-7deg); }
+    60% { transform: rotate(6deg); }
+    82% { transform: rotate(-3deg); }
+}
+
+.week-change {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    margin-top: var(--al-space-2);
+    font-weight: var(--al-weight-medium);
+}
+
+.week-change-up { color: var(--al-positive); }
+.week-change-down { color: var(--al-negative-text); }
+
+.card-fx {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.fx-coin,
+.fx-confetti {
+    position: absolute;
+    top: 0;
+    left: var(--fx-x);
+    opacity: 0;
+}
+
+.fx-coin {
+    width: 2rem;
+    height: 2rem;
+}
+
+.card-fx-coins-in .fx-coin { animation: coin-in 900ms var(--al-ease-in) var(--fx-delay) both; }
+.card-fx-coins-out .fx-coin { animation: coin-out 900ms var(--motion-ease) var(--fx-delay) both; }
+
+@keyframes coin-in {
+    0% { opacity: 0; transform: translateY(-2.5rem) rotate(0); }
+    15% { opacity: 1; }
+    70% { opacity: 1; transform: translateY(9rem) rotate(var(--fx-turn)); }
+    82% { transform: translateY(8.2rem) rotate(var(--fx-turn)); }
+    100% { opacity: 0; transform: translateY(9rem) rotate(var(--fx-turn)) scale(.7); }
+}
+
+@keyframes coin-out {
+    0% { opacity: 0; transform: translateY(8rem) scale(.7); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-3rem) rotate(var(--fx-turn)); }
+}
+
+.fx-confetti {
+    width: .6rem;
+    height: 1rem;
+    border-radius: 2px;
+    animation: confetti-fall 1700ms var(--al-ease-in-out) var(--fx-delay) both;
+}
+
+.fx-confetti-0 { background: var(--al-chart-1); }
+.fx-confetti-1 { background: var(--al-chart-2); }
+.fx-confetti-2 { background: var(--al-chart-3); border-radius: 50%; height: .6rem; }
+.fx-confetti-3 { background: var(--al-chart-4); }
+.fx-confetti-4 { background: var(--al-chart-5); width: 1rem; height: .4rem; }
+
+@keyframes confetti-fall {
+    0% { opacity: 0; transform: translateY(-1.5rem) rotate(0); }
+    12% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(22rem) rotate(var(--fx-turn)); }
+}
+
+.chart-empty-art {
+    flex: 0 0 auto;
+    width: 7.5rem;
+    height: 7.5rem;
+    object-fit: contain;
+}
+
+.share-display .child-buddy {
+    width: 6.5rem;
+    height: 6.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

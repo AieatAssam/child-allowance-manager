@@ -21,6 +21,8 @@
     --al-border: oklch(90.8% 0.012 84.6);
     --al-focus: oklch(41.3% 0.078 303.2);
     --al-accent-ink: oklch(26.0% 0.018 266.3);
+    /* Handmade-paper texture under the dashboard; near-invisible on dark paper. */
+    --al-grain-opacity: .5;
 
     --al-space-1: 4px;
     --al-space-2: 8px;
@@ -86,6 +88,7 @@
     --al-border: oklch(34.7% 0.021 292.9);
     --al-focus: oklch(82.1% 0.056 305.5);
     --al-accent-ink: oklch(22.2% 0.012 293.1);
+    --al-grain-opacity: .05;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -106,5 +109,6 @@
         --al-border: oklch(34.7% 0.021 292.9);
         --al-focus: oklch(82.1% 0.056 305.5);
         --al-accent-ink: oklch(22.2% 0.012 293.1);
+        --al-grain-opacity: .05;
     }
 }

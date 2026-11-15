@@ -128,10 +128,15 @@ public class TenantService(
 
         await using var dbTransaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        // DeleteTenant stamps the family and everything it removes with one timestamp. Anything
+        // deleted before that was removed on purpose and must stay removed.
+        var deletedAt = tenant.UpdatedTimestamp;
         tenant.Deleted = false;
         tenant.UpdatedTimestamp = now;
 
-        var children = await db.Children.Where(x => x.TenantId == id && x.Deleted).ToListAsync(cancellationToken);
+        var children = await db.Children
+            .Where(x => x.TenantId == id && x.Deleted && x.UpdatedTimestamp >= deletedAt)
+            .ToListAsync(cancellationToken);
         foreach (var child in children)
         {
             child.Deleted = false;
@@ -139,7 +144,7 @@ public class TenantService(
         }
 
         var memberships = await db.TenantMemberships
-            .Where(x => x.TenantId == id && x.Deleted)
+            .Where(x => x.TenantId == id && x.Deleted && x.UpdatedTimestamp >= deletedAt)
             .ToListAsync(cancellationToken);
         foreach (var membership in memberships)
         {

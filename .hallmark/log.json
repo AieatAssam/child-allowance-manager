@@ -1,5 +1,22 @@
 [
   {
+    "date": "2026-11-15",
+    "mode": "redesign",
+    "depth": "restyle",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "warm-paper ledger (design.md)",
+    "enrichment": "generated cut-paper art",
+    "imagery": "wwwroot/art buddy-0..4, coin, jar, grain",
+    "signature": "a cut-paper buddy per child that hops when money arrives",
+    "sections": [
+      "child cards",
+      "balance chart"
+    ],
+    "waived": [],
+    "brief": "Children's dashboard: buddies, coin and confetti motion, this-week change"
+  },
+  {
     "date": "2026-09-04",
     "scope": "app",
     "macrostructure": "Workbench",
